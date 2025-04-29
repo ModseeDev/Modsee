@@ -1,0 +1,8 @@
+{
+  "version": "1.0.0",
+  "release_date": "2025-04-29",
+  "changelog": [
+    "initial skeleton"
+  ],
+  "mandatory_update": false
+}
