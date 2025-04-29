@@ -10,13 +10,17 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QFrame,
     QMenuBar, QStatusBar, QAction, QMenu, QToolBar,
     QDockWidget, QTreeView, QListWidget, QTabWidget,
-    QLabel, QPushButton, QToolButton, QMessageBox, QFileDialog, QDialog
+    QLabel, QPushButton, QToolButton, QMessageBox, QFileDialog, QDialog,
+    QFormLayout
 )
 from PyQt5.QtCore import Qt, QSize, QSettings
 from PyQt5.QtGui import QIcon, QColor, QPalette
 
 # Import ModseeScene for 3D visualization
 from ..visualization.scene import ModseeScene
+
+# Import the ModelExplorer at the top of the file with other imports
+from src.ui.model_explorer import ModelExplorer
 
 # Try to import get_icon, but provide a fallback if it fails
 try:
@@ -112,6 +116,12 @@ class MainWindow(QWidget):
         self.edit_menu = QMenu("&Edit", self.menu_bar)
         self.menu_bar.addMenu(self.edit_menu)
         
+        # Edit menu actions
+        self.act_project_properties = QAction("Project &Properties...", self)
+        self.act_project_properties.setIcon(get_icon("properties"))
+        self.act_project_properties.setShortcut("Ctrl+P")
+        self.edit_menu.addAction(self.act_project_properties)
+        
         # View menu
         self.view_menu = QMenu("&View", self.menu_bar)
         self.menu_bar.addMenu(self.view_menu)
@@ -151,6 +161,9 @@ class MainWindow(QWidget):
         self.act_check_updates.triggered.connect(self.check_updates)
         self.act_about.triggered.connect(self.show_about_dialog)
         self.act_preferences.triggered.connect(self.show_preferences)
+        
+        # Connect edit menu actions
+        self.act_project_properties.triggered.connect(self.show_project_properties)
         
         # Add the menu bar to the main layout
         self.main_layout.addWidget(self.menu_bar)
@@ -275,8 +288,8 @@ class MainWindow(QWidget):
         # Create right panel (properties panel)
         self.create_right_panel()
         
-        # Set splitter sizes
-        self.main_splitter.setSizes([250, 700, 250])
+        # Set splitter sizes - give more width to the model explorer
+        self.main_splitter.setSizes([300, 600, 250])
     
     def create_center_area(self):
         """Create the center area with tabs panel and terminal"""
@@ -356,6 +369,7 @@ class MainWindow(QWidget):
         self.left_panel = QFrame()
         self.left_panel.setObjectName("leftPanel")
         self.left_panel.setFrameShape(QFrame.StyledPanel)
+        self.left_panel.setMinimumWidth(250)  # Ensure panel is wide enough
         self.left_layout = QVBoxLayout(self.left_panel)
         self.left_layout.setContentsMargins(0, 0, 0, 0)
         self.left_layout.setSpacing(0)
@@ -382,8 +396,37 @@ class MainWindow(QWidget):
         self.model_tree = QTreeView()
         self.model_tree.setAlternatingRowColors(True)
         self.model_tree.setHeaderHidden(True)
-        self.model_tree.setStyleSheet("border: none;")
+        self.model_tree.setStyleSheet("""
+            QTreeView {
+                background-color: white;
+                alternate-background-color: #F5F5F5;
+                border: none;
+                show-decoration-selected: 1;
+            }
+            QTreeView::item {
+                padding: 4px;
+                min-height: 24px;
+            }
+            QTreeView::item:selected {
+                background-color: #E0E0E0;
+                color: black;
+            }
+            QTreeView::branch:selected {
+                background-color: #E0E0E0;
+            }
+        """)
+        
+        # Configure column widths - make sure the text isn't truncated
+        self.model_tree.setUniformRowHeights(True)
+        self.model_tree.setColumnWidth(0, 300)  # Main column wider
+        self.model_tree.setTextElideMode(Qt.ElideNone)  # Prevent text truncation
+        self.model_tree.setWordWrap(True)  # Allow word wrap for long text
+        self.model_tree.setIndentation(20)  # Increase indentation for better readability
+        
         self.left_layout.addWidget(self.model_tree)
+        
+        # Initialize the model explorer
+        self.model_explorer = ModelExplorer(self.model_tree)
         
         # Add to splitter
         self.main_splitter.addWidget(self.left_panel)
@@ -410,6 +453,8 @@ class MainWindow(QWidget):
         
         # Create the 3D scene widget
         self.scene_3d = ModseeScene(self)
+        # Connect the selection callback to update properties panel
+        self.scene_3d.set_selection_callback(self.handle_scene_selection)
         self.view_3d_layout.addWidget(self.scene_3d)
         
         # Analysis view placeholder
@@ -686,11 +731,28 @@ class MainWindow(QWidget):
 
     def show_preferences(self):
         """Show the preferences dialog"""
-        from .settings_dialog import SettingsDialog
+        from src.ui.settings_dialog import SettingsDialog
         dialog = SettingsDialog(self)
-        if dialog.exec_() == QDialog.Accepted:
+        if dialog.exec_():
+            # Handle any changes that need to be reflected in the UI
             self.settings_changed()
+        
+    def show_project_properties(self):
+        """Show the project properties dialog"""
+        # Find the ModseeApp instance
+        # In a proper implementation, you would get this from a parent or pass it in
+        # We're using a simple parent chain traversal here
+        parent = self.parent
+        while parent:
+            if hasattr(parent, 'show_project_properties'):
+                parent.show_project_properties()
+                return
+            parent = parent.parent
             
+        # If we can't find the app, show a simple message
+        QMessageBox.information(self, "Project Properties", 
+                               "Cannot show project properties dialog - app instance not found")
+        
     def settings_changed(self):
         """Handle settings changes"""
         # Reload settings and update the UI accordingly
@@ -704,3 +766,134 @@ class MainWindow(QWidget):
             
         # Update other UI elements based on settings
         # This is where you would update other UI elements based on settings changes 
+
+    # Add a method to update the model explorer with a project
+    def update_model_explorer(self, project):
+        """Update the model explorer with project data"""
+        self.model_explorer.update_model(project)
+
+    # Add new method to handle selected objects and update properties panel
+    def handle_scene_selection(self, object_type, object_id):
+        """Handle selection of objects in the 3D scene and update properties panel"""
+        # Clear the properties container first
+        # Remove all widgets from the properties container layout
+        while self.properties_container_layout.count():
+            item = self.properties_container_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        # Create a new form for properties
+        if object_type and object_id:
+            # Update the properties panel based on selected object
+            if object_type == "node":
+                self.show_node_properties(object_id)
+            elif object_type == "element":
+                self.show_element_properties(object_id)
+            # We can add more types here in the future
+        else:
+            # Nothing is selected, show placeholder
+            self.properties_placeholder = QLabel("Properties Panel\n(will show properties of selected objects)")
+            self.properties_placeholder.setAlignment(Qt.AlignCenter)
+            self.properties_placeholder.setStyleSheet("color: #757575; font-size: 12px; padding: 20px; border: 1px dashed #CCCCCC; border-radius: 4px;")
+            self.properties_container_layout.addWidget(self.properties_placeholder)
+            self.properties_container_layout.addStretch()
+            
+    def show_node_properties(self, node_id):
+        """Show properties of the selected node"""
+        # Check if we have a project with nodes
+        project = None
+        if hasattr(self, 'project'):
+            project = self.project
+        elif hasattr(self.parent, 'project'):
+            project = self.parent.project
+            
+        # Create label showing the node ID
+        id_label = QLabel(f"<b>Node {node_id}</b>")
+        id_label.setStyleSheet("font-size: 14px; margin-bottom: 10px;")
+        self.properties_container_layout.addWidget(id_label)
+        
+        # If we have the project, show full node properties
+        if project and node_id in project.nodes:
+            node = project.nodes[node_id]
+            
+            # Create properties form
+            form_layout = QFormLayout()
+            form_layout.setContentsMargins(0, 10, 0, 10)
+            form_layout.setSpacing(8)
+            
+            # Add node properties
+            coords = node.get("coordinates", [0, 0, 0])
+            form_layout.addRow("X:", QLabel(f"{coords[0]:.4f}"))
+            form_layout.addRow("Y:", QLabel(f"{coords[1]:.4f}"))
+            form_layout.addRow("Z:", QLabel(f"{coords[2]:.4f}"))
+            
+            # Add constraints if available
+            if "constraints" in node:
+                form_layout.addRow("Constraints:", QLabel(str(node["constraints"])))
+                
+            # Add to properties container
+            form_widget = QWidget()
+            form_widget.setLayout(form_layout)
+            self.properties_container_layout.addWidget(form_widget)
+        else:
+            # Basic info when project isn't available
+            info_label = QLabel(f"Node ID: {node_id}\n\nCoordinates not available")
+            info_label.setStyleSheet("color: #666666;")
+            self.properties_container_layout.addWidget(info_label)
+        
+        # Add spacer at the end
+        self.properties_container_layout.addStretch()
+        
+    def show_element_properties(self, element_id):
+        """Show properties of the selected element"""
+        # Check if we have a project with elements
+        project = None
+        if hasattr(self, 'project'):
+            project = self.project
+        elif hasattr(self.parent, 'project'):
+            project = self.parent.project
+            
+        # Create label showing the element ID
+        id_label = QLabel(f"<b>Element {element_id}</b>")
+        id_label.setStyleSheet("font-size: 14px; margin-bottom: 10px;")
+        self.properties_container_layout.addWidget(id_label)
+        
+        # If we have the project, show full element properties
+        if project and element_id in project.elements:
+            element = project.elements[element_id]
+            
+            # Create properties form
+            form_layout = QFormLayout()
+            form_layout.setContentsMargins(0, 10, 0, 10)
+            form_layout.setSpacing(8)
+            
+            # Add element properties
+            # Element type
+            if "type" in element:
+                form_layout.addRow("Type:", QLabel(element["type"]))
+                
+            # Connected nodes
+            if "nodes" in element:
+                nodes_text = ", ".join(str(n) for n in element["nodes"])
+                form_layout.addRow("Nodes:", QLabel(nodes_text))
+                
+            # Material info
+            if "material" in element:
+                form_layout.addRow("Material:", QLabel(str(element["material"])))
+                
+            # Section info
+            if "section" in element:
+                form_layout.addRow("Section:", QLabel(str(element["section"])))
+                
+            # Add to properties container
+            form_widget = QWidget()
+            form_widget.setLayout(form_layout)
+            self.properties_container_layout.addWidget(form_widget)
+        else:
+            # Basic info when project isn't available
+            info_label = QLabel(f"Element ID: {element_id}\n\nProperties not available")
+            info_label.setStyleSheet("color: #666666;")
+            self.properties_container_layout.addWidget(info_label)
+        
+        # Add spacer at the end
+        self.properties_container_layout.addStretch() 

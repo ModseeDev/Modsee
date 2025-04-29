@@ -10,6 +10,7 @@ import sys
 import os
 import importlib
 import threading
+import re
 from PyQt5.QtWidgets import QSplashScreen, QProgressBar, QApplication, QLabel, QMessageBox
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QObject, QPoint, QRect
 from PyQt5.QtGui import QPixmap, QFont, QPainter, QColor, QLinearGradient, QPen, QFontDatabase
@@ -17,20 +18,64 @@ from PyQt5.QtGui import QPixmap, QFont, QPainter, QColor, QLinearGradient, QPen,
 # Import version check
 from ..utils.version_check import VERSION, get_latest_version
 
-# Required dependencies and their friendly names
-REQUIRED_DEPENDENCIES = [
-    ("PyQt5", "PyQt5"),
-    ("numpy", "NumPy"),
-    ("scipy", "SciPy"),
-    ("vtk", "VTK"),
-    ("matplotlib", "Matplotlib"),
-    ("pyqtgraph", "PyQtGraph")
+# Define which dependencies are required vs optional
+REQUIRED_MODULES = [
+    "PyQt5",
+    "numpy",
+    "scipy", 
+    "vtk",
+    "matplotlib",
+    "pyqtgraph"
 ]
 
-# Optional dependencies - these won't trigger an error if missing
-OPTIONAL_DEPENDENCIES = [
-    ("openseespy", "OpenSeesPy")
+# These won't trigger an error if missing
+OPTIONAL_MODULES = [
+    "openseespy"
 ]
+
+def get_dependencies_from_requirements():
+    """Read dependencies from requirements.txt file"""
+    req_file_paths = [
+        # Try relative to this file first
+        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "requirements.txt"),
+        # Also try from the root directory if run as a module
+        os.path.join(os.getcwd(), "requirements.txt")
+    ]
+    
+    dependencies = []
+    
+    for req_path in req_file_paths:
+        if os.path.exists(req_path):
+            with open(req_path, 'r') as f:
+                for line in f:
+                    # Skip empty lines or comments
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    
+                    # Extract package name and remove version info
+                    # Example: "numpy>=1.20.0" becomes "numpy"
+                    match = re.match(r'^([a-zA-Z0-9_\-]+).*$', line)
+                    if match:
+                        dependencies.append(match.group(1))
+            
+            # Return on first found requirements file
+            break
+    
+    return dependencies
+
+# Get all dependencies from requirements.txt
+ALL_DEPENDENCIES = get_dependencies_from_requirements()
+
+# Create tuples of (module_name, display_name) for all dependencies
+REQUIRED_DEPENDENCIES = [(module, module) for module in REQUIRED_MODULES if module in ALL_DEPENDENCIES]
+OPTIONAL_DEPENDENCIES = [(module, module) for module in OPTIONAL_MODULES if module in ALL_DEPENDENCIES]
+
+# Add any dependencies from requirements.txt that aren't explicitly categorized
+for dep in ALL_DEPENDENCIES:
+    if dep not in REQUIRED_MODULES and dep not in OPTIONAL_MODULES:
+        # Default to optional for any dependency not explicitly required
+        OPTIONAL_DEPENDENCIES.append((dep, dep))
 
 
 class VersionCheckSignals(QObject):

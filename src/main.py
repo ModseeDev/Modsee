@@ -60,9 +60,8 @@ def main():
     
     # Only proceed if dependencies are satisfied
     if dependencies_ok:
-        # Create and show the main window
-        window = ModseeApp()
-        window.show()
+        # Create and run the main application
+        modsee_app = ModseeApp(sys.argv)
         
         # Show update notification after a delay if an update is available
         if update_available and version_info:
@@ -71,8 +70,8 @@ def main():
                 # Wait a moment for the main window to be fully loaded
                 QTimer.singleShot(1500, lambda: show_update_notification(latest_version, version_info))
         
-        # Start the event loop
-        return app.exec_()
+        # Start the application
+        return modsee_app.run()
     else:
         # Exit if dependencies are missing
         return 1

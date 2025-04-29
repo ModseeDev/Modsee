@@ -3,211 +3,254 @@
 
 """
 Modsee - OpenSees Finite Element Modeling Interface
-Settings dialog
+Settings Dialog
 """
 
 from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QComboBox, QCheckBox, QSpinBox, QDoubleSpinBox,
-    QDialogButtonBox, QTabWidget, QWidget, QGroupBox
+    QDialog, QVBoxLayout, QHBoxLayout, QTabWidget, QWidget, 
+    QLabel, QCheckBox, QSpinBox, QComboBox, QPushButton,
+    QDialogButtonBox, QFormLayout, QGroupBox, QFrame
 )
 from PyQt5.QtCore import Qt, QSettings
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QFont
+
+# Try to import get_icon, but provide a fallback if it fails
+try:
+    from ..utils.resources import get_icon
+except ImportError:
+    # Simple fallback if the resources module isn't available
+    def get_icon(icon_name):
+        return QIcon()
+
 
 class SettingsDialog(QDialog):
-    """Settings dialog for configuring application preferences"""
+    """Dialog for application settings"""
     
     def __init__(self, parent=None):
-        """Initialize the settings dialog"""
+        """Initialize the dialog"""
         super().__init__(parent)
         self.parent = parent
+        
+        # Load settings
         self.settings = QSettings("Modsee", "Modsee")
         
+        # Set window properties
+        self.setWindowTitle("Preferences")
+        self.setMinimumWidth(500)
+        self.setMinimumHeight(400)
+        
+        # Create UI elements
         self.init_ui()
+        
+        # Load current settings into the form
         self.load_settings()
         
     def init_ui(self):
-        """Initialize the user interface"""
-        self.setWindowTitle("Settings")
-        self.setWindowIcon(QIcon(":/icons/settings"))
-        self.setMinimumWidth(500)
-        
+        """Initialize the UI components"""
         # Main layout
-        main_layout = QVBoxLayout(self)
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(20, 20, 20, 20)
+        self.layout.setSpacing(16)
         
-        # Create tab widget
+        # Header with icon and title
+        header_layout = QHBoxLayout()
+        
+        # Settings icon
+        self.icon_label = QLabel()
+        self.icon_label.setPixmap(get_icon("settings").pixmap(48, 48))
+        self.icon_label.setFixedSize(48, 48)
+        header_layout.addWidget(self.icon_label)
+        
+        # Title and description
+        title_layout = QVBoxLayout()
+        
+        self.title_label = QLabel("Preferences")
+        self.title_label.setStyleSheet("font-size: 18px; font-weight: bold;")
+        title_layout.addWidget(self.title_label)
+        
+        self.subtitle_label = QLabel("Configure application settings")
+        self.subtitle_label.setStyleSheet("color: #666;")
+        title_layout.addWidget(self.subtitle_label)
+        
+        header_layout.addLayout(title_layout)
+        header_layout.addStretch(1)
+        
+        self.layout.addLayout(header_layout)
+        
+        # Separator
+        self.separator = QFrame()
+        self.separator.setFrameShape(QFrame.HLine)
+        self.separator.setFrameShadow(QFrame.Sunken)
+        self.layout.addWidget(self.separator)
+        
+        # Tab widget for different settings categories
         self.tab_widget = QTabWidget()
         
         # General settings tab
         self.general_tab = QWidget()
-        self.create_general_tab()
         self.tab_widget.addTab(self.general_tab, "General")
+        self.create_general_tab()
         
-        # Display settings tab
-        self.display_tab = QWidget()
-        self.create_display_tab()
-        self.tab_widget.addTab(self.display_tab, "Display")
+        # Appearance settings tab
+        self.appearance_tab = QWidget()
+        self.tab_widget.addTab(self.appearance_tab, "Appearance")
+        self.create_appearance_tab()
         
-        # Analysis settings tab
-        self.analysis_tab = QWidget()
-        self.create_analysis_tab()
-        self.tab_widget.addTab(self.analysis_tab, "Analysis")
+        # Add tab widget to main layout
+        self.layout.addWidget(self.tab_widget)
         
-        main_layout.addWidget(self.tab_widget)
+        # Button box
+        self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.button_box.accepted.connect(self.save_settings)
+        self.button_box.rejected.connect(self.reject)
         
-        # Dialog buttons
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel | QDialogButtonBox.Apply
-        )
-        button_box.accepted.connect(self.accept)
-        button_box.rejected.connect(self.reject)
-        button_box.button(QDialogButtonBox.Apply).clicked.connect(self.apply_settings)
-        
-        main_layout.addWidget(button_box)
+        # Add button box to main layout
+        self.layout.addWidget(self.button_box)
         
     def create_general_tab(self):
         """Create the general settings tab"""
-        layout = QVBoxLayout(self.general_tab)
+        general_layout = QVBoxLayout(self.general_tab)
+        general_layout.setContentsMargins(10, 10, 10, 10)
+        general_layout.setSpacing(16)
         
-        # File settings group
-        file_group = QGroupBox("File Settings")
-        file_layout = QFormLayout()
+        # Auto-save group
+        auto_save_group = QGroupBox("Auto-save")
+        auto_save_layout = QVBoxLayout(auto_save_group)
         
-        self.auto_save = QCheckBox("Enable Auto Save")
-        self.auto_save_interval = QSpinBox()
-        self.auto_save_interval.setRange(1, 60)
-        self.auto_save_interval.setSuffix(" minutes")
+        # Enable auto-save checkbox
+        self.auto_save_checkbox = QCheckBox("Enable auto-save")
+        auto_save_layout.addWidget(self.auto_save_checkbox)
         
-        file_layout.addRow(self.auto_save)
-        file_layout.addRow("Auto Save Interval:", self.auto_save_interval)
-        file_group.setLayout(file_layout)
+        # Auto-save interval
+        interval_layout = QHBoxLayout()
+        interval_layout.setContentsMargins(20, 0, 0, 0)
         
-        # Language settings group
-        language_group = QGroupBox("Language")
-        language_layout = QFormLayout()
+        self.interval_label = QLabel("Save every")
+        interval_layout.addWidget(self.interval_label)
         
-        self.language_combo = QComboBox()
-        self.language_combo.addItems(["English", "Spanish", "French", "German"])
+        self.interval_spinbox = QSpinBox()
+        self.interval_spinbox.setMinimum(1)
+        self.interval_spinbox.setMaximum(60)
+        self.interval_spinbox.setValue(5)
+        self.interval_spinbox.setEnabled(False)  # Disabled by default
+        interval_layout.addWidget(self.interval_spinbox)
         
-        language_layout.addRow("Interface Language:", self.language_combo)
-        language_group.setLayout(language_layout)
+        self.interval_unit_label = QLabel("minutes")
+        interval_layout.addWidget(self.interval_unit_label)
         
-        layout.addWidget(file_group)
-        layout.addWidget(language_group)
-        layout.addStretch()
+        interval_layout.addStretch(1)
+        auto_save_layout.addLayout(interval_layout)
         
-    def create_display_tab(self):
-        """Create the display settings tab"""
-        layout = QVBoxLayout(self.display_tab)
+        # Connect checkbox to enable/disable interval spinbox
+        self.auto_save_checkbox.toggled.connect(self.interval_spinbox.setEnabled)
         
-        # Theme settings group
+        general_layout.addWidget(auto_save_group)
+        
+        # Recovery settings
+        recovery_group = QGroupBox("Recovery")
+        recovery_layout = QVBoxLayout(recovery_group)
+        
+        self.recovery_checkbox = QCheckBox("Enable automatic crash recovery")
+        recovery_layout.addWidget(self.recovery_checkbox)
+        
+        self.recovery_info_label = QLabel("Automatically create backup files to prevent data loss")
+        self.recovery_info_label.setStyleSheet("color: #666; margin-left: 20px;")
+        recovery_layout.addWidget(self.recovery_info_label)
+        
+        general_layout.addWidget(recovery_group)
+        
+        # Add stretch to push everything to the top
+        general_layout.addStretch(1)
+        
+    def create_appearance_tab(self):
+        """Create the appearance settings tab"""
+        appearance_layout = QVBoxLayout(self.appearance_tab)
+        appearance_layout.setContentsMargins(10, 10, 10, 10)
+        appearance_layout.setSpacing(16)
+        
+        # Theme group
         theme_group = QGroupBox("Theme")
-        theme_layout = QFormLayout()
+        theme_layout = QFormLayout(theme_group)
         
         self.theme_combo = QComboBox()
         self.theme_combo.addItems(["Light", "Dark", "System"])
+        theme_layout.addRow("UI Theme:", self.theme_combo)
         
-        theme_layout.addRow("Theme:", self.theme_combo)
-        theme_group.setLayout(theme_layout)
+        appearance_layout.addWidget(theme_group)
         
-        # 3D View settings group
-        view_group = QGroupBox("3D View")
-        view_layout = QFormLayout()
+        # Font settings group
+        font_group = QGroupBox("Fonts")
+        font_layout = QFormLayout(font_group)
         
-        self.antialiasing = QCheckBox("Enable Antialiasing")
-        self.show_grid = QCheckBox("Show Grid")
-        self.grid_size = QDoubleSpinBox()
-        self.grid_size.setRange(0.1, 10.0)
-        self.grid_size.setSingleStep(0.1)
-        self.grid_size.setSuffix(" units")
+        self.ui_font_combo = QComboBox()
+        self.ui_font_combo.addItems(["System Default", "Small", "Medium", "Large"])
+        font_layout.addRow("UI Font Size:", self.ui_font_combo)
         
-        view_layout.addRow(self.antialiasing)
-        view_layout.addRow(self.show_grid)
-        view_layout.addRow("Grid Size:", self.grid_size)
-        view_group.setLayout(view_layout)
+        appearance_layout.addWidget(font_group)
         
-        layout.addWidget(theme_group)
-        layout.addWidget(view_group)
-        layout.addStretch()
-        
-    def create_analysis_tab(self):
-        """Create the analysis settings tab"""
-        layout = QVBoxLayout(self.analysis_tab)
-        
-        # Solver settings group
-        solver_group = QGroupBox("Solver Settings")
-        solver_layout = QFormLayout()
-        
-        self.solver_type = QComboBox()
-        self.solver_type.addItems(["UmfPack", "SuperLU", "Mumps"])
-        
-        self.tolerance = QDoubleSpinBox()
-        self.tolerance.setRange(1e-12, 1e-3)
-        self.tolerance.setDecimals(12)
-        self.tolerance.setSingleStep(1e-6)
-        
-        solver_layout.addRow("Solver Type:", self.solver_type)
-        solver_layout.addRow("Tolerance:", self.tolerance)
-        solver_group.setLayout(solver_layout)
-        
-        # Analysis settings group
-        analysis_group = QGroupBox("Analysis Settings")
-        analysis_layout = QFormLayout()
-        
-        self.max_iterations = QSpinBox()
-        self.max_iterations.setRange(1, 1000)
-        
-        self.print_output = QCheckBox("Print Analysis Output")
-        
-        analysis_layout.addRow("Maximum Iterations:", self.max_iterations)
-        analysis_layout.addRow(self.print_output)
-        analysis_group.setLayout(analysis_layout)
-        
-        layout.addWidget(solver_group)
-        layout.addWidget(analysis_group)
-        layout.addStretch()
+        # Add stretch to push everything to the top
+        appearance_layout.addStretch(1)
         
     def load_settings(self):
-        """Load settings from QSettings"""
-        # General settings
-        self.auto_save.setChecked(self.settings.value("auto_save", False, type=bool))
-        self.auto_save_interval.setValue(self.settings.value("auto_save_interval", 5, type=int))
-        self.language_combo.setCurrentText(self.settings.value("language", "English"))
+        """Load current settings into the form"""
+        # Auto-save settings
+        self.auto_save_checkbox.setChecked(self.settings.value("auto_save/enabled", False, bool))
+        self.interval_spinbox.setValue(self.settings.value("auto_save/interval", 5, int))
+        self.interval_spinbox.setEnabled(self.auto_save_checkbox.isChecked())
         
-        # Display settings
-        self.theme_combo.setCurrentText(self.settings.value("theme", "Light"))
-        self.antialiasing.setChecked(self.settings.value("antialiasing", True, type=bool))
-        self.show_grid.setChecked(self.settings.value("show_grid", True, type=bool))
-        self.grid_size.setValue(self.settings.value("grid_size", 1.0, type=float))
+        # Recovery settings
+        self.recovery_checkbox.setChecked(self.settings.value("recovery/enabled", True, bool))
         
-        # Analysis settings
-        self.solver_type.setCurrentText(self.settings.value("solver_type", "UmfPack"))
-        self.tolerance.setValue(self.settings.value("tolerance", 1e-6, type=float))
-        self.max_iterations.setValue(self.settings.value("max_iterations", 100, type=int))
-        self.print_output.setChecked(self.settings.value("print_output", True, type=bool))
+        # Theme settings
+        theme = self.settings.value("theme", "Light")
+        index = self.theme_combo.findText(theme)
+        if index >= 0:
+            self.theme_combo.setCurrentIndex(index)
+        
+        # Font settings
+        font_size = self.settings.value("ui/font_size", "Medium")
+        index = self.ui_font_combo.findText(font_size)
+        if index >= 0:
+            self.ui_font_combo.setCurrentIndex(index)
         
     def save_settings(self):
-        """Save settings to QSettings"""
-        # General settings
-        self.settings.setValue("auto_save", self.auto_save.isChecked())
-        self.settings.setValue("auto_save_interval", self.auto_save_interval.value())
-        self.settings.setValue("language", self.language_combo.currentText())
+        """Save settings and accept the dialog"""
+        # Auto-save settings
+        self.settings.setValue("auto_save/enabled", self.auto_save_checkbox.isChecked())
+        self.settings.setValue("auto_save/interval", self.interval_spinbox.value())
         
-        # Display settings
+        # Recovery settings
+        self.settings.setValue("recovery/enabled", self.recovery_checkbox.isChecked())
+        
+        # Theme settings
         self.settings.setValue("theme", self.theme_combo.currentText())
-        self.settings.setValue("antialiasing", self.antialiasing.isChecked())
-        self.settings.setValue("show_grid", self.show_grid.isChecked())
-        self.settings.setValue("grid_size", self.grid_size.value())
         
-        # Analysis settings
-        self.settings.setValue("solver_type", self.solver_type.currentText())
-        self.settings.setValue("tolerance", self.tolerance.value())
-        self.settings.setValue("max_iterations", self.max_iterations.value())
-        self.settings.setValue("print_output", self.print_output.isChecked())
+        # Font settings
+        self.settings.setValue("ui/font_size", self.ui_font_combo.currentText())
         
-    def apply_settings(self):
-        """Apply the current settings"""
-        self.save_settings()
-        # Emit a signal or call a method to notify the main window about settings changes
-        if self.parent:
-            self.parent.settings_changed() 
+        # Apply auto-save settings if we have access to the app
+        self.apply_auto_save_settings()
+        
+        self.accept()
+        
+    def apply_auto_save_settings(self):
+        """Apply auto-save settings to the application if possible"""
+        # Find ModseeApp instance by traversing the parent chain
+        app = self.find_app_instance()
+        if app and hasattr(app, 'set_auto_save_settings'):
+            app.set_auto_save_settings(
+                self.auto_save_checkbox.isChecked(),
+                self.interval_spinbox.value()
+            )
+    
+    def find_app_instance(self):
+        """Find the ModseeApp instance by traversing the parent chain"""
+        parent = self.parent
+        while parent:
+            if hasattr(parent, 'set_auto_save_settings'):
+                return parent
+            if hasattr(parent, 'parent'):
+                parent = parent.parent
+            else:
+                break
+        return None 
