@@ -6,9 +6,9 @@ Modsee - OpenSees Finite Element Modeling Interface
 Model Explorer UI components
 """
 
-from PyQt5.QtCore import Qt, QAbstractItemModel, QModelIndex, QVariant
+from PyQt5.QtCore import Qt, QAbstractItemModel, QModelIndex, QVariant, QPoint
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon, QFont
-from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QFrame, QToolButton, QButtonGroup, QLabel
+from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QFrame, QToolButton, QButtonGroup, QLabel, QMenu, QAction
 
 
 class ProjectTreeItem:
@@ -68,6 +68,9 @@ class ModelExplorerTreeModel(QAbstractItemModel):
         # Add placeholder
         self.setupModelData(None)
         
+        # Keep track of the currently selected item
+        self.selected_item_text = ""
+        
     def columnCount(self, parent=QModelIndex()):
         """Get number of columns"""
         if parent.isValid():
@@ -84,11 +87,17 @@ class ModelExplorerTreeModel(QAbstractItemModel):
         if role == Qt.DisplayRole:
             return item.data(index.column())
         elif role == Qt.FontRole:
-            if index.column() == 0 and index.parent() == QModelIndex():
+            if index.column() == 0:
+                # Make the selected item bold
+                if item.data(0) == self.selected_item_text:
+                    font = QFont()
+                    font.setBold(True)
+                    return font
                 # Bold font for top-level items
-                font = QFont()
-                font.setBold(True)
-                return font
+                elif index.parent() == QModelIndex():
+                    font = QFont()
+                    font.setBold(True)
+                    return font
                 
         return QVariant()
         
@@ -199,13 +208,102 @@ class ModelExplorerTreeModel(QAbstractItemModel):
             material_item = ProjectTreeItem([material_text, ""], materials_root)
             materials_root.appendChild(material_item)
         
+        # Add sections category
+        sections_root = ProjectTreeItem(["Sections", str(len(project.sections))], model_root)
+        model_root.appendChild(sections_root)
+        
+        # Add section items
+        for section_id, section in project.sections.items():
+            section_text = f"Section {section_id}: {section['type']}"
+            section_item = ProjectTreeItem([section_text, ""], sections_root)
+            sections_root.appendChild(section_item)
+        
+        # Add constraints category
+        constraints_root = ProjectTreeItem(["Constraints", str(len(project.constraints))], model_root)
+        model_root.appendChild(constraints_root)
+        
+        # Add constraint items
+        for constraint_id, constraint in project.constraints.items():
+            constraint_text = f"Constraint {constraint_id}: {constraint['type']}"
+            constraint_item = ProjectTreeItem([constraint_text, ""], constraints_root)
+            constraints_root.appendChild(constraint_item)
+        
+        # Add transformations category
+        transformations_root = ProjectTreeItem(["Transformations", str(len(project.transformations))], model_root)
+        model_root.appendChild(transformations_root)
+        
+        # Add transformation items
+        for transformation_id, transformation in project.transformations.items():
+            transformation_text = f"Transformation {transformation_id}: {transformation['type']}"
+            transformation_item = ProjectTreeItem([transformation_text, ""], transformations_root)
+            transformations_root.appendChild(transformation_item)
+        
+        # Add timeseries category
+        timeseries_root = ProjectTreeItem(["Timeseries", str(len(project.timeseries))], model_root)
+        model_root.appendChild(timeseries_root)
+        
+        # Add timeseries items
+        for timeseries_id, timeseries in project.timeseries.items():
+            timeseries_text = f"Timeseries {timeseries_id}: {timeseries['type']}"
+            timeseries_item = ProjectTreeItem([timeseries_text, ""], timeseries_root)
+            timeseries_root.appendChild(timeseries_item)
+        
+        # Add patterns category
+        patterns_root = ProjectTreeItem(["Patterns", str(len(project.patterns))], model_root)
+        model_root.appendChild(patterns_root)
+        
+        # Add pattern items
+        for pattern_id, pattern in project.patterns.items():
+            pattern_text = f"Pattern {pattern_id}: {pattern['type']}"
+            pattern_item = ProjectTreeItem([pattern_text, ""], patterns_root)
+            patterns_root.appendChild(pattern_item)
+        
+        # Add recorders category
+        recorders_root = ProjectTreeItem(["Recorders", str(len(project.recorders))], model_root)
+        model_root.appendChild(recorders_root)
+        
+        # Add recorder items
+        for recorder_id, recorder in project.recorders.items():
+            recorder_text = f"Recorder {recorder_id}: {recorder['type']}"
+            recorder_item = ProjectTreeItem([recorder_text, ""], recorders_root)
+            recorders_root.appendChild(recorder_item)
+        
         # Add boundary conditions category
         bcs_root = ProjectTreeItem(["Boundary Conditions", str(len(project.boundary_conditions))], model_root)
         model_root.appendChild(bcs_root)
         
+        # Add boundary condition items
+        for bc_id, bc in project.boundary_conditions.items():
+            node_id = bc.get("node", "")
+            dofs = bc.get("dofs", [])
+            dof_str = ", ".join([str(d) for d in dofs]) if dofs else "None"
+            bc_text = f"BC {bc_id}: Node {node_id} (DOFs: {dof_str})"
+            bc_item = ProjectTreeItem([bc_text, ""], bcs_root)
+            bcs_root.appendChild(bc_item)
+        
         # Add load category
         loads_root = ProjectTreeItem(["Loads", str(len(project.loads))], model_root)
         model_root.appendChild(loads_root)
+        
+        # Add load items
+        for load_id, load in project.loads.items():
+            load_type = load.get("type", "")
+            target_id = load.get("target", "")
+            dofs = load.get("dofs", [])
+            values = load.get("values", [])
+            
+            # Format values for display (limit decimal places)
+            formatted_values = []
+            for val in values:
+                if isinstance(val, (int, float)):
+                    formatted_values.append(f"{val:.2f}")
+                else:
+                    formatted_values.append(str(val))
+            
+            value_str = ", ".join(formatted_values) if formatted_values else "None"
+            load_text = f"Load {load_id}: {load_type} on Node {target_id} ({value_str})"
+            load_item = ProjectTreeItem([load_text, ""], loads_root)
+            loads_root.appendChild(load_item)
         
         # Add analysis category if has file path and it's HDF5
         if project.file_path and (project.file_path.lower().endswith('.h5') or 
@@ -250,112 +348,193 @@ class ModelExplorer:
         self.tree_view.setAlternatingRowColors(True)
         self.tree_view.setAnimated(True)
         
-        # Create filter toolbar for the tree view
-        if isinstance(self.tree_view.parent(), QFrame):
-            self.create_filter_toolbar(self.tree_view.parent())
+        # Connect selection changed signal
+        self.tree_view.selectionModel().selectionChanged.connect(self.on_selection_changed)
+        
+        # Add context menu support
+        self.tree_view.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tree_view.customContextMenuRequested.connect(self.show_context_menu)
+        
+        # To prevent auto-collapse on context menu
+        self.last_expanded_state = {}
         
         # Keep reference to the current project
         self.current_project = None
     
-    def create_filter_toolbar(self, parent_widget):
-        """Create a toolbar for filtering entities in the model explorer"""
-        # Create filter toolbar
-        self.filter_frame = QFrame(parent_widget)
-        self.filter_frame.setObjectName("filterToolbar")
-        self.filter_frame.setMaximumHeight(40)
-        self.filter_frame.setStyleSheet("""
-            #filterToolbar {
-                background-color: #F5F5F5;
-                border-bottom: 1px solid #CCCCCC;
-            }
-            QToolButton {
-                background-color: transparent;
-                border: 1px solid transparent;
-                border-radius: 3px;
-                padding: 3px;
-                min-width: 50px;
-            }
-            QToolButton:hover {
-                background-color: rgba(0, 0, 0, 0.1);
-                border: 1px solid #CCCCCC;
-            }
-            QToolButton:checked {
-                background-color: rgba(0, 0, 0, 0.15);
-                border: 1px solid #BBBBBB;
-            }
-        """)
+    def show_context_menu(self, position):
+        """Show context menu for tree view items"""
+        # Get the index at the position
+        index = self.tree_view.indexAt(position)
+        if not index.isValid():
+            return
         
-        # Create layout for the filter toolbar
-        self.filter_layout = QHBoxLayout(self.filter_frame)
-        self.filter_layout.setContentsMargins(5, 0, 5, 0)
+        # Save current expanded state
+        if index.isValid():
+            self.last_expanded_state[index] = self.tree_view.isExpanded(index)
         
-        # Create filter label
-        self.filter_label = QLabel("Show:")
-        self.filter_layout.addWidget(self.filter_label)
+        # Get item text and parent 
+        item = index.internalPointer()
+        item_text = item.data(0)
+        parent_item = item.parent()
         
-        # Create filter buttons
-        self.btn_show_all = QToolButton()
-        self.btn_show_all.setText("All")
-        self.btn_show_all.setToolTip("Show all entities")
-        self.btn_show_all.setCheckable(True)
-        self.btn_show_all.setChecked(True)  # Default: show all
+        # Create context menu
+        context_menu = QMenu(self.tree_view)
         
-        self.btn_show_nodes = QToolButton()
-        self.btn_show_nodes.setText("Nodes")
-        self.btn_show_nodes.setToolTip("Show only nodes")
-        self.btn_show_nodes.setCheckable(True)
+        # Check if this is a top-level item (project name) or its child
+        is_top_level = parent_item == self.tree_model.root_item
         
-        self.btn_show_elements = QToolButton()
-        self.btn_show_elements.setText("Elements")
-        self.btn_show_elements.setToolTip("Show only elements")
-        self.btn_show_elements.setCheckable(True)
+        # Check if this is the "Model" item
+        is_model = False
+        if not is_top_level and parent_item.parent() == self.tree_model.root_item:
+            if item_text == "Model":
+                is_model = True
         
-        self.btn_show_materials = QToolButton()
-        self.btn_show_materials.setText("Materials")
-        self.btn_show_materials.setToolTip("Show only materials")
-        self.btn_show_materials.setCheckable(True)
+        # Check if this is a category item (Nodes, Elements, etc)
+        is_model_cat = False
+        if not is_top_level and not is_model:
+            # If parent is "Model", this is a category like "Nodes"
+            if parent_item.data(0) == "Model":
+                is_model_cat = True
         
-        self.btn_show_bcs = QToolButton()
-        self.btn_show_bcs.setText("BCs")
-        self.btn_show_bcs.setToolTip("Show only boundary conditions")
-        self.btn_show_bcs.setCheckable(True)
+        # Add appropriate actions based on the type of item
+        if is_top_level:
+            # Top level item (project name) - no actions
+            pass
+        elif is_model:
+            # "Model" item - allow deleting all contents
+            delete_all_action = QAction("Delete All Model Contents", self.tree_view)
+            delete_all_action.triggered.connect(lambda checked=False: self.delete_category_items("Model"))
+            context_menu.addAction(delete_all_action)
+        elif is_model_cat:
+            # Entity category item - allow deleting all items under this category
+            category_text = item_text.split(' ')[0]  # Extract "Nodes" from "Nodes 5"
+            # Allow deletion for all component categories
+            all_categories = ["Nodes", "Elements", "Materials", "Sections", "Constraints", 
+                              "Boundary", "Loads", "Recorders", "Transformations", 
+                              "Timeseries", "Patterns"]
+            if category_text in all_categories:
+                delete_all_action = QAction(f"Delete All {category_text}", self.tree_view)
+                delete_all_action.triggered.connect(lambda checked=False, cat=item_text: self.delete_category_items(cat))
+                context_menu.addAction(delete_all_action)
+        else:
+            # Individual entity item - allow deleting this item
+            # Determine what type of entity this is by examining parents
+            entity_type = parent_item.data(0).split(' ')[0]  # Extract "Nodes" from "Nodes 5"
+            entity_id = None
+            
+            # Extract ID based on item text format
+            if entity_type == "Nodes":
+                # Format: "Node 1: (0.00, 0.00, 0.00)"
+                parts = item_text.split(' ')
+                if len(parts) > 1 and parts[0] == "Node":
+                    entity_id = parts[1].rstrip(':')
+            elif entity_type == "Elements":
+                # Format: "Element 1: truss"
+                parts = item_text.split(' ')
+                if len(parts) > 1 and parts[0] == "Element":
+                    entity_id = parts[1].rstrip(':')
+            elif entity_type == "Materials":
+                # Format: "Material 1: Steel"
+                parts = item_text.split(' ')
+                if len(parts) > 1 and parts[0] == "Material":
+                    entity_id = parts[1].rstrip(':')
+                    entity_type = "material"  # Convert to singular
+            elif entity_type == "Sections":
+                # Format: "Section 1: WF"
+                parts = item_text.split(' ')
+                if len(parts) > 1 and parts[0] == "Section":
+                    entity_id = parts[1].rstrip(':')
+                    entity_type = "section"  # Convert to singular
+            elif entity_type == "Constraints":
+                # Format: "Constraint 1: equalDOF" 
+                parts = item_text.split(' ')
+                if len(parts) > 1 and parts[0] == "Constraint":
+                    entity_id = parts[1].rstrip(':')
+                    entity_type = "constraint"  # Convert to singular
+            elif entity_type == "Boundary":
+                # Format: "BC 1: Node 2 (DOFs: 1, 2, 3)"
+                parts = item_text.split(':')
+                if len(parts) > 0 and parts[0].strip().startswith("BC "):
+                    entity_id = parts[0].strip().replace("BC ", "")
+                entity_type = "boundary_condition"
+            elif entity_type == "Loads":
+                # Format: "Load 1: nodeLoad on Node 3 (10.00, 0.00, -20.00)"
+                parts = item_text.split(':')
+                if len(parts) > 0 and parts[0].strip().startswith("Load "):
+                    entity_id = parts[0].strip().replace("Load ", "")
+                entity_type = "load"
+            elif entity_type == "Recorders":
+                # Format: "Recorder 1: Node"
+                parts = item_text.split(' ')
+                if len(parts) > 1 and parts[0] == "Recorder":
+                    entity_id = parts[1].rstrip(':')
+                    entity_type = "recorder"  # Convert to singular
+            elif entity_type == "Transformations":
+                # Format: "Transformation 1: Linear"
+                parts = item_text.split(' ')
+                if len(parts) > 1 and parts[0] == "Transformation":
+                    entity_id = parts[1].rstrip(':')
+                    entity_type = "transformation"  # Convert to singular
+            elif entity_type == "Timeseries":
+                # Format: "Timeseries 1: Linear"
+                parts = item_text.split(' ')
+                if len(parts) > 1 and parts[0] == "Timeseries":
+                    entity_id = parts[1].rstrip(':')
+                    entity_type = "timeseries"  # Convert to singular
+            elif entity_type == "Patterns":
+                # Format: "Pattern 1: Plain"
+                parts = item_text.split(' ')
+                if len(parts) > 1 and parts[0] == "Pattern":
+                    entity_id = parts[1].rstrip(':')
+                    entity_type = "pattern"  # Convert to singular
+            
+            if entity_id:
+                # Create user-friendly type name for display
+                display_type = entity_type.rstrip('s')  # "Nodes" -> "Node"
+                if display_type == "boundary_condition":
+                    display_type = "BC"
+                delete_action = QAction(f"Delete {display_type}", self.tree_view)
+                delete_action.triggered.connect(lambda checked=False, t=entity_type, i=entity_id: self.delete_item(t, i))
+                context_menu.addAction(delete_action)
         
-        # Add buttons to layout
-        self.filter_layout.addWidget(self.btn_show_all)
-        self.filter_layout.addWidget(self.btn_show_nodes)
-        self.filter_layout.addWidget(self.btn_show_elements)
-        self.filter_layout.addWidget(self.btn_show_materials)
-        self.filter_layout.addWidget(self.btn_show_bcs)
-        self.filter_layout.addStretch()
-        
-        # Create button group to ensure only one filter is active
-        self.filter_button_group = QButtonGroup(self.filter_frame)
-        self.filter_button_group.addButton(self.btn_show_all)
-        self.filter_button_group.addButton(self.btn_show_nodes)
-        self.filter_button_group.addButton(self.btn_show_elements)
-        self.filter_button_group.addButton(self.btn_show_materials)
-        self.filter_button_group.addButton(self.btn_show_bcs)
-        
-        # Connect signals
-        self.btn_show_all.clicked.connect(lambda: self.filter_by_entity_type(None))
-        self.btn_show_nodes.clicked.connect(lambda: self.filter_by_entity_type("Nodes"))
-        self.btn_show_elements.clicked.connect(lambda: self.filter_by_entity_type("Elements"))
-        self.btn_show_materials.clicked.connect(lambda: self.filter_by_entity_type("Materials"))
-        self.btn_show_bcs.clicked.connect(lambda: self.filter_by_entity_type("Boundary Conditions"))
-        
-        # Add filter toolbar to parent widget layout
-        if isinstance(parent_widget.layout(), QVBoxLayout):
-            # Insert at the beginning of the layout, before the tree view
-            parent_widget.layout().insertWidget(0, self.filter_frame)
+        # Show context menu if it has any actions
+        if not context_menu.isEmpty():
+            # Connect signals to maintain expansion state
+            context_menu.aboutToShow.connect(lambda: self._preserve_expansion_state(index))
+            context_menu.aboutToHide.connect(lambda: self._restore_expansion_state(index))
+            context_menu.exec_(self.tree_view.viewport().mapToGlobal(position))
     
-    def filter_by_entity_type(self, entity_type):
-        """Filter the model explorer to show only entities of the specified type"""
-        # Reapply the model data with filtering
-        if self.current_project:
-            self.update_model(self.current_project, filter_type=entity_type)
-        
-    def update_model(self, project, filter_type=None):
-        """Update the model explorer with project data, optionally filtering by entity type"""
+    def _preserve_expansion_state(self, index):
+        """Preserve the expansion state before showing context menu"""
+        if index.isValid():
+            self.last_expanded_state[index] = self.tree_view.isExpanded(index)
+    
+    def _restore_expansion_state(self, index):
+        """Restore the expansion state after context menu is closed"""
+        if index.isValid() and index in self.last_expanded_state:
+            self.tree_view.setExpanded(index, self.last_expanded_state[index])
+    
+    def delete_item(self, entity_type, entity_id):
+        """Delete a specific entity"""
+        # This will be implemented in the parent application
+        # Signal to the parent application that we want to delete an item
+        if hasattr(self, 'delete_callback') and self.delete_callback:
+            self.delete_callback(entity_type, entity_id)
+    
+    def delete_category_items(self, category_text):
+        """Delete all items in a category"""
+        # This will be implemented in the parent application
+        # Signal to the parent application that we want to delete all items in a category
+        if hasattr(self, 'delete_category_callback') and self.delete_category_callback:
+            self.delete_category_callback(category_text)
+    
+    def set_delete_callbacks(self, delete_callback, delete_category_callback):
+        """Set callbacks for deletion actions"""
+        self.delete_callback = delete_callback
+        self.delete_category_callback = delete_category_callback
+    
+    def update_model(self, project):
+        """Update the model explorer with project data"""
         # Save reference to current project
         self.current_project = project
         
@@ -363,36 +542,8 @@ class ModelExplorer:
             self.tree_model.setupModelData(None)
             return
         
-        # Create a temporary project view with filtered entities if needed
-        if filter_type is None:
-            # No filtering, just use the project as is
-            self.tree_model.setupModelData(project)
-        else:
-            # Create a filtered view of the project
-            from copy import copy
-            filtered_project = copy(project)
-            
-            # Clear all entity collections
-            filtered_project.nodes = {}
-            filtered_project.elements = {}
-            filtered_project.materials = {}
-            filtered_project.boundary_conditions = {}
-            filtered_project.loads = {}
-            
-            # Only populate the requested entity type
-            if filter_type == "Nodes":
-                filtered_project.nodes = project.nodes
-            elif filter_type == "Elements":
-                filtered_project.elements = project.elements
-            elif filter_type == "Materials":
-                filtered_project.materials = project.materials
-            elif filter_type == "Boundary Conditions":
-                filtered_project.boundary_conditions = project.boundary_conditions
-            elif filter_type == "Loads":
-                filtered_project.loads = project.loads
-            
-            # Update model with filtered project
-            self.tree_model.setupModelData(filtered_project)
+        # Update model with project
+        self.tree_model.setupModelData(project)
         
         # Expand the model root
         self.tree_view.expandToDepth(1)
@@ -401,4 +552,127 @@ class ModelExplorer:
         self.tree_view.resizeColumnToContents(0)
         # Make sure the main column is at least 250px wide
         if self.tree_view.columnWidth(0) < 250:
-            self.tree_view.setColumnWidth(0, 250) 
+            self.tree_view.setColumnWidth(0, 250)
+
+    def on_selection_changed(self, selected, deselected):
+        """Handle selection changes in the tree view"""
+        indexes = selected.indexes()
+        if indexes:
+            # Get the selected item's text
+            item = indexes[0].internalPointer()
+            selected_text = item.data(0)
+            
+            # Update the model's selected item
+            self.tree_model.selected_item_text = selected_text
+            
+            # Force a redraw of the tree view
+            self.tree_model.layoutChanged.emit()
+            
+            # Check if this is an entity that can be selected in the scene
+            parent_item = item.parent()
+            
+            # Skip if this is a top-level item (project name) or its direct child
+            is_top_level = parent_item == self.tree_model.root_item
+            is_model = False
+            if not is_top_level and parent_item.parent() == self.tree_model.root_item:
+                if selected_text == "Model":
+                    is_model = True
+            
+            # Skip if this is a category item (Nodes, Elements, etc.)
+            is_model_cat = False
+            if not is_top_level and not is_model:
+                # If parent is "Model", this is a category like "Nodes"
+                if parent_item.data(0) == "Model":
+                    is_model_cat = True
+            
+            # Process actual entity selection
+            if not is_top_level and not is_model and not is_model_cat:
+                # Determine what type of entity this is by examining its parent
+                entity_type = parent_item.data(0).split(' ')[0]  # Extract "Nodes" from "Nodes 5"
+                entity_id = None
+                
+                # Extract ID based on item text format
+                if entity_type == "Nodes":
+                    # Format: "Node 1: (0.00, 0.00, 0.00)"
+                    parts = selected_text.split(' ')
+                    if len(parts) > 1 and parts[0] == "Node":
+                        entity_id = parts[1].rstrip(':')
+                        entity_type = "node"  # Convert to singular
+                elif entity_type == "Elements":
+                    # Format: "Element 1: truss"
+                    parts = selected_text.split(' ')
+                    if len(parts) > 1 and parts[0] == "Element":
+                        entity_id = parts[1].rstrip(':')
+                        entity_type = "element"  # Convert to singular
+                elif entity_type == "Materials":
+                    # Format: "Material 1: Steel"
+                    parts = selected_text.split(' ')
+                    if len(parts) > 1 and parts[0] == "Material":
+                        entity_id = parts[1].rstrip(':')
+                        entity_type = "material"  # Convert to singular
+                elif entity_type == "Sections":
+                    # Format: "Section 1: WF" 
+                    parts = selected_text.split(' ')
+                    if len(parts) > 1 and parts[0] == "Section":
+                        entity_id = parts[1].rstrip(':')
+                        entity_type = "section"
+                elif entity_type == "Constraints":
+                    # Format: "Constraint 1: equalDOF"
+                    parts = selected_text.split(' ')
+                    if len(parts) > 1 and parts[0] == "Constraint":
+                        entity_id = parts[1].rstrip(':')
+                        entity_type = "constraint"
+                elif entity_type == "Boundary":
+                    # Format: "BC 1: Node 2 (DOFs: 1, 2, 3)"
+                    parts = selected_text.split(':')
+                    if len(parts) > 0 and parts[0].strip().startswith("BC "):
+                        entity_id = parts[0].strip().replace("BC ", "")
+                        entity_type = "boundary_condition"
+                elif entity_type == "Loads":
+                    # Format: "Load 1: nodeLoad on Node 3 (10.00, 0.00, -20.00)"
+                    parts = selected_text.split(':')
+                    if len(parts) > 0 and parts[0].strip().startswith("Load "):
+                        entity_id = parts[0].strip().replace("Load ", "")
+                        entity_type = "load"
+                elif entity_type == "Recorders":
+                    # Format: "Recorder 1: Node"
+                    parts = selected_text.split(' ')
+                    if len(parts) > 1 and parts[0] == "Recorder":
+                        entity_id = parts[1].rstrip(':')
+                        entity_type = "recorder"
+                elif entity_type == "Transformations":
+                    # Format: "Transformation 1: Linear"
+                    parts = selected_text.split(' ')
+                    if len(parts) > 1 and parts[0] == "Transformation":
+                        entity_id = parts[1].rstrip(':')
+                        entity_type = "transformation"
+                elif entity_type == "Timeseries":
+                    # Format: "Timeseries 1: Linear"
+                    parts = selected_text.split(' ')
+                    if len(parts) > 1 and parts[0] == "Timeseries":
+                        entity_id = parts[1].rstrip(':')
+                        entity_type = "timeseries"
+                elif entity_type == "Patterns":
+                    # Format: "Pattern 1: Plain"
+                    parts = selected_text.split(' ')
+                    if len(parts) > 1 and parts[0] == "Pattern":
+                        entity_id = parts[1].rstrip(':')
+                        entity_type = "pattern"
+                
+                # If we have a valid entity type and ID, and a scene selection callback, call it
+                if entity_id and entity_type in ["node", "element", "material", "section", "constraint", 
+                                              "boundary_condition", "load", "recorder", 
+                                              "transformation", "timeseries", "pattern"]:
+                    if hasattr(self, 'scene_selection_callback') and self.scene_selection_callback:
+                        self.scene_selection_callback(entity_type, entity_id)
+
+    def set_scene_selection_callback(self, callback):
+        """Set a callback to be called when an item is selected in the tree view
+        
+        The callback will be called with (object_type, object_id) where:
+        - object_type is 'node', 'element', 'material', 'section', 'constraint', 
+                         'boundary_condition', 'load', 'recorder', 'transformation',
+                         'timeseries', 'pattern'
+        - object_id is the ID of the selected object
+        """
+        self.scene_selection_callback = callback 

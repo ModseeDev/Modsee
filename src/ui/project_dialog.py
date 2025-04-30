@@ -9,7 +9,7 @@ Project Properties Dialog
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLabel, QLineEdit, 
     QTextEdit, QPushButton, QDialogButtonBox, QFrame, QHBoxLayout,
-    QGridLayout, QGroupBox
+    QGridLayout, QGroupBox, QComboBox, QSpinBox
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QIcon
@@ -100,6 +100,37 @@ class ProjectPropertiesDialog(QDialog):
         
         self.layout.addWidget(basic_group)
         
+        # Model Builder Parameters group
+        model_builder_group = QGroupBox("Model Builder Parameters")
+        model_builder_layout = QFormLayout(model_builder_group)
+        model_builder_layout.setContentsMargins(10, 15, 10, 10)
+        model_builder_layout.setSpacing(10)
+        
+        # Number of dimensions (ndm)
+        self.ndm_label = QLabel("Dimensions (ndm):")
+        self.ndm_combobox = QComboBox()
+        self.ndm_combobox.addItems(["2", "3"])
+        model_builder_layout.addRow(self.ndm_label, self.ndm_combobox)
+        
+        # Number of DOFs per node (ndf)
+        self.ndf_label = QLabel("DOFs per node (ndf):")
+        self.ndf_spinbox = QSpinBox()
+        self.ndf_spinbox.setMinimum(1)
+        self.ndf_spinbox.setMaximum(12)
+        self.ndf_spinbox.setValue(3)
+        model_builder_layout.addRow(self.ndf_label, self.ndf_spinbox)
+        
+        # Model type
+        self.model_type_label = QLabel("Model Type:")
+        self.model_type_combobox = QComboBox()
+        self.model_type_combobox.addItems(["basic", "quad", "brick", "enhancedStrain"])
+        model_builder_layout.addRow(self.model_type_label, self.model_type_combobox)
+        
+        # Connect ndm combobox to update ndf automatically
+        self.ndm_combobox.currentIndexChanged.connect(self.update_ndf_from_ndm)
+        
+        self.layout.addWidget(model_builder_group)
+        
         # Project metadata group (read-only)
         metadata_group = QGroupBox("Project Metadata")
         metadata_layout = QGridLayout(metadata_group)
@@ -147,12 +178,36 @@ class ProjectPropertiesDialog(QDialog):
         
         # Add button box to main layout
         self.layout.addWidget(self.button_box)
+    
+    def update_ndf_from_ndm(self):
+        """Update ndf value based on ndm selection"""
+        ndm = int(self.ndm_combobox.currentText())
+        if ndm == 2:
+            self.ndf_spinbox.setValue(3)  # Default for 2D: 3 DOFs per node
+        else:
+            self.ndf_spinbox.setValue(6)  # Default for 3D: 6 DOFs per node
         
     def populate_from_project(self):
         """Populate fields with data from the project"""
         # Basic info
         self.name_edit.setText(self.project.name)
         self.description_edit.setText(self.project.description)
+        
+        # Model builder parameters
+        ndm = self.project.model_builder_params.get("ndm", 3)
+        ndf = self.project.model_builder_params.get("ndf", 6)
+        model_type = self.project.model_builder_params.get("model_type", "basic")
+        
+        # Set ndm combobox (2 or 3)
+        self.ndm_combobox.setCurrentText(str(ndm))
+        
+        # Set ndf spinbox
+        self.ndf_spinbox.setValue(ndf)
+        
+        # Set model type combobox
+        index = self.model_type_combobox.findText(model_type)
+        if index >= 0:
+            self.model_type_combobox.setCurrentIndex(index)
         
         # Metadata (read-only)
         self.id_value.setText(self.project.project_id)
@@ -168,5 +223,10 @@ class ProjectPropertiesDialog(QDialog):
         """Get the data entered by the user"""
         return {
             "name": self.name_edit.text(),
-            "description": self.description_edit.toPlainText()
+            "description": self.description_edit.toPlainText(),
+            "model_builder_params": {
+                "ndm": int(self.ndm_combobox.currentText()),
+                "ndf": self.ndf_spinbox.value(),
+                "model_type": self.model_type_combobox.currentText()
+            }
         } 

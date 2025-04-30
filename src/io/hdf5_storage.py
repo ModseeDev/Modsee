@@ -100,6 +100,96 @@ class HDF5Storage:
                     for prop_name, prop_value in material['properties'].items():
                         material_group.attrs[prop_name] = prop_value
             
+            # Save sections
+            if project.sections:
+                sections_group = model_group.create_group('Sections')
+                for section_id, section in project.sections.items():
+                    section_group = sections_group.create_group(str(section_id))
+                    section_group.attrs['id'] = section_id
+                    section_group.attrs['type'] = section['type']
+                    
+                    # Store properties as attributes
+                    for prop_name, prop_value in section['properties'].items():
+                        section_group.attrs[prop_name] = prop_value
+            
+            # Save constraints
+            if project.constraints:
+                constraints_group = model_group.create_group('Constraints')
+                for constraint_id, constraint in project.constraints.items():
+                    constraint_group = constraints_group.create_group(str(constraint_id))
+                    constraint_group.attrs['id'] = constraint_id
+                    constraint_group.attrs['type'] = constraint['type']
+                    
+                    # Store properties in a subgroup
+                    properties_group = constraint_group.create_group('Properties')
+                    for prop_name, prop_value in constraint['properties'].items():
+                        if isinstance(prop_value, (list, tuple)):
+                            properties_group.create_dataset(prop_name, data=prop_value)
+                        else:
+                            properties_group.attrs[prop_name] = prop_value
+            
+            # Save recorders
+            if project.recorders:
+                recorders_group = model_group.create_group('Recorders')
+                for recorder_id, recorder in project.recorders.items():
+                    recorder_group = recorders_group.create_group(str(recorder_id))
+                    recorder_group.attrs['id'] = recorder_id
+                    recorder_group.attrs['type'] = recorder['type']
+                    recorder_group.attrs['target'] = recorder['target']
+                    recorder_group.attrs['file_name'] = recorder['file_name']
+                    recorder_group.attrs['time_interval'] = recorder['time_interval']
+                    
+                    if 'dofs' in recorder and recorder['dofs']:
+                        recorder_group.create_dataset('dofs', data=recorder['dofs'])
+            
+            # Save transformations
+            if project.transformations:
+                transformations_group = model_group.create_group('Transformations')
+                for transformation_id, transformation in project.transformations.items():
+                    transformation_group = transformations_group.create_group(str(transformation_id))
+                    transformation_group.attrs['id'] = transformation_id
+                    transformation_group.attrs['type'] = transformation['type']
+                    
+                    # Store properties as attributes
+                    for prop_name, prop_value in transformation['properties'].items():
+                        if isinstance(prop_value, (list, tuple)):
+                            transformation_group.create_dataset(prop_name, data=prop_value)
+                        else:
+                            transformation_group.attrs[prop_name] = prop_value
+            
+            # Save timeseries
+            if project.timeseries:
+                timeseries_group = model_group.create_group('Timeseries')
+                for timeseries_id, timeseries in project.timeseries.items():
+                    timeseries_group_item = timeseries_group.create_group(str(timeseries_id))
+                    timeseries_group_item.attrs['id'] = timeseries_id
+                    timeseries_group_item.attrs['type'] = timeseries['type']
+                    
+                    # Store properties as attributes or datasets
+                    for prop_name, prop_value in timeseries['properties'].items():
+                        if isinstance(prop_value, (list, tuple)):
+                            timeseries_group_item.create_dataset(prop_name, data=prop_value)
+                        else:
+                            timeseries_group_item.attrs[prop_name] = prop_value
+            
+            # Save patterns
+            if project.patterns:
+                patterns_group = model_group.create_group('Patterns')
+                for pattern_id, pattern in project.patterns.items():
+                    pattern_group = patterns_group.create_group(str(pattern_id))
+                    pattern_group.attrs['id'] = pattern_id
+                    pattern_group.attrs['type'] = pattern['type']
+                    
+                    if pattern['timeseries'] is not None:
+                        pattern_group.attrs['timeseries'] = pattern['timeseries']
+                    
+                    # Store properties as attributes or datasets
+                    for prop_name, prop_value in pattern['properties'].items():
+                        if isinstance(prop_value, (list, tuple)):
+                            pattern_group.create_dataset(prop_name, data=prop_value)
+                        else:
+                            pattern_group.attrs[prop_name] = prop_value
+            
             # Save boundary conditions
             if project.boundary_conditions:
                 bcs_group = model_group.create_group('BoundaryConditions')
@@ -125,6 +215,11 @@ class HDF5Storage:
             settings_group = model_group.create_group('AnalysisSettings')
             for key, value in project.analysis_settings.items():
                 settings_group.attrs[key] = value
+                
+            # Save model builder parameters as attributes
+            modelbuilder_group = model_group.create_group('ModelBuilderParams')
+            for key, value in project.model_builder_params.items():
+                modelbuilder_group.attrs[key] = value
                 
         return self.file_path
     
@@ -195,6 +290,146 @@ class HDF5Storage:
                     }
                     project.materials[int(material_id)] = material_data
             
+            # Load sections
+            if 'Sections' in model_group:
+                sections_group = model_group['Sections']
+                for section_id in sections_group:
+                    section_group = sections_group[section_id]
+                    
+                    # Get properties from attributes
+                    properties = {}
+                    for key in section_group.attrs:
+                        if key not in ['id', 'type']:
+                            properties[key] = section_group.attrs[key]
+                    
+                    section_data = {
+                        'id': section_group.attrs['id'],
+                        'type': section_group.attrs['type'],
+                        'properties': properties
+                    }
+                    project.sections[int(section_id)] = section_data
+            
+            # Load constraints
+            if 'Constraints' in model_group:
+                constraints_group = model_group['Constraints']
+                for constraint_id in constraints_group:
+                    constraint_group = constraints_group[constraint_id]
+                    
+                    # Get properties from the properties subgroup
+                    properties = {}
+                    if 'Properties' in constraint_group:
+                        properties_group = constraint_group['Properties']
+                        
+                        # Get attributes
+                        for key in properties_group.attrs:
+                            properties[key] = properties_group.attrs[key]
+                        
+                        # Get datasets
+                        for key in properties_group:
+                            if key not in properties:  # Skip if already loaded as attribute
+                                properties[key] = properties_group[key][()].tolist()
+                    
+                    constraint_data = {
+                        'id': constraint_group.attrs['id'],
+                        'type': constraint_group.attrs['type'],
+                        'properties': properties
+                    }
+                    project.constraints[int(constraint_id)] = constraint_data
+            
+            # Load recorders
+            if 'Recorders' in model_group:
+                recorders_group = model_group['Recorders']
+                for recorder_id in recorders_group:
+                    recorder_group = recorders_group[recorder_id]
+                    
+                    recorder_data = {
+                        'id': recorder_group.attrs['id'],
+                        'type': recorder_group.attrs['type'],
+                        'target': recorder_group.attrs['target'],
+                        'file_name': recorder_group.attrs['file_name'],
+                        'time_interval': recorder_group.attrs['time_interval'],
+                        'dofs': []
+                    }
+                    
+                    # Load DOFs if present
+                    if 'dofs' in recorder_group:
+                        recorder_data['dofs'] = recorder_group['dofs'][()].tolist()
+                    
+                    project.recorders[int(recorder_id)] = recorder_data
+            
+            # Load transformations
+            if 'Transformations' in model_group:
+                transformations_group = model_group['Transformations']
+                for transformation_id in transformations_group:
+                    transformation_group = transformations_group[transformation_id]
+                    
+                    # Get properties
+                    properties = {}
+                    for key in transformation_group.attrs:
+                        if key not in ['id', 'type']:
+                            properties[key] = transformation_group.attrs[key]
+                    
+                    # Get datasets as properties
+                    for key in transformation_group:
+                        if key not in ['id', 'type']:
+                            properties[key] = transformation_group[key][()].tolist()
+                    
+                    transformation_data = {
+                        'id': transformation_group.attrs['id'],
+                        'type': transformation_group.attrs['type'],
+                        'properties': properties
+                    }
+                    project.transformations[int(transformation_id)] = transformation_data
+            
+            # Load timeseries
+            if 'Timeseries' in model_group:
+                timeseries_group = model_group['Timeseries']
+                for timeseries_id in timeseries_group:
+                    timeseries_group_item = timeseries_group[timeseries_id]
+                    
+                    # Get properties
+                    properties = {}
+                    for key in timeseries_group_item.attrs:
+                        if key not in ['id', 'type']:
+                            properties[key] = timeseries_group_item.attrs[key]
+                    
+                    # Get datasets as properties
+                    for key in timeseries_group_item:
+                        if key not in ['id', 'type']:
+                            properties[key] = timeseries_group_item[key][()].tolist()
+                    
+                    timeseries_data = {
+                        'id': timeseries_group_item.attrs['id'],
+                        'type': timeseries_group_item.attrs['type'],
+                        'properties': properties
+                    }
+                    project.timeseries[int(timeseries_id)] = timeseries_data
+            
+            # Load patterns
+            if 'Patterns' in model_group:
+                patterns_group = model_group['Patterns']
+                for pattern_id in patterns_group:
+                    pattern_group = patterns_group[pattern_id]
+                    
+                    # Get properties
+                    properties = {}
+                    for key in pattern_group.attrs:
+                        if key not in ['id', 'type', 'timeseries']:
+                            properties[key] = pattern_group.attrs[key]
+                    
+                    # Get datasets as properties
+                    for key in pattern_group:
+                        if key not in ['id', 'type', 'timeseries']:
+                            properties[key] = pattern_group[key][()].tolist()
+                    
+                    pattern_data = {
+                        'id': pattern_group.attrs['id'],
+                        'type': pattern_group.attrs['type'],
+                        'timeseries': pattern_group.attrs.get('timeseries', None),
+                        'properties': properties
+                    }
+                    project.patterns[int(pattern_id)] = pattern_data
+            
             # Load boundary conditions
             if 'BoundaryConditions' in model_group:
                 bcs_group = model_group['BoundaryConditions']
@@ -227,6 +462,12 @@ class HDF5Storage:
                 settings_group = model_group['AnalysisSettings']
                 for key in settings_group.attrs:
                     project.analysis_settings[key] = settings_group.attrs[key]
+            
+            # Load model builder parameters
+            if 'ModelBuilderParams' in model_group:
+                modelbuilder_group = model_group['ModelBuilderParams']
+                for key in modelbuilder_group.attrs:
+                    project.model_builder_params[key] = modelbuilder_group.attrs[key]
                     
         return project
         

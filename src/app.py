@@ -77,6 +77,13 @@ class ModseeApp:
         if hasattr(self.main_window, 'btn_save'):
             self.main_window.btn_save.clicked.connect(self.save_project)
         
+        # Connect model explorer delete callbacks
+        if hasattr(self.main_window, 'model_explorer'):
+            self.main_window.model_explorer.set_delete_callbacks(
+                self.delete_model_item,
+                self.delete_category_items
+            )
+
     def run(self):
         """Run the application"""
         self.main_window.show()
@@ -172,11 +179,17 @@ class ModseeApp:
                 # Update model explorer
                 self.main_window.update_model_explorer(self.current_project)
                 
+                # Set up delete callbacks for model explorer
+                self.main_window.model_explorer.set_delete_callbacks(
+                    self.delete_model_item,
+                    self.delete_category_items
+                )
+                
                 # Update 3D scene
-                self.main_window.scene_3d.update_model(self.current_project)
+                self.main_window.scene.update_model(self.current_project)
                 
                 # Automatically fit the view to show the entire model
-                self.main_window.scene_3d.fit_view()
+                self.main_window.scene.fit_view()
                 
                 # Save last directory to settings
                 settings.setValue("files/last_directory", os.path.dirname(file_path))
@@ -280,61 +293,73 @@ class ModseeApp:
 
     def new_project(self):
         """Create a new project"""
-        # Check for unsaved changes
+        # Check if we need to save before creating a new project
         if self._is_project_modified():
-            # Prompt user to save changes
-            result = QMessageBox.question(
+            from PyQt5.QtWidgets import QMessageBox
+            
+            reply = QMessageBox.question(
                 self.main_window,
-                "Unsaved Changes",
-                "Current project has unsaved changes. Save before creating a new project?",
+                "Save Changes",
+                "The current project has unsaved changes. Would you like to save before creating a new project?",
                 QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
                 QMessageBox.Save
             )
             
-            if result == QMessageBox.Save:
-                # Save project first
+            if reply == QMessageBox.Save:
+                # Save the current project
                 if not self.save_project():
-                    # If save failed or was cancelled, don't create a new project
-                    return False
-            elif result == QMessageBox.Cancel:
-                # Cancel new project operation
-                return False
-                
-        # Create new project
+                    # If save was cancelled, abort new project creation
+                    return
+            elif reply == QMessageBox.Cancel:
+                # User cancelled, abort new project creation
+                return
+        
+        # Create a new project
+        from src.models.project import Project
         self.current_project = Project()
         self._clear_modified()
         
-        # Share project reference with the main window
-        self.main_window.project = self.current_project
-        
-        # Update window title
+        # Set window title
         self.main_window.setWindowTitle("Modsee - New Project")
         
         # Update model explorer
         self.main_window.update_model_explorer(self.current_project)
         
+        # Enable model explorer delete callbacks
+        self.main_window.model_explorer.set_delete_callbacks(
+            self.delete_model_item,
+            self.delete_category_items
+        )
+        
         # Update 3D scene (clears existing model)
-        self.main_window.scene_3d.update_model(self.current_project)
+        self.main_window.scene.update_model(self.current_project)
         
         # Show success message and log to console
         self.main_window.status_message.setText("New project created")
         self.log_to_console("> New project created")
 
-    def update_project_metadata(self, name=None, description=None):
-        """Update project metadata"""
+    def update_project_metadata(self, name=None, description=None, model_builder_params=None):
+        """Update the project metadata"""
         if not self.current_project:
             return
-        
-        if name is not None and name.strip():
-            old_name = self.current_project.name
-            self.current_project.name = name.strip()
-            self.log_to_console(f"> Project name changed from '{old_name}' to '{name.strip()}'")
-        
-        if description is not None:
+            
+        # Update the project name if provided
+        if name:
+            self.current_project.name = name
+            
+        # Update the project description if provided
+        if description:
             self.current_project.description = description
-            self.log_to_console(f"> Project description updated")
-        
-        # Mark project as modified
+            
+        # Update model builder parameters if provided
+        if model_builder_params:
+            self.current_project.update_model_builder_params(
+                ndm=model_builder_params.get('ndm'),
+                ndf=model_builder_params.get('ndf'),
+                model_type=model_builder_params.get('model_type')
+            )
+            
+        # Mark the project as modified
         self._mark_modified()
         
         # Update model explorer to reflect changes
@@ -359,11 +384,15 @@ class ModseeApp:
             # Update the project metadata
             self.update_project_metadata(
                 name=project_data.get('name'),
-                description=project_data.get('description')
+                description=project_data.get('description'),
+                model_builder_params=project_data.get('model_builder_params')
             )
             
             # Update the window title to reflect the new name
             self.main_window.setWindowTitle(f"Modsee - {self.current_project.name}")
+            
+            # Log update to console
+            self.log_to_console(f"> Updated project properties including model builder parameters")
     
     def setup_auto_save(self):
         """Set up auto-save timer based on settings"""
@@ -402,4 +431,217 @@ class ModseeApp:
         self.settings.setValue("auto_save/interval", self.auto_save_interval)
         
         # Update timer
-        self.setup_auto_save() 
+        self.setup_auto_save()
+    
+    def delete_model_item(self, entity_type, entity_id):
+        """Delete a specific entity from the model"""
+        if not self.current_project:
+            return
+        
+        # Convert entity_type to dictionary name in the project
+        try:
+            entity_id = int(entity_id) if entity_id.isdigit() else entity_id
+        except:
+            # If conversion fails, just use the original entity_id
+            pass
+        
+        # Determine which collection to modify
+        target_dict = None
+        if entity_type == "Nodes" or entity_type == "node":
+            target_dict = self.current_project.nodes
+        elif entity_type == "Elements" or entity_type == "element":
+            target_dict = self.current_project.elements
+        elif entity_type == "Materials" or entity_type == "material":
+            target_dict = self.current_project.materials
+        elif entity_type == "Sections" or entity_type == "section":
+            target_dict = self.current_project.sections
+        elif entity_type == "Constraints" or entity_type == "constraint":
+            target_dict = self.current_project.constraints
+        elif entity_type == "Boundary Conditions" or entity_type == "boundary_condition" or entity_type == "Boundary":
+            target_dict = self.current_project.boundary_conditions
+        elif entity_type == "Loads" or entity_type == "load":
+            target_dict = self.current_project.loads
+        elif entity_type == "Recorders" or entity_type == "recorder":
+            target_dict = self.current_project.recorders
+        elif entity_type == "Transformations" or entity_type == "transformation":
+            target_dict = self.current_project.transformations
+        elif entity_type == "Timeseries" or entity_type == "timeseries":
+            target_dict = self.current_project.timeseries
+        elif entity_type == "Patterns" or entity_type == "pattern":
+            target_dict = self.current_project.patterns
+        
+        # Delete the item if it exists
+        if target_dict is not None and entity_id in target_dict:
+            deleted_item = target_dict.pop(entity_id)
+            
+            # Mark the project as modified
+            self._mark_modified()
+            
+            # Add debug log about what's being deleted
+            self.log_to_console(f"> Debug: Deleting {entity_type} {entity_id}")
+            
+            # Update model explorer and 3D scene
+            self.main_window.update_model_explorer(self.current_project)
+            # For single item deletions, use update_model which preserves the view
+            self.main_window.scene.update_model(self.current_project)
+            
+            # Explicitly force a render to ensure all labels are updated
+            self.main_window.scene.vtk_widget.GetRenderWindow().Render()
+            
+            # Clear the properties panel (since the item was deleted)
+            self.main_window.handle_scene_selection(None, None)
+            
+            # Log deletion to console
+            self.log_to_console(f"> Deleted {entity_type.rstrip('s')} {entity_id}")
+            
+            # Update status message
+            self.main_window.status_message.setText(f"{entity_type.rstrip('s')} {entity_id} deleted")
+            
+            return True
+        
+        return False
+    
+    def delete_category_items(self, category):
+        """Delete all items in a specific category"""
+        if not self.current_project:
+            return
+        
+        # Extract category name if it contains a count (e.g., "Nodes 5" -> "Nodes")
+        if " " in category:
+            category = category.split(" ")[0]
+        
+        # Determine which collection to clear
+        target_dict = None
+        if category == "Nodes":
+            target_dict = self.current_project.nodes
+        elif category == "Elements":
+            target_dict = self.current_project.elements
+        elif category == "Materials":
+            target_dict = self.current_project.materials
+        elif category == "Boundary Conditions" or category == "Boundary":
+            target_dict = self.current_project.boundary_conditions
+            category = "Boundary Conditions"
+        elif category == "Loads":
+            target_dict = self.current_project.loads
+        # Add support for missing categories
+        elif category == "Sections":
+            target_dict = self.current_project.sections
+        elif category == "Constraints":
+            target_dict = self.current_project.constraints
+        elif category == "Recorders":
+            target_dict = self.current_project.recorders
+        elif category == "Transformations":
+            target_dict = self.current_project.transformations
+        elif category == "Timeseries":
+            target_dict = self.current_project.timeseries
+        elif category == "Patterns":
+            target_dict = self.current_project.patterns
+        elif category == "Model":
+            # Special case: clear all model data
+            self.clear_all_model_data()
+            return True
+        
+        # Clear the collection if it exists
+        if target_dict is not None:
+            count = len(target_dict)
+            if count > 0:
+                # Ask for confirmation before deleting multiple items
+                from PyQt5.QtWidgets import QMessageBox
+                
+                reply = QMessageBox.question(
+                    self.main_window,
+                    f"Delete All {category}",
+                    f"Are you sure you want to delete all {count} {category.lower()}?",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+                
+                if reply == QMessageBox.Yes:
+                    # Clear the dictionary
+                    target_dict.clear()
+                    
+                    # Mark the project as modified
+                    self._mark_modified()
+                    
+                    # Update model explorer and 3D scene
+                    self.main_window.update_model_explorer(self.current_project)
+                    self.main_window.scene.hard_reset(self.current_project)
+                    
+                    # Clear the properties panel (since all items were deleted)
+                    self.main_window.handle_scene_selection(None, None)
+                    
+                    # Log deletion to console
+                    self.log_to_console(f"> Deleted all {category.lower()} ({count} items)")
+                    
+                    # Update status message
+                    self.main_window.status_message.setText(f"All {category.lower()} deleted ({count} items)")
+                    
+                    return True
+        
+        return False
+        
+    def clear_all_model_data(self):
+        """Clear all model data (nodes, elements, materials, etc.)"""
+        if not self.current_project:
+            return False
+            
+        # Ask for confirmation before deleting everything
+        from PyQt5.QtWidgets import QMessageBox
+        
+        total_count = (len(self.current_project.nodes) + 
+                      len(self.current_project.elements) + 
+                      len(self.current_project.materials) +
+                      len(self.current_project.sections) +
+                      len(self.current_project.constraints) +
+                      len(self.current_project.boundary_conditions) +
+                      len(self.current_project.loads) +
+                      len(self.current_project.recorders) +
+                      len(self.current_project.transformations) +
+                      len(self.current_project.timeseries) +
+                      len(self.current_project.patterns))
+        
+        if total_count == 0:
+            return False
+            
+        reply = QMessageBox.question(
+            self.main_window,
+            "Delete All Model Data",
+            f"Are you sure you want to delete ALL model data ({total_count} items)?\n\n" +
+            "This will remove all nodes, elements, materials, sections, constraints, boundary conditions, loads, recorders, transformations, timeseries, and patterns.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            # Clear all dictionaries
+            self.current_project.nodes.clear()
+            self.current_project.elements.clear()
+            self.current_project.materials.clear()
+            self.current_project.sections.clear()
+            self.current_project.constraints.clear()
+            self.current_project.boundary_conditions.clear()
+            self.current_project.loads.clear()
+            self.current_project.recorders.clear()
+            self.current_project.transformations.clear()
+            self.current_project.timeseries.clear()
+            self.current_project.patterns.clear()
+            
+            # Mark the project as modified
+            self._mark_modified()
+            
+            # Update model explorer and 3D scene
+            self.main_window.update_model_explorer(self.current_project)
+            self.main_window.scene.hard_reset(self.current_project)
+            
+            # Clear the properties panel (since all items were deleted)
+            self.main_window.handle_scene_selection(None, None)
+            
+            # Log deletion to console
+            self.log_to_console(f"> Deleted all model data ({total_count} items)")
+            
+            # Update status message
+            self.main_window.status_message.setText(f"All model data deleted ({total_count} items)")
+            
+            return True
+            
+        return False 

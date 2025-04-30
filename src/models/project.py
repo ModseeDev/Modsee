@@ -31,6 +31,21 @@ class Project:
         self.boundary_conditions = {}
         self.loads = {}
         
+        # New model components
+        self.sections = {}
+        self.constraints = {}
+        self.recorders = {}
+        self.transformations = {}
+        self.timeseries = {}
+        self.patterns = {}
+        
+        # Model builder parameters for OpenSees export
+        self.model_builder_params = {
+            "ndm": 3,           # Number of dimensions (2 or 3)
+            "ndf": 6,           # Number of DOFs per node
+            "model_type": "basic"  # Model type (basic, quad, etc.)
+        }
+        
         # Analysis settings
         self.analysis_settings = {
             "type": "static",
@@ -165,6 +180,118 @@ class Project:
         self._mark_modified()
         return load_id
         
+    def add_section(self, section_id, section_type, properties):
+        """Add a section to the project"""
+        self.sections[section_id] = {
+            "id": section_id,
+            "type": section_type,
+            "properties": properties
+        }
+        self._mark_modified()
+        return section_id
+        
+    def add_constraint(self, constraint_id, constraint_type, properties):
+        """Add a constraint to the project
+        
+        Args:
+            constraint_id: Unique identifier for the constraint
+            constraint_type: Type of constraint (e.g., 'equalDOF', 'rigidLink', etc.)
+            properties: Dictionary of constraint properties (depends on type)
+                For example, for equalDOF: {"retained_node": 1, "constrained_node": 2, "dofs": [1, 2, 3]}
+        """
+        self.constraints[constraint_id] = {
+            "id": constraint_id,
+            "type": constraint_type,
+            "properties": properties
+        }
+        self._mark_modified()
+        return constraint_id
+        
+    def update_node_mass(self, node_id, mass_values):
+        """Update the mass values for a node
+        
+        Args:
+            node_id: ID of the node to update
+            mass_values: List of mass values [mx, my, mz, mrx, mry, mrz]
+        """
+        if node_id in self.nodes:
+            self.nodes[node_id]["mass"] = mass_values
+            self._mark_modified()
+            return node_id
+        return None
+        
+    def add_recorder(self, recorder_id, recorder_type, target, dofs=None, file_name=None, time_interval=None):
+        """Add a recorder to the project
+        
+        Args:
+            recorder_id: Unique identifier for the recorder
+            recorder_type: Type of recorder (e.g., 'Node', 'Element', etc.)
+            target: What to record (e.g., 'all', node_id, element_id, etc.)
+            dofs: List of DOFs to record (for Node recorders)
+            file_name: Output file name
+            time_interval: Time interval for recording
+        """
+        self.recorders[recorder_id] = {
+            "id": recorder_id,
+            "type": recorder_type,
+            "target": target,
+            "dofs": dofs or [],
+            "file_name": file_name or f"recorder_{recorder_id}.out",
+            "time_interval": time_interval or 0.0
+        }
+        self._mark_modified()
+        return recorder_id
+        
+    def add_transformation(self, transformation_id, transformation_type, properties=None):
+        """Add a geometric transformation to the project
+        
+        Args:
+            transformation_id: Unique identifier for the transformation
+            transformation_type: Type of transformation (e.g., 'Linear', 'PDelta', 'Corotational')
+            properties: Dictionary of transformation properties (e.g., {"vecxz": [1.0, 0.0, 0.0]})
+        """
+        self.transformations[transformation_id] = {
+            "id": transformation_id,
+            "type": transformation_type,
+            "properties": properties or {}
+        }
+        self._mark_modified()
+        return transformation_id
+        
+    def add_timeseries(self, timeseries_id, timeseries_type, properties=None):
+        """Add a timeseries to the project
+        
+        Args:
+            timeseries_id: Unique identifier for the timeseries
+            timeseries_type: Type of timeseries (e.g., 'Constant', 'Linear', 'Path', 'Sine')
+            properties: Dictionary of timeseries properties (depends on type)
+        """
+        self.timeseries[timeseries_id] = {
+            "id": timeseries_id,
+            "type": timeseries_type,
+            "properties": properties or {}
+        }
+        self._mark_modified()
+        return timeseries_id
+        
+    def add_pattern(self, pattern_id, pattern_type, timeseries_id=None, properties=None):
+        """Add a load pattern to the project
+        
+        Args:
+            pattern_id: Unique identifier for the pattern
+            pattern_type: Type of pattern (e.g., 'Plain', 'UniformExcitation', etc.)
+            timeseries_id: ID of the timeseries to use with this pattern
+            properties: Dictionary of pattern properties (depends on type)
+        """
+        self.patterns[pattern_id] = {
+            "id": pattern_id,
+            "type": pattern_type,
+            "timeseries": timeseries_id,
+            "properties": properties or {}
+        }
+        self._mark_modified()
+        return pattern_id
+        
     def to_dict(self):
         """Convert project to dictionary for serialization"""
         return {
@@ -178,6 +305,13 @@ class Project:
             "materials": self.materials,
             "boundary_conditions": self.boundary_conditions,
             "loads": self.loads,
+            "sections": self.sections,
+            "constraints": self.constraints,
+            "recorders": self.recorders,
+            "transformations": self.transformations,
+            "timeseries": self.timeseries,
+            "patterns": self.patterns,
+            "model_builder_params": self.model_builder_params,
             "analysis_settings": self.analysis_settings
         }
         
@@ -195,6 +329,17 @@ class Project:
         project.materials = data.get("materials", {})
         project.boundary_conditions = data.get("boundary_conditions", {})
         project.loads = data.get("loads", {})
+        project.sections = data.get("sections", {})
+        project.constraints = data.get("constraints", {})
+        project.recorders = data.get("recorders", {})
+        project.transformations = data.get("transformations", {})
+        project.timeseries = data.get("timeseries", {})
+        project.patterns = data.get("patterns", {})
+        project.model_builder_params = data.get("model_builder_params", {
+            "ndm": 3,
+            "ndf": 6,
+            "model_type": "basic"
+        })
         project.analysis_settings = data.get("analysis_settings", {})
         return project
         
@@ -330,3 +475,26 @@ class Project:
     def _mark_modified(self):
         """Mark the project as modified"""
         self.modified_at = datetime.datetime.now().isoformat() 
+
+    def update_model_builder_params(self, ndm=None, ndf=None, model_type=None):
+        """Update the model builder parameters for OpenSees export
+        
+        Args:
+            ndm: Number of dimensions (2 or 3)
+            ndf: Number of DOFs per node (typically 3 for 2D or 6 for 3D, but can vary)
+            model_type: Model type ('basic', 'quad', etc.)
+        
+        Returns:
+            The updated model_builder_params dictionary
+        """
+        if ndm is not None:
+            self.model_builder_params["ndm"] = ndm
+        
+        if ndf is not None:
+            self.model_builder_params["ndf"] = ndf
+            
+        if model_type is not None:
+            self.model_builder_params["model_type"] = model_type
+            
+        self._mark_modified()
+        return self.model_builder_params 
