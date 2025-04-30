@@ -24,20 +24,10 @@ class Project:
         self.modified_at = self.created_at
         self.file_path = None
         
-        # Model components
-        self.nodes = {}
-        self.elements = {}
-        self.materials = {}
-        self.boundary_conditions = {}
-        self.loads = {}
-        
-        # New model components
-        self.sections = {}
-        self.constraints = {}
-        self.recorders = {}
-        self.transformations = {}
-        self.timeseries = {}
-        self.patterns = {}
+        # Stages container
+        self.stages = {}
+        # Create default stage 0
+        self.create_stage(0, "Initial Stage")
         
         # Model builder parameters for OpenSees export
         self.model_builder_params = {
@@ -57,8 +47,121 @@ class Project:
         # Analysis results
         self.analysis_results = {}
         
-        # Don't automatically create sample data
-        # If you want sample data, call create_sample_data() explicitly
+        # For backward compatibility - direct access to stage 0 components
+        # These properties will access the corresponding attributes in stage 0
+        
+    @property
+    def nodes(self):
+        return self.stages[0]['nodes']
+        
+    @property
+    def elements(self):
+        return self.stages[0]['elements']
+        
+    @property
+    def materials(self):
+        return self.stages[0]['materials']
+        
+    @property
+    def boundary_conditions(self):
+        return self.stages[0]['boundary_conditions']
+        
+    @property
+    def loads(self):
+        return self.stages[0]['loads']
+        
+    @property
+    def sections(self):
+        return self.stages[0]['sections']
+        
+    @property
+    def constraints(self):
+        return self.stages[0]['constraints']
+        
+    @property
+    def recorders(self):
+        return self.stages[0]['recorders']
+        
+    @property
+    def transformations(self):
+        return self.stages[0]['transformations']
+        
+    @property
+    def timeseries(self):
+        return self.stages[0]['timeseries']
+        
+    @property
+    def patterns(self):
+        return self.stages[0]['patterns']
+        
+    def create_stage(self, stage_id, name=None):
+        """Create a new stage with the specified ID
+        
+        Args:
+            stage_id: The stage ID (integer)
+            name: Optional name for the stage (defaults to "Stage {stage_id}")
+            
+        Returns:
+            The created stage ID
+        """
+        if name is None:
+            name = f"Stage {stage_id}"
+            
+        # Create empty stage dictionary with all component collections
+        self.stages[stage_id] = {
+            'id': stage_id,
+            'name': name,
+            'nodes': {},
+            'elements': {},
+            'materials': {},
+            'boundary_conditions': {},
+            'loads': {},
+            'sections': {},
+            'constraints': {},
+            'recorders': {},
+            'transformations': {},
+            'timeseries': {},
+            'patterns': {}
+        }
+        
+        self._mark_modified()
+        return stage_id
+    
+    def propagate_stage(self, from_stage_id, to_stage_id, overwrite=False):
+        """Propagate (copy) model components from one stage to another
+        
+        Args:
+            from_stage_id: Source stage ID to copy from
+            to_stage_id: Destination stage ID to copy to
+            overwrite: If True, will overwrite existing components in the destination
+                      If False, will only add components that don't exist in the destination
+                      
+        Returns:
+            Boolean indicating success
+        """
+        if from_stage_id not in self.stages:
+            raise ValueError(f"Source stage {from_stage_id} does not exist")
+            
+        if to_stage_id not in self.stages:
+            raise ValueError(f"Destination stage {to_stage_id} does not exist")
+            
+        source = self.stages[from_stage_id]
+        destination = self.stages[to_stage_id]
+        
+        # Deep copy all components from source to destination
+        component_types = ['nodes', 'elements', 'materials', 'boundary_conditions', 
+                          'loads', 'sections', 'constraints', 'recorders',
+                          'transformations', 'timeseries', 'patterns']
+                          
+        for comp_type in component_types:
+            for comp_id, comp_data in source[comp_type].items():
+                # Only copy if it doesn't exist in destination or overwrite is True
+                if overwrite or comp_id not in destination[comp_type]:
+                    # Make a deep copy of the component data
+                    destination[comp_type][comp_id] = json.loads(json.dumps(comp_data))
+                    
+        self._mark_modified()
+        return True
         
     def create_sample_data(self):
         """Create sample nodes and elements for testing
@@ -125,9 +228,12 @@ class Project:
         for element_id in self.elements:
             self.elements[element_id]["material"] = 1
         
-    def add_node(self, node_id, x, y, z=0.0):
+    def add_node(self, node_id, x, y, z=0.0, stage_id=0):
         """Add a node to the project"""
-        self.nodes[node_id] = {
+        if stage_id not in self.stages:
+            raise ValueError(f"Stage {stage_id} does not exist")
+            
+        self.stages[stage_id]['nodes'][node_id] = {
             "id": node_id,
             "coordinates": [x, y, z],
             "mass": [0.0, 0.0, 0.0]
@@ -135,9 +241,12 @@ class Project:
         self._mark_modified()
         return node_id
         
-    def add_element(self, element_id, element_type, nodes, material_id=None, section_id=None):
+    def add_element(self, element_id, element_type, nodes, material_id=None, section_id=None, stage_id=0):
         """Add an element to the project"""
-        self.elements[element_id] = {
+        if stage_id not in self.stages:
+            raise ValueError(f"Stage {stage_id} does not exist")
+            
+        self.stages[stage_id]['elements'][element_id] = {
             "id": element_id,
             "type": element_type,
             "nodes": nodes,
@@ -147,9 +256,12 @@ class Project:
         self._mark_modified()
         return element_id
         
-    def add_material(self, material_id, material_type, properties):
+    def add_material(self, material_id, material_type, properties, stage_id=0):
         """Add a material to the project"""
-        self.materials[material_id] = {
+        if stage_id not in self.stages:
+            raise ValueError(f"Stage {stage_id} does not exist")
+            
+        self.stages[stage_id]['materials'][material_id] = {
             "id": material_id,
             "type": material_type,
             "properties": properties
@@ -157,9 +269,12 @@ class Project:
         self._mark_modified()
         return material_id
         
-    def add_boundary_condition(self, bc_id, node_id, dofs, values):
+    def add_boundary_condition(self, bc_id, node_id, dofs, values, stage_id=0):
         """Add a boundary condition to the project"""
-        self.boundary_conditions[bc_id] = {
+        if stage_id not in self.stages:
+            raise ValueError(f"Stage {stage_id} does not exist")
+            
+        self.stages[stage_id]['boundary_conditions'][bc_id] = {
             "id": bc_id,
             "node": node_id,
             "dofs": dofs,
@@ -168,9 +283,12 @@ class Project:
         self._mark_modified()
         return bc_id
         
-    def add_load(self, load_id, load_type, target_id, dofs, values):
+    def add_load(self, load_id, load_type, target_id, dofs, values, stage_id=0):
         """Add a load to the project"""
-        self.loads[load_id] = {
+        if stage_id not in self.stages:
+            raise ValueError(f"Stage {stage_id} does not exist")
+            
+        self.stages[stage_id]['loads'][load_id] = {
             "id": load_id,
             "type": load_type,
             "target": target_id,
@@ -180,9 +298,12 @@ class Project:
         self._mark_modified()
         return load_id
         
-    def add_section(self, section_id, section_type, properties):
+    def add_section(self, section_id, section_type, properties, stage_id=0):
         """Add a section to the project"""
-        self.sections[section_id] = {
+        if stage_id not in self.stages:
+            raise ValueError(f"Stage {stage_id} does not exist")
+            
+        self.stages[stage_id]['sections'][section_id] = {
             "id": section_id,
             "type": section_type,
             "properties": properties
@@ -190,7 +311,7 @@ class Project:
         self._mark_modified()
         return section_id
         
-    def add_constraint(self, constraint_id, constraint_type, properties):
+    def add_constraint(self, constraint_id, constraint_type, properties, stage_id=0):
         """Add a constraint to the project
         
         Args:
@@ -198,8 +319,12 @@ class Project:
             constraint_type: Type of constraint (e.g., 'equalDOF', 'rigidLink', etc.)
             properties: Dictionary of constraint properties (depends on type)
                 For example, for equalDOF: {"retained_node": 1, "constrained_node": 2, "dofs": [1, 2, 3]}
+            stage_id: Stage to add the constraint to
         """
-        self.constraints[constraint_id] = {
+        if stage_id not in self.stages:
+            raise ValueError(f"Stage {stage_id} does not exist")
+            
+        self.stages[stage_id]['constraints'][constraint_id] = {
             "id": constraint_id,
             "type": constraint_type,
             "properties": properties
@@ -207,20 +332,24 @@ class Project:
         self._mark_modified()
         return constraint_id
         
-    def update_node_mass(self, node_id, mass_values):
+    def update_node_mass(self, node_id, mass_values, stage_id=0):
         """Update the mass values for a node
         
         Args:
             node_id: ID of the node to update
             mass_values: List of mass values [mx, my, mz, mrx, mry, mrz]
+            stage_id: Stage containing the node
         """
-        if node_id in self.nodes:
-            self.nodes[node_id]["mass"] = mass_values
+        if stage_id not in self.stages:
+            raise ValueError(f"Stage {stage_id} does not exist")
+            
+        if node_id in self.stages[stage_id]['nodes']:
+            self.stages[stage_id]['nodes'][node_id]["mass"] = mass_values
             self._mark_modified()
             return node_id
         return None
         
-    def add_recorder(self, recorder_id, recorder_type, target, dofs=None, file_name=None, time_interval=None):
+    def add_recorder(self, recorder_id, recorder_type, target, dofs=None, file_name=None, time_interval=None, stage_id=0):
         """Add a recorder to the project
         
         Args:
@@ -230,8 +359,12 @@ class Project:
             dofs: List of DOFs to record (for Node recorders)
             file_name: Output file name
             time_interval: Time interval for recording
+            stage_id: Stage to add the recorder to
         """
-        self.recorders[recorder_id] = {
+        if stage_id not in self.stages:
+            raise ValueError(f"Stage {stage_id} does not exist")
+            
+        self.stages[stage_id]['recorders'][recorder_id] = {
             "id": recorder_id,
             "type": recorder_type,
             "target": target,
@@ -242,15 +375,19 @@ class Project:
         self._mark_modified()
         return recorder_id
         
-    def add_transformation(self, transformation_id, transformation_type, properties=None):
+    def add_transformation(self, transformation_id, transformation_type, properties=None, stage_id=0):
         """Add a geometric transformation to the project
         
         Args:
             transformation_id: Unique identifier for the transformation
             transformation_type: Type of transformation (e.g., 'Linear', 'PDelta', 'Corotational')
             properties: Dictionary of transformation properties (e.g., {"vecxz": [1.0, 0.0, 0.0]})
+            stage_id: Stage to add the transformation to
         """
-        self.transformations[transformation_id] = {
+        if stage_id not in self.stages:
+            raise ValueError(f"Stage {stage_id} does not exist")
+            
+        self.stages[stage_id]['transformations'][transformation_id] = {
             "id": transformation_id,
             "type": transformation_type,
             "properties": properties or {}
@@ -258,15 +395,19 @@ class Project:
         self._mark_modified()
         return transformation_id
         
-    def add_timeseries(self, timeseries_id, timeseries_type, properties=None):
+    def add_timeseries(self, timeseries_id, timeseries_type, properties=None, stage_id=0):
         """Add a timeseries to the project
         
         Args:
             timeseries_id: Unique identifier for the timeseries
             timeseries_type: Type of timeseries (e.g., 'Constant', 'Linear', 'Path', 'Sine')
             properties: Dictionary of timeseries properties (depends on type)
+            stage_id: Stage to add the timeseries to
         """
-        self.timeseries[timeseries_id] = {
+        if stage_id not in self.stages:
+            raise ValueError(f"Stage {stage_id} does not exist")
+            
+        self.stages[stage_id]['timeseries'][timeseries_id] = {
             "id": timeseries_id,
             "type": timeseries_type,
             "properties": properties or {}
@@ -274,7 +415,7 @@ class Project:
         self._mark_modified()
         return timeseries_id
         
-    def add_pattern(self, pattern_id, pattern_type, timeseries_id=None, properties=None):
+    def add_pattern(self, pattern_id, pattern_type, timeseries_id=None, properties=None, stage_id=0):
         """Add a load pattern to the project
         
         Args:
@@ -282,8 +423,12 @@ class Project:
             pattern_type: Type of pattern (e.g., 'Plain', 'UniformExcitation', etc.)
             timeseries_id: ID of the timeseries to use with this pattern
             properties: Dictionary of pattern properties (depends on type)
+            stage_id: Stage to add the pattern to
         """
-        self.patterns[pattern_id] = {
+        if stage_id not in self.stages:
+            raise ValueError(f"Stage {stage_id} does not exist")
+            
+        self.stages[stage_id]['patterns'][pattern_id] = {
             "id": pattern_id,
             "type": pattern_type,
             "timeseries": timeseries_id,
@@ -300,17 +445,7 @@ class Project:
             "description": self.description,
             "created_at": self.created_at,
             "modified_at": self.modified_at,
-            "nodes": self.nodes,
-            "elements": self.elements,
-            "materials": self.materials,
-            "boundary_conditions": self.boundary_conditions,
-            "loads": self.loads,
-            "sections": self.sections,
-            "constraints": self.constraints,
-            "recorders": self.recorders,
-            "transformations": self.transformations,
-            "timeseries": self.timeseries,
-            "patterns": self.patterns,
+            "stages": self.stages,
             "model_builder_params": self.model_builder_params,
             "analysis_settings": self.analysis_settings
         }
@@ -324,17 +459,29 @@ class Project:
         project.description = data.get("description", "")
         project.created_at = data.get("created_at", datetime.datetime.now().isoformat())
         project.modified_at = data.get("modified_at", project.created_at)
-        project.nodes = data.get("nodes", {})
-        project.elements = data.get("elements", {})
-        project.materials = data.get("materials", {})
-        project.boundary_conditions = data.get("boundary_conditions", {})
-        project.loads = data.get("loads", {})
-        project.sections = data.get("sections", {})
-        project.constraints = data.get("constraints", {})
-        project.recorders = data.get("recorders", {})
-        project.transformations = data.get("transformations", {})
-        project.timeseries = data.get("timeseries", {})
-        project.patterns = data.get("patterns", {})
+        
+        # Handle backwards compatibility for old format without stages
+        if "stages" in data:
+            project.stages = data.get("stages", {})
+        else:
+            # Convert old format to new format with a single stage 0
+            stage0 = {
+                'id': 0,
+                'name': 'Initial Stage',
+                'nodes': data.get("nodes", {}),
+                'elements': data.get("elements", {}),
+                'materials': data.get("materials", {}),
+                'boundary_conditions': data.get("boundary_conditions", {}),
+                'loads': data.get("loads", {}),
+                'sections': data.get("sections", {}),
+                'constraints': data.get("constraints", {}),
+                'recorders': data.get("recorders", {}),
+                'transformations': data.get("transformations", {}),
+                'timeseries': data.get("timeseries", {}),
+                'patterns': data.get("patterns", {})
+            }
+            project.stages = {0: stage0}
+        
         project.model_builder_params = data.get("model_builder_params", {
             "ndm": 3,
             "ndf": 6,

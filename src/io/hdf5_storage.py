@@ -68,148 +68,157 @@ class HDF5Storage:
             # Create model definition group
             model_group = project_group.create_group('ModelDefinition')
             
-            # Save nodes
-            if project.nodes:
-                nodes_group = model_group.create_group('Nodes')
-                for node_id, node in project.nodes.items():
-                    node_group = nodes_group.create_group(str(node_id))
-                    node_group.attrs['id'] = node_id
-                    node_group.create_dataset('coordinates', data=node['coordinates'])
-                    node_group.create_dataset('mass', data=node['mass'])
+            # Create stages group
+            stages_group = model_group.create_group('Stages')
             
-            # Save elements
-            if project.elements:
-                elements_group = model_group.create_group('Elements')
-                for element_id, element in project.elements.items():
-                    element_group = elements_group.create_group(str(element_id))
-                    element_group.attrs['id'] = element_id
-                    element_group.attrs['type'] = element['type']
-                    element_group.attrs['material'] = element.get('material', 0)
-                    element_group.attrs['section'] = element.get('section', 0)
-                    element_group.create_dataset('nodes', data=element['nodes'])
-            
-            # Save materials
-            if project.materials:
-                materials_group = model_group.create_group('Materials')
-                for material_id, material in project.materials.items():
-                    material_group = materials_group.create_group(str(material_id))
-                    material_group.attrs['id'] = material_id
-                    material_group.attrs['type'] = material['type']
-                    
-                    # Store properties as dataset
-                    for prop_name, prop_value in material['properties'].items():
-                        material_group.attrs[prop_name] = prop_value
-            
-            # Save sections
-            if project.sections:
-                sections_group = model_group.create_group('Sections')
-                for section_id, section in project.sections.items():
-                    section_group = sections_group.create_group(str(section_id))
-                    section_group.attrs['id'] = section_id
-                    section_group.attrs['type'] = section['type']
-                    
-                    # Store properties as attributes
-                    for prop_name, prop_value in section['properties'].items():
-                        section_group.attrs[prop_name] = prop_value
-            
-            # Save constraints
-            if project.constraints:
-                constraints_group = model_group.create_group('Constraints')
-                for constraint_id, constraint in project.constraints.items():
-                    constraint_group = constraints_group.create_group(str(constraint_id))
-                    constraint_group.attrs['id'] = constraint_id
-                    constraint_group.attrs['type'] = constraint['type']
-                    
-                    # Store properties in a subgroup
-                    properties_group = constraint_group.create_group('Properties')
-                    for prop_name, prop_value in constraint['properties'].items():
-                        if isinstance(prop_value, (list, tuple)):
-                            properties_group.create_dataset(prop_name, data=prop_value)
-                        else:
-                            properties_group.attrs[prop_name] = prop_value
-            
-            # Save recorders
-            if project.recorders:
-                recorders_group = model_group.create_group('Recorders')
-                for recorder_id, recorder in project.recorders.items():
-                    recorder_group = recorders_group.create_group(str(recorder_id))
-                    recorder_group.attrs['id'] = recorder_id
-                    recorder_group.attrs['type'] = recorder['type']
-                    recorder_group.attrs['target'] = recorder['target']
-                    recorder_group.attrs['file_name'] = recorder['file_name']
-                    recorder_group.attrs['time_interval'] = recorder['time_interval']
-                    
-                    if 'dofs' in recorder and recorder['dofs']:
-                        recorder_group.create_dataset('dofs', data=recorder['dofs'])
-            
-            # Save transformations
-            if project.transformations:
-                transformations_group = model_group.create_group('Transformations')
-                for transformation_id, transformation in project.transformations.items():
-                    transformation_group = transformations_group.create_group(str(transformation_id))
-                    transformation_group.attrs['id'] = transformation_id
-                    transformation_group.attrs['type'] = transformation['type']
-                    
-                    # Store properties as attributes
-                    for prop_name, prop_value in transformation['properties'].items():
-                        if isinstance(prop_value, (list, tuple)):
-                            transformation_group.create_dataset(prop_name, data=prop_value)
-                        else:
-                            transformation_group.attrs[prop_name] = prop_value
-            
-            # Save timeseries
-            if project.timeseries:
-                timeseries_group = model_group.create_group('Timeseries')
-                for timeseries_id, timeseries in project.timeseries.items():
-                    timeseries_group_item = timeseries_group.create_group(str(timeseries_id))
-                    timeseries_group_item.attrs['id'] = timeseries_id
-                    timeseries_group_item.attrs['type'] = timeseries['type']
-                    
-                    # Store properties as attributes or datasets
-                    for prop_name, prop_value in timeseries['properties'].items():
-                        if isinstance(prop_value, (list, tuple)):
-                            timeseries_group_item.create_dataset(prop_name, data=prop_value)
-                        else:
-                            timeseries_group_item.attrs[prop_name] = prop_value
-            
-            # Save patterns
-            if project.patterns:
-                patterns_group = model_group.create_group('Patterns')
-                for pattern_id, pattern in project.patterns.items():
-                    pattern_group = patterns_group.create_group(str(pattern_id))
-                    pattern_group.attrs['id'] = pattern_id
-                    pattern_group.attrs['type'] = pattern['type']
-                    
-                    if pattern['timeseries'] is not None:
-                        pattern_group.attrs['timeseries'] = pattern['timeseries']
-                    
-                    # Store properties as attributes or datasets
-                    for prop_name, prop_value in pattern['properties'].items():
-                        if isinstance(prop_value, (list, tuple)):
-                            pattern_group.create_dataset(prop_name, data=prop_value)
-                        else:
-                            pattern_group.attrs[prop_name] = prop_value
-            
-            # Save boundary conditions
-            if project.boundary_conditions:
-                bcs_group = model_group.create_group('BoundaryConditions')
-                for bc_id, bc in project.boundary_conditions.items():
-                    bc_group = bcs_group.create_group(str(bc_id))
-                    bc_group.attrs['id'] = bc_id
-                    bc_group.attrs['node'] = bc['node']
-                    bc_group.create_dataset('dofs', data=bc['dofs'])
-                    bc_group.create_dataset('values', data=bc['values'])
-            
-            # Save loads
-            if project.loads:
-                loads_group = model_group.create_group('Loads')
-                for load_id, load in project.loads.items():
-                    load_group = loads_group.create_group(str(load_id))
-                    load_group.attrs['id'] = load_id
-                    load_group.attrs['type'] = load['type']
-                    load_group.attrs['target'] = load['target']
-                    load_group.create_dataset('dofs', data=load['dofs'])
-                    load_group.create_dataset('values', data=load['values'])
+            # Save stages
+            for stage_id, stage_data in project.stages.items():
+                stage_group = stages_group.create_group(str(stage_id))
+                stage_group.attrs['id'] = stage_id
+                stage_group.attrs['name'] = stage_data['name']
+                
+                # Save nodes
+                if stage_data['nodes']:
+                    nodes_group = stage_group.create_group('Nodes')
+                    for node_id, node in stage_data['nodes'].items():
+                        node_group = nodes_group.create_group(str(node_id))
+                        node_group.attrs['id'] = node_id
+                        node_group.create_dataset('coordinates', data=node['coordinates'])
+                        node_group.create_dataset('mass', data=node['mass'])
+                
+                # Save elements
+                if stage_data['elements']:
+                    elements_group = stage_group.create_group('Elements')
+                    for element_id, element in stage_data['elements'].items():
+                        element_group = elements_group.create_group(str(element_id))
+                        element_group.attrs['id'] = element_id
+                        element_group.attrs['type'] = element['type']
+                        element_group.attrs['material'] = element.get('material', 0)
+                        element_group.attrs['section'] = element.get('section', 0)
+                        element_group.create_dataset('nodes', data=element['nodes'])
+                
+                # Save materials
+                if stage_data['materials']:
+                    materials_group = stage_group.create_group('Materials')
+                    for material_id, material in stage_data['materials'].items():
+                        material_group = materials_group.create_group(str(material_id))
+                        material_group.attrs['id'] = material_id
+                        material_group.attrs['type'] = material['type']
+                        
+                        # Store properties as dataset
+                        for prop_name, prop_value in material['properties'].items():
+                            material_group.attrs[prop_name] = prop_value
+                
+                # Save sections
+                if stage_data['sections']:
+                    sections_group = stage_group.create_group('Sections')
+                    for section_id, section in stage_data['sections'].items():
+                        section_group = sections_group.create_group(str(section_id))
+                        section_group.attrs['id'] = section_id
+                        section_group.attrs['type'] = section['type']
+                        
+                        # Store properties as attributes
+                        for prop_name, prop_value in section['properties'].items():
+                            section_group.attrs[prop_name] = prop_value
+                
+                # Save constraints
+                if stage_data['constraints']:
+                    constraints_group = stage_group.create_group('Constraints')
+                    for constraint_id, constraint in stage_data['constraints'].items():
+                        constraint_group = constraints_group.create_group(str(constraint_id))
+                        constraint_group.attrs['id'] = constraint_id
+                        constraint_group.attrs['type'] = constraint['type']
+                        
+                        # Store properties in a subgroup
+                        properties_group = constraint_group.create_group('Properties')
+                        for prop_name, prop_value in constraint['properties'].items():
+                            if isinstance(prop_value, (list, tuple)):
+                                properties_group.create_dataset(prop_name, data=prop_value)
+                            else:
+                                properties_group.attrs[prop_name] = prop_value
+                
+                # Save recorders
+                if stage_data['recorders']:
+                    recorders_group = stage_group.create_group('Recorders')
+                    for recorder_id, recorder in stage_data['recorders'].items():
+                        recorder_group = recorders_group.create_group(str(recorder_id))
+                        recorder_group.attrs['id'] = recorder_id
+                        recorder_group.attrs['type'] = recorder['type']
+                        recorder_group.attrs['target'] = recorder['target']
+                        recorder_group.attrs['file_name'] = recorder['file_name']
+                        recorder_group.attrs['time_interval'] = recorder['time_interval']
+                        
+                        if 'dofs' in recorder and recorder['dofs']:
+                            recorder_group.create_dataset('dofs', data=recorder['dofs'])
+                
+                # Save transformations
+                if stage_data['transformations']:
+                    transformations_group = stage_group.create_group('Transformations')
+                    for transformation_id, transformation in stage_data['transformations'].items():
+                        transformation_group = transformations_group.create_group(str(transformation_id))
+                        transformation_group.attrs['id'] = transformation_id
+                        transformation_group.attrs['type'] = transformation['type']
+                        
+                        # Store properties as attributes
+                        for prop_name, prop_value in transformation['properties'].items():
+                            if isinstance(prop_value, (list, tuple)):
+                                transformation_group.create_dataset(prop_name, data=prop_value)
+                            else:
+                                transformation_group.attrs[prop_name] = prop_value
+                
+                # Save timeseries
+                if stage_data['timeseries']:
+                    timeseries_group = stage_group.create_group('Timeseries')
+                    for timeseries_id, timeseries in stage_data['timeseries'].items():
+                        timeseries_group_item = timeseries_group.create_group(str(timeseries_id))
+                        timeseries_group_item.attrs['id'] = timeseries_id
+                        timeseries_group_item.attrs['type'] = timeseries['type']
+                        
+                        # Store properties as attributes or datasets
+                        for prop_name, prop_value in timeseries['properties'].items():
+                            if isinstance(prop_value, (list, tuple)):
+                                timeseries_group_item.create_dataset(prop_name, data=prop_value)
+                            else:
+                                timeseries_group_item.attrs[prop_name] = prop_value
+                
+                # Save patterns
+                if stage_data['patterns']:
+                    patterns_group = stage_group.create_group('Patterns')
+                    for pattern_id, pattern in stage_data['patterns'].items():
+                        pattern_group = patterns_group.create_group(str(pattern_id))
+                        pattern_group.attrs['id'] = pattern_id
+                        pattern_group.attrs['type'] = pattern['type']
+                        
+                        if pattern['timeseries'] is not None:
+                            pattern_group.attrs['timeseries'] = pattern['timeseries']
+                        
+                        # Store properties as attributes or datasets
+                        for prop_name, prop_value in pattern['properties'].items():
+                            if isinstance(prop_value, (list, tuple)):
+                                pattern_group.create_dataset(prop_name, data=prop_value)
+                            else:
+                                pattern_group.attrs[prop_name] = prop_value
+                
+                # Save boundary conditions
+                if stage_data['boundary_conditions']:
+                    bcs_group = stage_group.create_group('BoundaryConditions')
+                    for bc_id, bc in stage_data['boundary_conditions'].items():
+                        bc_group = bcs_group.create_group(str(bc_id))
+                        bc_group.attrs['id'] = bc_id
+                        bc_group.attrs['node'] = bc['node']
+                        bc_group.create_dataset('dofs', data=bc['dofs'])
+                        bc_group.create_dataset('values', data=bc['values'])
+                
+                # Save loads
+                if stage_data['loads']:
+                    loads_group = stage_group.create_group('Loads')
+                    for load_id, load in stage_data['loads'].items():
+                        load_group = loads_group.create_group(str(load_id))
+                        load_group.attrs['id'] = load_id
+                        load_group.attrs['type'] = load['type']
+                        load_group.attrs['target'] = load['target']
+                        load_group.create_dataset('dofs', data=load['dofs'])
+                        load_group.create_dataset('values', data=load['values'])
             
             # Save analysis settings as attributes
             settings_group = model_group.create_group('AnalysisSettings')
@@ -245,217 +254,451 @@ class HDF5Storage:
             
             model_group = project_group['ModelDefinition']
             
-            # Load nodes
-            if 'Nodes' in model_group:
-                nodes_group = model_group['Nodes']
-                for node_id in nodes_group:
-                    node_group = nodes_group[node_id]
-                    node_data = {
-                        'id': node_group.attrs['id'],
-                        'coordinates': node_group['coordinates'][()].tolist(),
-                        'mass': node_group['mass'][()].tolist()
-                    }
-                    project.nodes[int(node_id)] = node_data
+            # Clear the default stage 0
+            project.stages.clear()
             
-            # Load elements
-            if 'Elements' in model_group:
-                elements_group = model_group['Elements']
-                for element_id in elements_group:
-                    element_group = elements_group[element_id]
-                    element_data = {
-                        'id': element_group.attrs['id'],
-                        'type': element_group.attrs['type'],
-                        'material': element_group.attrs['material'],
-                        'section': element_group.attrs['section'],
-                        'nodes': element_group['nodes'][()].tolist()
-                    }
-                    project.elements[int(element_id)] = element_data
-            
-            # Load materials
-            if 'Materials' in model_group:
-                materials_group = model_group['Materials']
-                for material_id in materials_group:
-                    material_group = materials_group[material_id]
+            # Check if we have the new stages format
+            if 'Stages' in model_group:
+                # Load stages
+                stages_group = model_group['Stages']
+                for stage_id_str in stages_group:
+                    stage_group = stages_group[stage_id_str]
+                    stage_id = int(stage_id_str)
+                    stage_name = stage_group.attrs['name']
                     
-                    # Get properties from attributes
-                    properties = {}
-                    for key in material_group.attrs:
-                        if key not in ['id', 'type']:
-                            properties[key] = material_group.attrs[key]
+                    # Create the stage
+                    project.create_stage(stage_id, stage_name)
                     
-                    material_data = {
-                        'id': material_group.attrs['id'],
-                        'type': material_group.attrs['type'],
-                        'properties': properties
-                    }
-                    project.materials[int(material_id)] = material_data
-            
-            # Load sections
-            if 'Sections' in model_group:
-                sections_group = model_group['Sections']
-                for section_id in sections_group:
-                    section_group = sections_group[section_id]
+                    # Load nodes
+                    if 'Nodes' in stage_group:
+                        nodes_group = stage_group['Nodes']
+                        for node_id in nodes_group:
+                            node_group = nodes_group[node_id]
+                            node_data = {
+                                'id': node_group.attrs['id'],
+                                'coordinates': node_group['coordinates'][()].tolist(),
+                                'mass': node_group['mass'][()].tolist()
+                            }
+                            project.stages[stage_id]['nodes'][int(node_id)] = node_data
                     
-                    # Get properties from attributes
-                    properties = {}
-                    for key in section_group.attrs:
-                        if key not in ['id', 'type']:
-                            properties[key] = section_group.attrs[key]
+                    # Load elements
+                    if 'Elements' in stage_group:
+                        elements_group = stage_group['Elements']
+                        for element_id in elements_group:
+                            element_group = elements_group[element_id]
+                            element_data = {
+                                'id': element_group.attrs['id'],
+                                'type': element_group.attrs['type'],
+                                'material': element_group.attrs['material'],
+                                'section': element_group.attrs['section'],
+                                'nodes': element_group['nodes'][()].tolist()
+                            }
+                            project.stages[stage_id]['elements'][int(element_id)] = element_data
                     
-                    section_data = {
-                        'id': section_group.attrs['id'],
-                        'type': section_group.attrs['type'],
-                        'properties': properties
-                    }
-                    project.sections[int(section_id)] = section_data
-            
-            # Load constraints
-            if 'Constraints' in model_group:
-                constraints_group = model_group['Constraints']
-                for constraint_id in constraints_group:
-                    constraint_group = constraints_group[constraint_id]
+                    # Load materials
+                    if 'Materials' in stage_group:
+                        materials_group = stage_group['Materials']
+                        for material_id in materials_group:
+                            material_group = materials_group[material_id]
+                            
+                            # Get properties from attributes
+                            properties = {}
+                            for key in material_group.attrs:
+                                if key not in ['id', 'type']:
+                                    properties[key] = material_group.attrs[key]
+                            
+                            material_data = {
+                                'id': material_group.attrs['id'],
+                                'type': material_group.attrs['type'],
+                                'properties': properties
+                            }
+                            project.stages[stage_id]['materials'][int(material_id)] = material_data
                     
-                    # Get properties from the properties subgroup
-                    properties = {}
-                    if 'Properties' in constraint_group:
-                        properties_group = constraint_group['Properties']
+                    # Load sections
+                    if 'Sections' in stage_group:
+                        sections_group = stage_group['Sections']
+                        for section_id in sections_group:
+                            section_group = sections_group[section_id]
+                            
+                            # Get properties from attributes
+                            properties = {}
+                            for key in section_group.attrs:
+                                if key not in ['id', 'type']:
+                                    properties[key] = section_group.attrs[key]
+                            
+                            section_data = {
+                                'id': section_group.attrs['id'],
+                                'type': section_group.attrs['type'],
+                                'properties': properties
+                            }
+                            project.stages[stage_id]['sections'][int(section_id)] = section_data
+                    
+                    # Load constraints
+                    if 'Constraints' in stage_group:
+                        constraints_group = stage_group['Constraints']
+                        for constraint_id in constraints_group:
+                            constraint_group = constraints_group[constraint_id]
+                            
+                            # Get properties from the properties subgroup
+                            properties = {}
+                            if 'Properties' in constraint_group:
+                                properties_group = constraint_group['Properties']
+                                
+                                # Get attributes
+                                for key in properties_group.attrs:
+                                    properties[key] = properties_group.attrs[key]
+                                
+                                # Get datasets
+                                for key in properties_group:
+                                    if key not in properties:  # Skip if already loaded as attribute
+                                        properties[key] = properties_group[key][()].tolist()
+                            
+                            constraint_data = {
+                                'id': constraint_group.attrs['id'],
+                                'type': constraint_group.attrs['type'],
+                                'properties': properties
+                            }
+                            project.stages[stage_id]['constraints'][int(constraint_id)] = constraint_data
+                    
+                    # Load recorders
+                    if 'Recorders' in stage_group:
+                        recorders_group = stage_group['Recorders']
+                        for recorder_id in recorders_group:
+                            recorder_group = recorders_group[recorder_id]
+                            
+                            recorder_data = {
+                                'id': recorder_group.attrs['id'],
+                                'type': recorder_group.attrs['type'],
+                                'target': recorder_group.attrs['target'],
+                                'file_name': recorder_group.attrs['file_name'],
+                                'time_interval': recorder_group.attrs['time_interval'],
+                                'dofs': []
+                            }
+                            
+                            # Load DOFs if present
+                            if 'dofs' in recorder_group:
+                                recorder_data['dofs'] = recorder_group['dofs'][()].tolist()
+                            
+                            project.stages[stage_id]['recorders'][int(recorder_id)] = recorder_data
+                    
+                    # Load transformations
+                    if 'Transformations' in stage_group:
+                        transformations_group = stage_group['Transformations']
+                        for transformation_id in transformations_group:
+                            transformation_group = transformations_group[transformation_id]
+                            
+                            # Get properties
+                            properties = {}
+                            for key in transformation_group.attrs:
+                                if key not in ['id', 'type']:
+                                    properties[key] = transformation_group.attrs[key]
+                            
+                            # Get datasets as properties
+                            for key in transformation_group:
+                                if key not in ['id', 'type']:
+                                    properties[key] = transformation_group[key][()].tolist()
+                            
+                            transformation_data = {
+                                'id': transformation_group.attrs['id'],
+                                'type': transformation_group.attrs['type'],
+                                'properties': properties
+                            }
+                            project.stages[stage_id]['transformations'][int(transformation_id)] = transformation_data
+                    
+                    # Load timeseries
+                    if 'Timeseries' in stage_group:
+                        timeseries_group = stage_group['Timeseries']
+                        for timeseries_id in timeseries_group:
+                            timeseries_group_item = timeseries_group[timeseries_id]
+                            
+                            # Get properties
+                            properties = {}
+                            for key in timeseries_group_item.attrs:
+                                if key not in ['id', 'type']:
+                                    properties[key] = timeseries_group_item.attrs[key]
+                            
+                            # Get datasets as properties
+                            for key in timeseries_group_item:
+                                if key not in ['id', 'type']:
+                                    properties[key] = timeseries_group_item[key][()].tolist()
+                            
+                            timeseries_data = {
+                                'id': timeseries_group_item.attrs['id'],
+                                'type': timeseries_group_item.attrs['type'],
+                                'properties': properties
+                            }
+                            project.stages[stage_id]['timeseries'][int(timeseries_id)] = timeseries_data
+                    
+                    # Load patterns
+                    if 'Patterns' in stage_group:
+                        patterns_group = stage_group['Patterns']
+                        for pattern_id in patterns_group:
+                            pattern_group = patterns_group[pattern_id]
+                            
+                            # Get properties
+                            properties = {}
+                            for key in pattern_group.attrs:
+                                if key not in ['id', 'type', 'timeseries']:
+                                    properties[key] = pattern_group.attrs[key]
+                            
+                            # Get datasets as properties
+                            for key in pattern_group:
+                                if key not in ['id', 'type', 'timeseries']:
+                                    properties[key] = pattern_group[key][()].tolist()
+                            
+                            pattern_data = {
+                                'id': pattern_group.attrs['id'],
+                                'type': pattern_group.attrs['type'],
+                                'timeseries': pattern_group.attrs.get('timeseries', None),
+                                'properties': properties
+                            }
+                            project.stages[stage_id]['patterns'][int(pattern_id)] = pattern_data
+                    
+                    # Load boundary conditions
+                    if 'BoundaryConditions' in stage_group:
+                        bcs_group = stage_group['BoundaryConditions']
+                        for bc_id in bcs_group:
+                            bc_group = bcs_group[bc_id]
+                            bc_data = {
+                                'id': bc_group.attrs['id'],
+                                'node': bc_group.attrs['node'],
+                                'dofs': bc_group['dofs'][()].tolist(),
+                                'values': bc_group['values'][()].tolist()
+                            }
+                            project.stages[stage_id]['boundary_conditions'][int(bc_id)] = bc_data
+                    
+                    # Load loads
+                    if 'Loads' in stage_group:
+                        loads_group = stage_group['Loads']
+                        for load_id in loads_group:
+                            load_group = loads_group[load_id]
+                            load_data = {
+                                'id': load_group.attrs['id'],
+                                'type': load_group.attrs['type'],
+                                'target': load_group.attrs['target'],
+                                'dofs': load_group['dofs'][()].tolist(),
+                                'values': load_group['values'][()].tolist()
+                            }
+                            project.stages[stage_id]['loads'][int(load_id)] = load_data
+            else:
+                # Handle the old format - load everything into stage 0
+                stage_id = 0
+                stage_name = "Initial Stage"
+                
+                # Create the default stage
+                project.create_stage(stage_id, stage_name)
+                
+                # Load nodes
+                if 'Nodes' in model_group:
+                    nodes_group = model_group['Nodes']
+                    for node_id in nodes_group:
+                        node_group = nodes_group[node_id]
+                        node_data = {
+                            'id': node_group.attrs['id'],
+                            'coordinates': node_group['coordinates'][()].tolist(),
+                            'mass': node_group['mass'][()].tolist()
+                        }
+                        project.stages[stage_id]['nodes'][int(node_id)] = node_data
+                
+                # Load elements
+                if 'Elements' in model_group:
+                    elements_group = model_group['Elements']
+                    for element_id in elements_group:
+                        element_group = elements_group[element_id]
+                        element_data = {
+                            'id': element_group.attrs['id'],
+                            'type': element_group.attrs['type'],
+                            'material': element_group.attrs['material'],
+                            'section': element_group.attrs['section'],
+                            'nodes': element_group['nodes'][()].tolist()
+                        }
+                        project.stages[stage_id]['elements'][int(element_id)] = element_data
+                
+                # Load materials
+                if 'Materials' in model_group:
+                    materials_group = model_group['Materials']
+                    for material_id in materials_group:
+                        material_group = materials_group[material_id]
                         
-                        # Get attributes
-                        for key in properties_group.attrs:
-                            properties[key] = properties_group.attrs[key]
+                        # Get properties from attributes
+                        properties = {}
+                        for key in material_group.attrs:
+                            if key not in ['id', 'type']:
+                                properties[key] = material_group.attrs[key]
                         
-                        # Get datasets
-                        for key in properties_group:
-                            if key not in properties:  # Skip if already loaded as attribute
-                                properties[key] = properties_group[key][()].tolist()
-                    
-                    constraint_data = {
-                        'id': constraint_group.attrs['id'],
-                        'type': constraint_group.attrs['type'],
-                        'properties': properties
-                    }
-                    project.constraints[int(constraint_id)] = constraint_data
-            
-            # Load recorders
-            if 'Recorders' in model_group:
-                recorders_group = model_group['Recorders']
-                for recorder_id in recorders_group:
-                    recorder_group = recorders_group[recorder_id]
-                    
-                    recorder_data = {
-                        'id': recorder_group.attrs['id'],
-                        'type': recorder_group.attrs['type'],
-                        'target': recorder_group.attrs['target'],
-                        'file_name': recorder_group.attrs['file_name'],
-                        'time_interval': recorder_group.attrs['time_interval'],
-                        'dofs': []
-                    }
-                    
-                    # Load DOFs if present
-                    if 'dofs' in recorder_group:
-                        recorder_data['dofs'] = recorder_group['dofs'][()].tolist()
-                    
-                    project.recorders[int(recorder_id)] = recorder_data
-            
-            # Load transformations
-            if 'Transformations' in model_group:
-                transformations_group = model_group['Transformations']
-                for transformation_id in transformations_group:
-                    transformation_group = transformations_group[transformation_id]
-                    
-                    # Get properties
-                    properties = {}
-                    for key in transformation_group.attrs:
-                        if key not in ['id', 'type']:
-                            properties[key] = transformation_group.attrs[key]
-                    
-                    # Get datasets as properties
-                    for key in transformation_group:
-                        if key not in ['id', 'type']:
-                            properties[key] = transformation_group[key][()].tolist()
-                    
-                    transformation_data = {
-                        'id': transformation_group.attrs['id'],
-                        'type': transformation_group.attrs['type'],
-                        'properties': properties
-                    }
-                    project.transformations[int(transformation_id)] = transformation_data
-            
-            # Load timeseries
-            if 'Timeseries' in model_group:
-                timeseries_group = model_group['Timeseries']
-                for timeseries_id in timeseries_group:
-                    timeseries_group_item = timeseries_group[timeseries_id]
-                    
-                    # Get properties
-                    properties = {}
-                    for key in timeseries_group_item.attrs:
-                        if key not in ['id', 'type']:
-                            properties[key] = timeseries_group_item.attrs[key]
-                    
-                    # Get datasets as properties
-                    for key in timeseries_group_item:
-                        if key not in ['id', 'type']:
-                            properties[key] = timeseries_group_item[key][()].tolist()
-                    
-                    timeseries_data = {
-                        'id': timeseries_group_item.attrs['id'],
-                        'type': timeseries_group_item.attrs['type'],
-                        'properties': properties
-                    }
-                    project.timeseries[int(timeseries_id)] = timeseries_data
-            
-            # Load patterns
-            if 'Patterns' in model_group:
-                patterns_group = model_group['Patterns']
-                for pattern_id in patterns_group:
-                    pattern_group = patterns_group[pattern_id]
-                    
-                    # Get properties
-                    properties = {}
-                    for key in pattern_group.attrs:
-                        if key not in ['id', 'type', 'timeseries']:
-                            properties[key] = pattern_group.attrs[key]
-                    
-                    # Get datasets as properties
-                    for key in pattern_group:
-                        if key not in ['id', 'type', 'timeseries']:
-                            properties[key] = pattern_group[key][()].tolist()
-                    
-                    pattern_data = {
-                        'id': pattern_group.attrs['id'],
-                        'type': pattern_group.attrs['type'],
-                        'timeseries': pattern_group.attrs.get('timeseries', None),
-                        'properties': properties
-                    }
-                    project.patterns[int(pattern_id)] = pattern_data
-            
-            # Load boundary conditions
-            if 'BoundaryConditions' in model_group:
-                bcs_group = model_group['BoundaryConditions']
-                for bc_id in bcs_group:
-                    bc_group = bcs_group[bc_id]
-                    bc_data = {
-                        'id': bc_group.attrs['id'],
-                        'node': bc_group.attrs['node'],
-                        'dofs': bc_group['dofs'][()].tolist(),
-                        'values': bc_group['values'][()].tolist()
-                    }
-                    project.boundary_conditions[int(bc_id)] = bc_data
-            
-            # Load loads
-            if 'Loads' in model_group:
-                loads_group = model_group['Loads']
-                for load_id in loads_group:
-                    load_group = loads_group[load_id]
-                    load_data = {
-                        'id': load_group.attrs['id'],
-                        'type': load_group.attrs['type'],
-                        'target': load_group.attrs['target'],
-                        'dofs': load_group['dofs'][()].tolist(),
-                        'values': load_group['values'][()].tolist()
-                    }
-                    project.loads[int(load_id)] = load_data
+                        material_data = {
+                            'id': material_group.attrs['id'],
+                            'type': material_group.attrs['type'],
+                            'properties': properties
+                        }
+                        project.stages[stage_id]['materials'][int(material_id)] = material_data
+                
+                # Load sections
+                if 'Sections' in model_group:
+                    sections_group = model_group['Sections']
+                    for section_id in sections_group:
+                        section_group = sections_group[section_id]
+                        
+                        # Get properties from attributes
+                        properties = {}
+                        for key in section_group.attrs:
+                            if key not in ['id', 'type']:
+                                properties[key] = section_group.attrs[key]
+                        
+                        section_data = {
+                            'id': section_group.attrs['id'],
+                            'type': section_group.attrs['type'],
+                            'properties': properties
+                        }
+                        project.stages[stage_id]['sections'][int(section_id)] = section_data
+                
+                # Load constraints
+                if 'Constraints' in model_group:
+                    constraints_group = model_group['Constraints']
+                    for constraint_id in constraints_group:
+                        constraint_group = constraints_group[constraint_id]
+                        
+                        # Get properties from the properties subgroup
+                        properties = {}
+                        if 'Properties' in constraint_group:
+                            properties_group = constraint_group['Properties']
+                            
+                            # Get attributes
+                            for key in properties_group.attrs:
+                                properties[key] = properties_group.attrs[key]
+                            
+                            # Get datasets
+                            for key in properties_group:
+                                if key not in properties:  # Skip if already loaded as attribute
+                                    properties[key] = properties_group[key][()].tolist()
+                        
+                        constraint_data = {
+                            'id': constraint_group.attrs['id'],
+                            'type': constraint_group.attrs['type'],
+                            'properties': properties
+                        }
+                        project.stages[stage_id]['constraints'][int(constraint_id)] = constraint_data
+                
+                # Load recorders
+                if 'Recorders' in model_group:
+                    recorders_group = model_group['Recorders']
+                    for recorder_id in recorders_group:
+                        recorder_group = recorders_group[recorder_id]
+                        
+                        recorder_data = {
+                            'id': recorder_group.attrs['id'],
+                            'type': recorder_group.attrs['type'],
+                            'target': recorder_group.attrs['target'],
+                            'file_name': recorder_group.attrs['file_name'],
+                            'time_interval': recorder_group.attrs['time_interval'],
+                            'dofs': []
+                        }
+                        
+                        # Load DOFs if present
+                        if 'dofs' in recorder_group:
+                            recorder_data['dofs'] = recorder_group['dofs'][()].tolist()
+                        
+                        project.stages[stage_id]['recorders'][int(recorder_id)] = recorder_data
+                
+                # Load transformations
+                if 'Transformations' in model_group:
+                    transformations_group = model_group['Transformations']
+                    for transformation_id in transformations_group:
+                        transformation_group = transformations_group[transformation_id]
+                        
+                        # Get properties
+                        properties = {}
+                        for key in transformation_group.attrs:
+                            if key not in ['id', 'type']:
+                                properties[key] = transformation_group.attrs[key]
+                        
+                        # Get datasets as properties
+                        for key in transformation_group:
+                            if key not in ['id', 'type']:
+                                properties[key] = transformation_group[key][()].tolist()
+                        
+                        transformation_data = {
+                            'id': transformation_group.attrs['id'],
+                            'type': transformation_group.attrs['type'],
+                            'properties': properties
+                        }
+                        project.stages[stage_id]['transformations'][int(transformation_id)] = transformation_data
+                
+                # Load timeseries
+                if 'Timeseries' in model_group:
+                    timeseries_group = model_group['Timeseries']
+                    for timeseries_id in timeseries_group:
+                        timeseries_group_item = timeseries_group[timeseries_id]
+                        
+                        # Get properties
+                        properties = {}
+                        for key in timeseries_group_item.attrs:
+                            if key not in ['id', 'type']:
+                                properties[key] = timeseries_group_item.attrs[key]
+                        
+                        # Get datasets as properties
+                        for key in timeseries_group_item:
+                            if key not in ['id', 'type']:
+                                properties[key] = timeseries_group_item[key][()].tolist()
+                        
+                        timeseries_data = {
+                            'id': timeseries_group_item.attrs['id'],
+                            'type': timeseries_group_item.attrs['type'],
+                            'properties': properties
+                        }
+                        project.stages[stage_id]['timeseries'][int(timeseries_id)] = timeseries_data
+                
+                # Load patterns
+                if 'Patterns' in model_group:
+                    patterns_group = model_group['Patterns']
+                    for pattern_id in patterns_group:
+                        pattern_group = patterns_group[pattern_id]
+                        
+                        # Get properties
+                        properties = {}
+                        for key in pattern_group.attrs:
+                            if key not in ['id', 'type', 'timeseries']:
+                                properties[key] = pattern_group.attrs[key]
+                        
+                        # Get datasets as properties
+                        for key in pattern_group:
+                            if key not in ['id', 'type', 'timeseries']:
+                                properties[key] = pattern_group[key][()].tolist()
+                        
+                        pattern_data = {
+                            'id': pattern_group.attrs['id'],
+                            'type': pattern_group.attrs['type'],
+                            'timeseries': pattern_group.attrs.get('timeseries', None),
+                            'properties': properties
+                        }
+                        project.stages[stage_id]['patterns'][int(pattern_id)] = pattern_data
+                
+                # Load boundary conditions
+                if 'BoundaryConditions' in model_group:
+                    bcs_group = model_group['BoundaryConditions']
+                    for bc_id in bcs_group:
+                        bc_group = bcs_group[bc_id]
+                        bc_data = {
+                            'id': bc_group.attrs['id'],
+                            'node': bc_group.attrs['node'],
+                            'dofs': bc_group['dofs'][()].tolist(),
+                            'values': bc_group['values'][()].tolist()
+                        }
+                        project.stages[stage_id]['boundary_conditions'][int(bc_id)] = bc_data
+                
+                # Load loads
+                if 'Loads' in model_group:
+                    loads_group = model_group['Loads']
+                    for load_id in loads_group:
+                        load_group = loads_group[load_id]
+                        load_data = {
+                            'id': load_group.attrs['id'],
+                            'type': load_group.attrs['type'],
+                            'target': load_group.attrs['target'],
+                            'dofs': load_group['dofs'][()].tolist(),
+                            'values': load_group['values'][()].tolist()
+                        }
+                        project.stages[stage_id]['loads'][int(load_id)] = load_data
             
             # Load analysis settings
             if 'AnalysisSettings' in model_group:
