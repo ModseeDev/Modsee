@@ -53,6 +53,10 @@ def start_application():
     # Import core components
     from core.integration import Integration
     
+    # Import UI components
+    from ui.main_window import MainWindow
+    from ui.dock_widgets import ModelExplorerWidget, PropertiesWidget, ConsoleWidget
+    
     # Create QApplication
     app = QtWidgets.QApplication(sys.argv)
     app.setApplicationName("Modsee")
@@ -63,18 +67,25 @@ def start_application():
     app_manager = Integration.setup_application()
     
     # Create main window
-    # TODO: Import the actual main window class
-    # from ui.main_window import MainWindow
-    # window = MainWindow(app_manager)
+    window = MainWindow(app_manager)
     
-    # Temporary placeholder window
-    window = QtWidgets.QMainWindow()
-    window.setWindowTitle("Modsee")
-    window.resize(1200, 800)
+    # Create dock widgets
+    model_manager = app_manager.get_component('model_manager')
     
-    label = QtWidgets.QLabel("Modsee is under development.\nThis is a placeholder UI.")
-    label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-    window.setCentralWidget(label)
+    model_explorer = ModelExplorerWidget(model_manager)
+    window.model_explorer_dock.setWidget(model_explorer)
+    
+    properties = PropertiesWidget(model_manager)
+    window.properties_dock.setWidget(properties)
+    
+    console = ConsoleWidget()
+    window.console_dock.setWidget(console)
+    
+    # Register views with view manager
+    view_manager = app_manager.get_component('view_manager')
+    view_manager.register_view('model_explorer', model_explorer)
+    view_manager.register_view('properties', properties)
+    view_manager.register_view('console', console)
     
     # Setup main window with components
     Integration.setup_main_window(app_manager, window)
@@ -84,6 +95,10 @@ def start_application():
     
     # Show window
     window.show()
+    
+    # Log to console
+    if hasattr(console, 'log'):
+        console.log("Application initialized and ready.")
     
     # Run application
     return app.exec()

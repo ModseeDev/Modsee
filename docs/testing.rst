@@ -33,6 +33,10 @@ Core Infrastructure
      - Unit tests for ApplicationManager, Component interfaces, ModelManager, ViewManager, FileService, and Integration
      - ``tests/unit/test_core_architecture.py``
      - Implemented
+   * - Main Window and Dock Panels
+     - Unit tests for MainWindow and dock panel widgets
+     - ``tests/unit/test_main_window.py``
+     - Partial Implementation
 
 Running Tests
 -----------
@@ -51,6 +55,7 @@ To run specific test files:
    python -m unittest tests/unit/test_basic_window.py
    python -m unittest tests/integration/test_app_launch.py
    python -m unittest tests/unit/test_core_architecture.py
+   python -m unittest tests/unit/test_main_window.py
 
 Future Test Coverage
 -----------------
@@ -58,10 +63,22 @@ Future Test Coverage
 The following components still need test coverage:
 
 1. VTK integration
-2. Model Explorer panel
-3. Properties Editor panel
+2. Model Explorer panel functionality
+3. Properties Editor panel functionality
 4. Project file operations
 5. Splash screen UI
+
+Testing Challenges
+-----------------
+
+GUI testing presents some challenges:
+
+1. **QApplication Requirements:** Qt requires a QApplication instance before creating widgets, making unit testing challenging. Solutions include:
+   - Using mock objects for UI components
+   - Running tests with a real QApplication in a headless environment
+   - Separating UI logic from business logic to minimize UI testing
+
+2. **Event Loop:** GUI testing often requires interaction with the Qt event loop, which can be difficult to simulate in unit tests.
 
 Test Strategy
 -----------
@@ -69,7 +86,7 @@ Test Strategy
 1. **Unit Tests**: Test individual components in isolation
 2. **Integration Tests**: Test interaction between components
 3. **System Tests**: Test the entire application as a black box
-4. **GUI Tests**: Test user interface components and user interactions
+4. **UI Tests**: Test basic UI instantiation and high-level functionality
 
 Dependencies
 ----------

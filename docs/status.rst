@@ -19,9 +19,9 @@ This document tracks the implementation progress of Modsee.
      - Core architecture implemented with ApplicationManager, Component hierarchy, ModelManager, ViewManager, FileService, and Integration utility
      - None
    * - CORE-002
-     - In Progress
-     - Basic PyQt6 main window implemented with placeholder UI
-     - Implement dockable panels and layout management
+     - Completed
+     - Implemented PyQt6 main window with dockable panels for Model Explorer, Properties, and Console. Added menu structure and file operations.
+     - None
    * - CORE-007
      - In Progress
      - Dependency checking implemented for PyQt6 and VTK
@@ -42,6 +42,12 @@ Recently Completed Work
    - ViewManager for UI views and panels
    - FileService for file operations
    - Integration utility for connecting components
+7. Implemented PyQt6 main window with dockable panels:
+   - Model Explorer panel
+   - Properties panel
+   - Console panel
+   - Menu structure with File, Edit, View, and Help menus
+   - File operations (New, Open, Save, Save As)
 
 Current Blockers
 -------------
@@ -51,6 +57,7 @@ None currently.
 Next Steps
 --------
 
-1. Complete CORE-002 by implementing dockable panels
-2. Complete CORE-007 by implementing a proper splash screen
-3. Start work on CORE-003 for VTK integration 
+1. Complete CORE-007 by implementing a proper splash screen
+2. Start work on CORE-003 for VTK integration
+3. Implement Model Explorer functionality (CORE-004)
+4. Implement Properties Editor functionality (CORE-005) 

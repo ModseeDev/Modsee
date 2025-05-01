@@ -21,7 +21,7 @@ Core Infrastructure
      - High
    * - CORE-002
      - Implement PyQt6 main window with dockable panels
-     - In Progress
+     - Completed
      - High
    * - CORE-003
      - Setup VTK integration for 3D rendering
