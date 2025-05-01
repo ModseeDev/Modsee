@@ -17,11 +17,11 @@ Core Infrastructure
      - Priority
    * - CORE-001
      - Establish project structure and core architecture components
-     - Not Started
+     - In Progress
      - High
    * - CORE-002
      - Implement PyQt6 main window with dockable panels
-     - Not Started
+     - In Progress
      - High
    * - CORE-003
      - Setup VTK integration for 3D rendering
@@ -41,7 +41,7 @@ Core Infrastructure
      - High
    * - CORE-007
      - Develop splash screen and dependency checker
-     - Not Started
+     - In Progress
      - Medium
 
 Model Components

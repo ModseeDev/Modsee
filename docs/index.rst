@@ -10,7 +10,7 @@ Welcome to Modsee's documentation!
    api
    architecture
    technical
-   ../tasks/tasks
+   tasks/tasks
 
 Indices and tables
 ==================

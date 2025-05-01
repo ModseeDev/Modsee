@@ -27,12 +27,100 @@ Stay tuned for early alpha releases and development milestones!
 
 ---
 
+## 📂 Project Structure
+
+```
+├── core/               # Core application framework
+│   ├── app.py          # Application entry point and initialization
+│   ├── config.py       # Configuration management
+│   └── errors.py       # Centralized error handling
+├── model/              # Model domain classes
+│   ├── __init__.py     # Package initialization
+│   ├── nodes.py        # Node definitions
+│   ├── base/           # Core model abstractions
+│   │   ├── __init__.py # Package initialization
+│   │   ├── core.py     # Base model types and interfaces
+│   │   ├── registry.py # Object registry system
+│   │   └── manager.py  # Model manager
+│   ├── elements/       # Element type implementations
+│   │   ├── __init__.py # Package initialization
+│   │   └── base.py     # Base element class
+│   ├── materials/      # Material model implementations
+│   │   ├── __init__.py # Package initialization
+│   │   └── base.py     # Base material class
+│   └── sections/       # Section property definitions
+│       ├── __init__.py # Package initialization
+│       └── base.py     # Base section class
+├── ui/                 # User interface components
+│   ├── main_window.py  # Main application window
+│   ├── explorer.py     # Model explorer panel
+│   ├── properties.py   # Properties editor panel
+│   ├── console.py      # Console output panel
+│   ├── renderer/       # 3D visualization components
+│   └── resources/      # UI resources (icons, styles, fonts)
+├── io/                 # Input/output operations
+│   ├── project.py      # Project file (.msee) management
+│   ├── exporters/      # OpenSees code exporters
+│   ├── importers/      # Model importers
+│   └── results.py      # HDF5 results handling
+├── utils/              # Utility functions and helpers
+│   ├── math.py         # Mathematical utilities
+│   ├── validators.py   # Input validation
+│   └── conversions.py  # Unit and format conversions
+├── plugins/            # Plugin system for extensions
+│   └── plugin_loader.py # Plugin discovery and loading
+├── tests/              # Test suite
+│   ├── unit/           # Unit tests
+│   └── integration/    # Integration tests
+├── docs/               # Documentation
+│   ├── architecture.rst # System architecture
+│   ├── technical.rst   # Technical specifications
+│   └── tasks/          # Development tasks and roadmap
+├── examples/           # Example models and tutorials
+├── requirements.txt    # Project dependencies
+└── main.py             # Application entry point
+```
+
+This structure follows a modular design that enables easy extension of model components through dedicated directories for elements, materials, and sections.
+
+---
+
 ## 🚀 Goals
 
 - Eliminate the complexity of manual OpenSees model scripting
 - Provide an accessible tool for students, researchers, and engineers
 - Support structural, geotechnical, and soil-structure interaction modeling
 - Foster a strong, community-driven open-source ecosystem
+
+---
+
+## 🛠️ Installation
+
+1. Clone the repository:
+   ```
+   git clone https://github.com/yourusername/modsee.git
+   cd modsee
+   ```
+
+2. Install dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+
+3. Run the application:
+   ```
+   python main.py
+   ```
+
+### Requirements
+
+- Python 3.9 or later
+- PyQt6 for the GUI
+- VTK for 3D visualization
+- NumPy for numerical operations
+- h5py for HDF5 file support
+
+See `requirements.txt` for detailed version requirements.
 
 ---
 

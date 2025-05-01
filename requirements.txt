@@ -1,0 +1,17 @@
+# Modsee - Core Dependencies
+PyQt6>=6.5.0         # GUI framework
+vtk>=9.2.0           # 3D visualization toolkit
+numpy>=1.22.0        # Numerical operations
+h5py>=3.7.0          # HDF5 file format support
+
+# Additional utilities
+setuptools>=65.0.0   # Package management
+pytest>=7.3.1        # Testing framework
+sphinx>=7.1.0        # Documentation
+sphinx-rtd-theme>=1.2.0  # Documentation theme
+sphinxcontrib-mermaid>=0.8.1  # Mermaid diagrams in Sphinx documentation
+
+# OpenSees integration
+# Note: OpenSeesPy is optional for running analyses directly
+# Uncomment the following line if you want to run analyses without exporting to TCL
+# openseespy>=3.4.0 
