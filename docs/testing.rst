@@ -29,6 +29,10 @@ Core Infrastructure
      - Integration test for application launch
      - ``tests/integration/test_app_launch.py``
      - Implemented
+   * - Core Architecture
+     - Unit tests for ApplicationManager, Component interfaces, ModelManager, ViewManager, FileService, and Integration
+     - ``tests/unit/test_core_architecture.py``
+     - Implemented
 
 Running Tests
 -----------
@@ -46,6 +50,7 @@ To run specific test files:
    python -m unittest tests/unit/test_dependency_check.py
    python -m unittest tests/unit/test_basic_window.py
    python -m unittest tests/integration/test_app_launch.py
+   python -m unittest tests/unit/test_core_architecture.py
 
 Future Test Coverage
 -----------------

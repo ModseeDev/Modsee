@@ -50,17 +50,22 @@ def start_application():
     
     logger.info("Initializing application...")
     
-    # TODO: Import the actual application class
-    # from ui.main_window import MainWindow
+    # Import core components
+    from core.integration import Integration
     
+    # Create QApplication
     app = QtWidgets.QApplication(sys.argv)
     app.setApplicationName("Modsee")
     app.setOrganizationName("Modsee")
     app.setOrganizationDomain("modsee.net")
     
-    # TODO: Create and show the main window
-    # window = MainWindow()
-    # window.show()
+    # Setup application manager and components
+    app_manager = Integration.setup_application()
+    
+    # Create main window
+    # TODO: Import the actual main window class
+    # from ui.main_window import MainWindow
+    # window = MainWindow(app_manager)
     
     # Temporary placeholder window
     window = QtWidgets.QMainWindow()
@@ -71,8 +76,16 @@ def start_application():
     label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
     window.setCentralWidget(label)
     
+    # Setup main window with components
+    Integration.setup_main_window(app_manager, window)
+    
+    # Connect signals between components
+    Integration.connect_signals(app_manager)
+    
+    # Show window
     window.show()
     
+    # Run application
     return app.exec()
 
 

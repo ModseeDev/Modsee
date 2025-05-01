@@ -17,7 +17,7 @@ Core Infrastructure
      - Priority
    * - CORE-001
      - Establish project structure and core architecture components
-     - In Progress
+     - Completed
      - High
    * - CORE-002
      - Implement PyQt6 main window with dockable panels

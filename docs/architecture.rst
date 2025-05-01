@@ -1,3 +1,125 @@
+Architecture Overview
+==================
+
+This document describes the architecture of the Modsee application.
+
+System Architecture
+-----------------
+
+Modsee is built on a component-based architecture that promotes modularity, testability, and extensibility.
+The architecture follows a modified Model-View-Controller (MVC) pattern with a central application manager
+that coordinates interactions between components.
+
+Core Components
+-------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 60
+
+   * - Component
+     - Description
+   * - ApplicationManager
+     - Central manager that coordinates all components and maintains application state
+   * - ModelManager
+     - Manages model data (nodes, elements, materials, etc.) and selection state
+   * - ViewManager
+     - Manages UI views, panels, and their interactions
+   * - FileService
+     - Handles file operations, including loading/saving projects and export
+
+Component Hierarchy
+-----------------
+
+The component system is built around a base ``Component`` class with specialized subclasses:
+
+- **Component** - Base class for all components
+  - **ModelComponent** - Components that interact with the model
+    - **ModelManager** - Central model data manager
+    - **[Future] MaterialManager** - Material library manager
+  - **ViewComponent** - Components that provide UI views
+    - **ViewManager** - Central view manager
+    - **[Future] Rendering components**
+  - **ServiceComponent** - Components that provide services
+    - **FileService** - File operation service
+    - **[Future] Analysis service**
+
+Dependency Diagram
+----------------
+
+::
+
+    +-------------------+
+    | ApplicationManager |
+    +--------+----------+
+             |
+             | coordinates
+             v
+    +--------+----------+     +--------+----------+     +--------+----------+
+    |   ModelManager    |<--->|    ViewManager    |<--->|    FileService    |
+    +-------------------+     +-------------------+     +-------------------+
+             ^                        ^                         ^
+             |                        |                         |
+             v                        v                         v
+    +-------------------+     +-------------------+     +-------------------+
+    |   Model Objects   |     |    UI Components  |     |    I/O Handlers   |
+    +-------------------+     +-------------------+     +-------------------+
+
+Component Registration
+-------------------
+
+All components are registered with the ApplicationManager, which acts as a service locator:
+
+.. code-block:: python
+
+    # Register a component
+    app_manager.register_component('component_name', component_instance)
+    
+    # Get a component
+    component = app_manager.get_component('component_name')
+
+This allows components to interact with each other without direct dependencies,
+promoting loose coupling and easier testing.
+
+Data Flow
+-------
+
+1. **User Interaction** → ViewManager → ModelManager
+2. **File Operations** → FileService → ModelManager
+3. **Model Changes** → ModelManager → ViewManager (refresh)
+4. **Selection Changes** → ModelManager → ViewManager (refresh)
+
+Integration
+---------
+
+The ``Integration`` class handles the setup and wiring of all components:
+
+1. Creates the ApplicationManager
+2. Creates and registers core components
+3. Sets application references in components
+4. Connects signals between components
+5. Initializes all components
+
+This centralized setup simplifies the initialization process and ensures proper
+component configuration.
+
+Future Extensions
+--------------
+
+The architecture is designed to be extended with new components:
+
+1. **Plugin System** - Custom plugins that enhance functionality
+2. **Additional Managers** - Specialized managers for specific aspects
+3. **UI Components** - Custom views and panels
+4. **Service Components** - Additional services like analysis, export, etc.
+
+When adding new components, follow these guidelines:
+
+1. Derive from the appropriate component base class
+2. Register with the ApplicationManager
+3. Access other components through the ApplicationManager
+4. Follow the established component interfaces
+
 System Architecture
 ==================
 
