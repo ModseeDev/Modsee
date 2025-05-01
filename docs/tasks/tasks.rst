@@ -41,7 +41,7 @@ Core Infrastructure
      - High
    * - CORE-007
      - Develop splash screen and dependency checker
-     - In Progress
+     - Completed
      - Medium
 
 Model Components

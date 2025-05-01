@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Modsee - OpenSees Finite Element Modeling GUI
+Modsee - Finite Element Modeling GUI
 
 This is the main entry point for the Modsee application.
 """
@@ -22,26 +22,9 @@ def show_splash_screen():
     """Display the splash screen and check dependencies."""
     logger.info("Starting Modsee...")
     
-    # TODO: Implement splash screen with dependency checking
-    logger.info("Checking dependencies...")
-    
-    # Check for PyQt6
-    try:
-        from PyQt6 import QtCore, QtWidgets, QtGui
-        logger.info("PyQt6 found.")
-    except ImportError:
-        logger.error("PyQt6 not found. Please install it with 'pip install PyQt6'.")
-        return False
-    
-    # Check for VTK
-    try:
-        import vtk
-        logger.info("VTK found.")
-    except ImportError:
-        logger.error("VTK not found. Please install it with 'pip install vtk'.")
-        return False
-    
-    return True
+    # Use the new splash screen and dependency checker
+    from ui.splash_screen import show_splash_and_check_dependencies
+    return show_splash_and_check_dependencies()
 
 
 def start_application():
