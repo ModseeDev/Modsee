@@ -33,7 +33,7 @@ Core Infrastructure
      - High
    * - CORE-005
      - Create Properties Editor panel with dynamic form generation
-     - Not Started
+     - Completed
      - High
    * - CORE-006
      - Implement project file (.msee) saving and loading

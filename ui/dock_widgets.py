@@ -8,7 +8,8 @@ from typing import Optional, Any
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem,
     QPushButton, QSplitter, QTextEdit, QTableWidget, QTableWidgetItem, 
-    QHeaderView, QComboBox, QLineEdit, QFormLayout, QAbstractItemView, QMenu, QMessageBox
+    QHeaderView, QComboBox, QLineEdit, QFormLayout, QAbstractItemView, QMenu, QMessageBox,
+    QScrollArea, QFrame, QCheckBox, QSpinBox, QDoubleSpinBox
 )
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QIcon, QColor, QBrush, QAction
@@ -510,8 +511,14 @@ class PropertiesWidget(QWidget):
         super().__init__()
         
         self.model_manager = model_manager
+        self._current_object = None
+        self._current_object_id = None
+        self._current_object_type = None
+        self._form_widgets = {}
+        self._updating_form = False
         
         self._init_ui()
+        self._connect_signals()
         
         logger.debug("PropertiesWidget initialized")
     
@@ -521,75 +528,577 @@ class PropertiesWidget(QWidget):
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(4, 4, 4, 4)
         
-        # Create type selector
+        # Create type label
         self.type_layout = QHBoxLayout()
         self.type_layout.setContentsMargins(0, 0, 0, 0)
         
         self.type_label = QLabel("Type:")
         self.type_layout.addWidget(self.type_label)
         
-        self.type_combo = QComboBox()
-        self.type_combo.addItems(["Node", "Element", "Material", "Section"])
-        self.type_combo.setEnabled(False)  # Not implemented yet
-        self.type_layout.addWidget(self.type_combo)
+        self.type_value = QLabel("None")
+        self.type_value.setStyleSheet("font-weight: bold;")
+        self.type_layout.addWidget(self.type_value)
+        
+        self.type_layout.addStretch(1)
+        
+        # Add apply/reset buttons
+        self.apply_button = QPushButton("Apply")
+        self.apply_button.setEnabled(False)
+        self.apply_button.clicked.connect(self._on_apply)
+        self.type_layout.addWidget(self.apply_button)
+        
+        self.reset_button = QPushButton("Reset")
+        self.reset_button.setEnabled(False)
+        self.reset_button.clicked.connect(self._on_reset)
+        self.type_layout.addWidget(self.reset_button)
         
         self.layout.addLayout(self.type_layout)
         
-        # Create properties form
-        self.form_layout = QFormLayout()
-        self.form_layout.setContentsMargins(0, 0, 0, 0)
+        # Add a separator line
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
+        self.layout.addWidget(line)
         
-        # Add placeholder properties
-        self.id_edit = QLineEdit()
-        self.id_edit.setEnabled(False)
-        self.form_layout.addRow("ID:", self.id_edit)
+        # Create scrollable area for the form
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
         
-        self.name_edit = QLineEdit()
-        self.name_edit.setEnabled(False)
-        self.form_layout.addRow("Name:", self.name_edit)
+        self.form_widget = QWidget()
+        self.form_layout = QFormLayout(self.form_widget)
+        self.form_layout.setContentsMargins(0, 4, 0, 4)
+        self.form_layout.setSpacing(8)
         
-        self.layout.addLayout(self.form_layout)
+        self.scroll_area.setWidget(self.form_widget)
+        self.layout.addWidget(self.scroll_area)
         
-        # Add spacer
-        self.layout.addStretch(1)
+        # Add no selection label
+        self.no_selection_label = QLabel("No object selected")
+        self.no_selection_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.no_selection_label.setStyleSheet("color: #888; padding: 20px;")
+        self.layout.addWidget(self.no_selection_label)
         
         # Set initial state
         self.set_no_selection()
     
+    def _connect_signals(self):
+        """Connect signals to slots."""
+        if self.model_manager and hasattr(self.model_manager, 'selection_changed_signal'):
+            self.model_manager.selection_changed_signal.connect(self.refresh)
+    
     def set_no_selection(self):
         """Set the widget to show no selection state."""
-        self.type_combo.setCurrentIndex(0)
-        self.id_edit.setText("")
-        self.name_edit.setText("")
+        self._current_object = None
+        self._current_object_id = None
+        self._current_object_type = None
         
-        # Add placeholder text
-        self.id_edit.setPlaceholderText("No selection")
-        self.name_edit.setPlaceholderText("No selection")
+        self.type_value.setText("None")
+        self.scroll_area.setVisible(False)
+        self.no_selection_label.setVisible(True)
+        self.apply_button.setEnabled(False)
+        self.reset_button.setEnabled(False)
+        
+        # Clear form widgets
+        self._clear_form()
+    
+    def _clear_form(self):
+        """Clear all form widgets."""
+        # Remove all widgets from the form layout
+        while self.form_layout.rowCount() > 0:
+            self.form_layout.removeRow(0)
+        
+        # Clear the widgets dictionary
+        self._form_widgets.clear()
     
     def refresh(self):
         """Refresh the properties with current selection data."""
-        if self.model_manager:
-            selection = self.model_manager.get_selection()
-            
-            if len(selection) == 1:
-                # Single selection
-                obj = next(iter(selection))
-                
-                # Determine object type
-                if obj in self.model_manager._nodes.values():
-                    self.type_combo.setCurrentIndex(0)  # Node
-                    obj_id = next((k for k, v in self.model_manager._nodes.items() if v == obj), 0)
-                elif obj in self.model_manager._elements.values():
-                    self.type_combo.setCurrentIndex(1)  # Element
-                    obj_id = next((k for k, v in self.model_manager._elements.items() if v == obj), 0)
-                else:
-                    obj_id = 0
-                
-                self.id_edit.setText(str(obj_id))
-                self.name_edit.setText(f"Object {obj_id}")
+        if not self.model_manager:
+            self.set_no_selection()
+            return
+        
+        selection = self.model_manager.get_selection() if hasattr(self.model_manager, 'get_selection') else set()
+        
+        if len(selection) == 1:
+            # Single selection
+            obj = next(iter(selection))
+            self._display_object_properties(obj)
+        else:
+            # No selection or multiple selection
+            self.set_no_selection()
+    
+    def _display_object_properties(self, obj):
+        """Display properties for the selected object."""
+        self._updating_form = True
+        
+        # Determine object type and ID
+        if hasattr(obj, 'get_type'):
+            obj_type = obj.get_type().name.capitalize()
+        else:
+            # Determine from model_manager collections
+            if hasattr(self.model_manager, '_nodes') and obj in self.model_manager._nodes.values():
+                obj_type = "Node"
+                obj_id = next((k for k, v in self.model_manager._nodes.items() if v == obj), 0)
+            elif hasattr(self.model_manager, '_elements') and obj in self.model_manager._elements.values():
+                obj_type = "Element"
+                obj_id = next((k for k, v in self.model_manager._elements.items() if v == obj), 0)
+            elif hasattr(self.model_manager, '_materials') and obj in self.model_manager._materials.values():
+                obj_type = "Material"
+                obj_id = next((k for k, v in self.model_manager._materials.items() if v == obj), 0)
+            elif hasattr(self.model_manager, '_sections') and obj in self.model_manager._sections.values():
+                obj_type = "Section"
+                obj_id = next((k for k, v in self.model_manager._sections.items() if v == obj), 0)
             else:
-                # No selection or multiple selection
-                self.set_no_selection()
+                obj_type = "Unknown"
+                obj_id = 0
+        
+        # If using ModelObjectType enum
+        if hasattr(obj, 'id'):
+            obj_id = obj.id
+        
+        # Update current object info
+        self._current_object = obj
+        self._current_object_id = obj_id
+        self._current_object_type = obj_type
+        
+        # Update type label
+        if hasattr(obj, 'get_element_type'):
+            type_name = f"{obj_type}: {obj.get_element_type()}"
+        elif hasattr(obj, 'get_material_type'):
+            type_name = f"{obj_type}: {obj.get_material_type()}"
+        elif hasattr(obj, 'get_section_type'):
+            type_name = f"{obj_type}: {obj.get_section_type()}"
+        else:
+            type_name = obj_type
+        
+        self.type_value.setText(type_name)
+        
+        # Clear form and create new fields
+        self._clear_form()
+        
+        # Common fields
+        self._add_form_field("ID", obj_id, QLineEdit, editable=False)
+        
+        # Metadata fields
+        if hasattr(obj, 'metadata'):
+            self._add_form_section("Metadata")
+            self._add_form_field("Name", obj.metadata.name, QLineEdit)
+            self._add_form_field("Description", obj.metadata.description or "", QTextEdit)
+            
+            # Tags field
+            if hasattr(obj.metadata, 'tags'):
+                tags_str = ", ".join(obj.metadata.tags)
+                self._add_form_field("Tags", tags_str, QLineEdit)
+        
+        # Object-specific fields
+        if obj_type == "Node":
+            self._create_node_form(obj)
+        elif obj_type == "Element":
+            self._create_element_form(obj)
+        elif obj_type == "Material":
+            self._create_material_form(obj)
+        elif obj_type == "Section":
+            self._create_section_form(obj)
+        
+        # Show form
+        self.scroll_area.setVisible(True)
+        self.no_selection_label.setVisible(False)
+        self.apply_button.setEnabled(True)
+        self.reset_button.setEnabled(True)
+        
+        self._updating_form = False
+    
+    def _add_form_section(self, section_name):
+        """Add a section header to the form."""
+        label = QLabel(section_name)
+        label.setStyleSheet("font-weight: bold; color: #444; margin-top: 6px;")
+        
+        # Add spacer if not the first item
+        if self.form_layout.rowCount() > 0:
+            spacer = QWidget()
+            spacer.setFixedHeight(10)
+            self.form_layout.addRow(spacer)
+        
+        self.form_layout.addRow(label)
+        
+        # Add a separator line
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
+        line.setStyleSheet("color: #ccc;")
+        self.form_layout.addRow(line)
+    
+    def _add_form_field(self, label, value, widget_type, 
+                      editable=True, validator=None, 
+                      options=None, field_name=None):
+        """Add a field to the form.
+        
+        Args:
+            label: Label text for the field
+            value: Current value of the field
+            widget_type: Type of widget to create (QLineEdit, QComboBox, etc.)
+            editable: Whether the field should be editable
+            validator: Optional validator for the field
+            options: Optional list of options for combo box
+            field_name: Optional field name (defaults to label)
+        """
+        # Create widget based on type
+        if widget_type == QLineEdit:
+            widget = QLineEdit()
+            widget.setText(str(value) if value is not None else "")
+            widget.setEnabled(editable)
+            if validator:
+                widget.setValidator(validator)
+        
+        elif widget_type == QTextEdit:
+            widget = QTextEdit()
+            widget.setPlainText(str(value) if value is not None else "")
+            widget.setEnabled(editable)
+            widget.setMaximumHeight(80)
+        
+        elif widget_type == QCheckBox:
+            widget = QCheckBox()
+            widget.setChecked(bool(value))
+            widget.setEnabled(editable)
+        
+        elif widget_type == QComboBox:
+            widget = QComboBox()
+            if options:
+                widget.addItems(options)
+                if value in options:
+                    widget.setCurrentText(value)
+                elif isinstance(value, int) and value < len(options):
+                    widget.setCurrentIndex(value)
+            widget.setEnabled(editable)
+        
+        elif widget_type == QSpinBox:
+            widget = QSpinBox()
+            widget.setValue(int(value) if value is not None else 0)
+            widget.setEnabled(editable)
+        
+        elif widget_type == QDoubleSpinBox:
+            widget = QDoubleSpinBox()
+            widget.setValue(float(value) if value is not None else 0.0)
+            widget.setDecimals(6)  # Support for double precision
+            widget.setEnabled(editable)
+        
+        else:
+            # Default to QLabel for unsupported types
+            widget = QLabel(str(value) if value is not None else "")
+            widget.setEnabled(editable)
+        
+        # Add to form
+        self.form_layout.addRow(label + ":", widget)
+        
+        # Store widget reference
+        field_name = field_name or label.lower().replace(" ", "_")
+        self._form_widgets[field_name] = widget
+        
+        # Connect change signals
+        if editable:
+            if isinstance(widget, QLineEdit):
+                widget.textChanged.connect(lambda: self._on_field_changed(field_name))
+            elif isinstance(widget, QTextEdit):
+                widget.textChanged.connect(lambda: self._on_field_changed(field_name))
+            elif isinstance(widget, QCheckBox):
+                widget.stateChanged.connect(lambda: self._on_field_changed(field_name))
+            elif isinstance(widget, QComboBox):
+                widget.currentIndexChanged.connect(lambda: self._on_field_changed(field_name))
+            elif isinstance(widget, QSpinBox) or isinstance(widget, QDoubleSpinBox):
+                widget.valueChanged.connect(lambda: self._on_field_changed(field_name))
+    
+    def _on_field_changed(self, field_name):
+        """Handle field value changed."""
+        if not self._updating_form:
+            self.apply_button.setEnabled(True)
+            self.reset_button.setEnabled(True)
+    
+    def _create_node_form(self, node):
+        """Create form for node properties."""
+        self._add_form_section("Coordinates")
+        
+        # Node coordinates
+        if hasattr(node, 'coordinates'):
+            for i, coord in enumerate(node.coordinates):
+                dim_name = ["X", "Y", "Z"][i]
+                self._add_form_field(
+                    f"{dim_name} Coordinate", 
+                    coord, 
+                    QDoubleSpinBox,
+                    field_name=f"coordinate_{i}"
+                )
+        
+        # Mass values if present
+        if hasattr(node, 'mass') and node.mass:
+            self._add_form_section("Mass")
+            for i, mass in enumerate(node.mass):
+                dim_name = ["X", "Y", "Z"][i]
+                self._add_form_field(
+                    f"{dim_name} Mass", 
+                    mass, 
+                    QDoubleSpinBox,
+                    field_name=f"mass_{i}"
+                )
+        
+        # Boundary conditions if present
+        if hasattr(node, 'fixed_dofs') and node.fixed_dofs:
+            self._add_form_section("Boundary Conditions")
+            dof_names = ["X Translation", "X Rotation", "Y Translation", "Y Rotation", "Z Translation", "Z Rotation"]
+            for i, fixed in enumerate(node.fixed_dofs):
+                if i < len(dof_names):
+                    self._add_form_field(
+                        dof_names[i], 
+                        fixed, 
+                        QCheckBox,
+                        field_name=f"fixed_dof_{i}"
+                    )
+    
+    def _create_element_form(self, element):
+        """Create form for element properties."""
+        # Element nodes
+        if hasattr(element, 'nodes'):
+            self._add_form_section("Connectivity")
+            nodes_str = ", ".join(str(node_id) for node_id in element.nodes)
+            self._add_form_field("Node IDs", nodes_str, QLineEdit, field_name="nodes")
+        
+        # Material and section references
+        if hasattr(element, 'material_id') and element.material_id is not None:
+            self._add_form_field("Material ID", element.material_id, QSpinBox, field_name="material_id")
+        
+        if hasattr(element, 'section_id') and element.section_id is not None:
+            self._add_form_field("Section ID", element.section_id, QSpinBox, field_name="section_id")
+        
+        # Custom properties
+        if hasattr(element, 'properties') and element.properties:
+            self._add_form_section("Properties")
+            for key, value in element.properties.items():
+                if isinstance(value, bool):
+                    self._add_form_field(key, value, QCheckBox, field_name=f"prop_{key}")
+                elif isinstance(value, int):
+                    self._add_form_field(key, value, QSpinBox, field_name=f"prop_{key}")
+                elif isinstance(value, float):
+                    self._add_form_field(key, value, QDoubleSpinBox, field_name=f"prop_{key}")
+                else:
+                    self._add_form_field(key, str(value), QLineEdit, field_name=f"prop_{key}")
+    
+    def _create_material_form(self, material):
+        """Create form for material properties."""
+        # Material properties
+        if hasattr(material, 'properties') and material.properties:
+            self._add_form_section("Properties")
+            for key, value in material.properties.items():
+                if isinstance(value, bool):
+                    self._add_form_field(key, value, QCheckBox, field_name=f"prop_{key}")
+                elif isinstance(value, int):
+                    self._add_form_field(key, value, QSpinBox, field_name=f"prop_{key}")
+                elif isinstance(value, float):
+                    self._add_form_field(key, value, QDoubleSpinBox, field_name=f"prop_{key}")
+                else:
+                    self._add_form_field(key, str(value), QLineEdit, field_name=f"prop_{key}")
+    
+    def _create_section_form(self, section):
+        """Create form for section properties."""
+        # Material references
+        if hasattr(section, 'material_ids') and section.material_ids:
+            self._add_form_section("Materials")
+            materials_str = ", ".join(str(mat_id) for mat_id in section.material_ids)
+            self._add_form_field("Material IDs", materials_str, QLineEdit, field_name="material_ids")
+        
+        # Section properties
+        if hasattr(section, 'properties') and section.properties:
+            self._add_form_section("Properties")
+            for key, value in section.properties.items():
+                if isinstance(value, bool):
+                    self._add_form_field(key, value, QCheckBox, field_name=f"prop_{key}")
+                elif isinstance(value, int):
+                    self._add_form_field(key, value, QSpinBox, field_name=f"prop_{key}")
+                elif isinstance(value, float):
+                    self._add_form_field(key, value, QDoubleSpinBox, field_name=f"prop_{key}")
+                else:
+                    self._add_form_field(key, str(value), QLineEdit, field_name=f"prop_{key}")
+    
+    def _on_apply(self):
+        """Apply changes to the model."""
+        if not self._current_object:
+            return
+        
+        try:
+            # Apply changes based on object type
+            if self._current_object_type == "Node":
+                self._apply_node_changes()
+            elif self._current_object_type == "Element":
+                self._apply_element_changes()
+            elif self._current_object_type == "Material":
+                self._apply_material_changes()
+            elif self._current_object_type == "Section":
+                self._apply_section_changes()
+            
+            # Notify model that changes have been made
+            if hasattr(self.model_manager, 'model_changed'):
+                self.model_manager.model_changed()
+            
+            # Update UI
+            self.apply_button.setEnabled(False)
+            self.reset_button.setEnabled(False)
+            
+            logger.debug(f"Applied changes to {self._current_object_type} {self._current_object_id}")
+        except Exception as e:
+            logger.error(f"Error applying changes: {str(e)}")
+            QMessageBox.warning(self, "Error", f"Failed to apply changes: {str(e)}")
+    
+    def _on_reset(self):
+        """Reset form to current model state."""
+        if self._current_object:
+            self._display_object_properties(self._current_object)
+    
+    def _apply_node_changes(self):
+        """Apply changes to a node."""
+        node = self._current_object
+        
+        # Apply metadata changes
+        if hasattr(node, 'metadata'):
+            if 'name' in self._form_widgets:
+                node.metadata.name = self._form_widgets['name'].text()
+            
+            if 'description' in self._form_widgets:
+                node.metadata.description = self._form_widgets['description'].toPlainText()
+            
+            if 'tags' in self._form_widgets:
+                tags_text = self._form_widgets['tags'].text()
+                node.metadata.tags = [tag.strip() for tag in tags_text.split(',') if tag.strip()]
+        
+        # Apply coordinate changes
+        if hasattr(node, 'coordinates'):
+            for i in range(len(node.coordinates)):
+                if f'coordinate_{i}' in self._form_widgets:
+                    node.coordinates[i] = self._form_widgets[f'coordinate_{i}'].value()
+        
+        # Apply mass changes
+        if hasattr(node, 'mass') and node.mass:
+            for i in range(len(node.mass)):
+                if f'mass_{i}' in self._form_widgets:
+                    node.mass[i] = self._form_widgets[f'mass_{i}'].value()
+        
+        # Apply fixed DOF changes
+        if hasattr(node, 'fixed_dofs') and node.fixed_dofs:
+            for i in range(len(node.fixed_dofs)):
+                if f'fixed_dof_{i}' in self._form_widgets:
+                    node.fixed_dofs[i] = self._form_widgets[f'fixed_dof_{i}'].isChecked()
+    
+    def _apply_element_changes(self):
+        """Apply changes to an element."""
+        element = self._current_object
+        
+        # Apply metadata changes
+        if hasattr(element, 'metadata'):
+            if 'name' in self._form_widgets:
+                element.metadata.name = self._form_widgets['name'].text()
+            
+            if 'description' in self._form_widgets:
+                element.metadata.description = self._form_widgets['description'].toPlainText()
+            
+            if 'tags' in self._form_widgets:
+                tags_text = self._form_widgets['tags'].text()
+                element.metadata.tags = [tag.strip() for tag in tags_text.split(',') if tag.strip()]
+        
+        # Apply node changes
+        if hasattr(element, 'nodes') and 'nodes' in self._form_widgets:
+            nodes_text = self._form_widgets['nodes'].text()
+            try:
+                node_ids = [int(id.strip()) for id in nodes_text.split(',') if id.strip()]
+                element.nodes = node_ids
+            except ValueError:
+                raise ValueError("Node IDs must be comma-separated integers")
+        
+        # Apply material and section changes
+        if hasattr(element, 'material_id') and 'material_id' in self._form_widgets:
+            element.material_id = self._form_widgets['material_id'].value()
+        
+        if hasattr(element, 'section_id') and 'section_id' in self._form_widgets:
+            element.section_id = self._form_widgets['section_id'].value()
+        
+        # Apply property changes
+        if hasattr(element, 'properties'):
+            for key in element.properties.keys():
+                if f'prop_{key}' in self._form_widgets:
+                    widget = self._form_widgets[f'prop_{key}']
+                    if isinstance(widget, QLineEdit):
+                        element.properties[key] = widget.text()
+                    elif isinstance(widget, QCheckBox):
+                        element.properties[key] = widget.isChecked()
+                    elif isinstance(widget, QSpinBox):
+                        element.properties[key] = widget.value()
+                    elif isinstance(widget, QDoubleSpinBox):
+                        element.properties[key] = widget.value()
+    
+    def _apply_material_changes(self):
+        """Apply changes to a material."""
+        material = self._current_object
+        
+        # Apply metadata changes
+        if hasattr(material, 'metadata'):
+            if 'name' in self._form_widgets:
+                material.metadata.name = self._form_widgets['name'].text()
+            
+            if 'description' in self._form_widgets:
+                material.metadata.description = self._form_widgets['description'].toPlainText()
+            
+            if 'tags' in self._form_widgets:
+                tags_text = self._form_widgets['tags'].text()
+                material.metadata.tags = [tag.strip() for tag in tags_text.split(',') if tag.strip()]
+        
+        # Apply property changes
+        if hasattr(material, 'properties'):
+            for key in material.properties.keys():
+                if f'prop_{key}' in self._form_widgets:
+                    widget = self._form_widgets[f'prop_{key}']
+                    if isinstance(widget, QLineEdit):
+                        material.properties[key] = widget.text()
+                    elif isinstance(widget, QCheckBox):
+                        material.properties[key] = widget.isChecked()
+                    elif isinstance(widget, QSpinBox):
+                        material.properties[key] = widget.value()
+                    elif isinstance(widget, QDoubleSpinBox):
+                        material.properties[key] = widget.value()
+    
+    def _apply_section_changes(self):
+        """Apply changes to a section."""
+        section = self._current_object
+        
+        # Apply metadata changes
+        if hasattr(section, 'metadata'):
+            if 'name' in self._form_widgets:
+                section.metadata.name = self._form_widgets['name'].text()
+            
+            if 'description' in self._form_widgets:
+                section.metadata.description = self._form_widgets['description'].toPlainText()
+            
+            if 'tags' in self._form_widgets:
+                tags_text = self._form_widgets['tags'].text()
+                section.metadata.tags = [tag.strip() for tag in tags_text.split(',') if tag.strip()]
+        
+        # Apply material IDs changes
+        if hasattr(section, 'material_ids') and 'material_ids' in self._form_widgets:
+            material_ids_text = self._form_widgets['material_ids'].text()
+            try:
+                material_ids = [int(id.strip()) for id in material_ids_text.split(',') if id.strip()]
+                section.material_ids = material_ids
+            except ValueError:
+                raise ValueError("Material IDs must be comma-separated integers")
+        
+        # Apply property changes
+        if hasattr(section, 'properties'):
+            for key in section.properties.keys():
+                if f'prop_{key}' in self._form_widgets:
+                    widget = self._form_widgets[f'prop_{key}']
+                    if isinstance(widget, QLineEdit):
+                        section.properties[key] = widget.text()
+                    elif isinstance(widget, QCheckBox):
+                        section.properties[key] = widget.isChecked()
+                    elif isinstance(widget, QSpinBox):
+                        section.properties[key] = widget.value()
+                    elif isinstance(widget, QDoubleSpinBox):
+                        section.properties[key] = widget.value()
 
 
 class ConsoleWidget(QWidget):
