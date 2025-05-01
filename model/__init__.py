@@ -12,6 +12,7 @@ from model.base.manager import ModelManager
 from model.nodes import Node
 from model.elements.base import Element
 from model.materials.base import Material
+from model.materials.factory import MaterialFactory
 from model.sections.base import Section
 
 __all__ = [
@@ -23,5 +24,6 @@ __all__ = [
     'Node',
     'Element',
     'Material',
+    'MaterialFactory',
     'Section'
 ] 

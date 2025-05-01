@@ -65,7 +65,7 @@ Model Components
      - High
    * - MODEL-003
      - Design and implement Material class hierarchy
-     - Not Started
+     - Completed
      - High
    * - MODEL-004
      - Design and implement Section class hierarchy
