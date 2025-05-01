@@ -8,6 +8,9 @@ from typing import Dict, List, Optional, Any, Tuple
 import vtk
 
 from .component import ViewComponent
+from model.nodes import Node
+from model.elements.base import Element
+from model.base.core import ModelObjectType
 
 logger = logging.getLogger('modsee.core.renderer')
 
@@ -24,6 +27,13 @@ class RendererManager(ViewComponent):
         super().__init__("RendererManager")
         self._vtk_widget = None
         self._model_manager = None
+        
+        # Default visualization settings
+        self._node_radius = 0.2
+        self._node_color = (1.0, 0.0, 0.0)  # Red
+        self._element_line_width = 3.0
+        self._element_color = (0.0, 0.0, 1.0)  # Blue
+        self._grid_enabled = True
         
         logger.info("RendererManager initialized")
     
@@ -47,13 +57,11 @@ class RendererManager(ViewComponent):
             logger.warning("Cannot initialize VTK widget - widget not set")
             return
         
-        # Load a sample visualization to show functionality
-        from ui.vtk_helpers import create_sample_model
-        
-        # Add sample model actors to the scene
-        sample_actors = create_sample_model()
-        for name, actor in sample_actors.items():
-            self._vtk_widget.add_actor(name, actor)
+        # Add a grid to the scene
+        if self._grid_enabled:
+            from ui.vtk_helpers import create_grid_actor
+            grid_actor = create_grid_actor(size=10.0, divisions=10, color=(0.5, 0.5, 0.5), plane='xy')
+            self._vtk_widget.add_actor('grid_xy', grid_actor)
         
         # Set initial view
         self._vtk_widget.set_view_direction('iso')
@@ -61,7 +69,11 @@ class RendererManager(ViewComponent):
         self._vtk_widget.render()
         self._vtk_widget.start()
         
-        logger.info("VTK widget initialized with sample model")
+        logger.info("VTK widget initialized")
+        
+        # If model manager is already set, update visualization
+        if self._model_manager:
+            self.update_model_visualization()
     
     def set_model_manager(self, model_manager: Any) -> None:
         """
@@ -71,6 +83,10 @@ class RendererManager(ViewComponent):
             model_manager: The model manager instance.
         """
         self._model_manager = model_manager
+        
+        # If vtk widget is already set, update visualization
+        if self._vtk_widget:
+            self.update_model_visualization()
     
     def update_model_visualization(self) -> None:
         """
@@ -83,13 +99,100 @@ class RendererManager(ViewComponent):
         if not self._model_manager:
             logger.warning("Cannot update visualization - model manager not set")
             return
+            
+        # Clear previous nodes and elements but keep the grid
+        self._clear_model_actors()
         
-        # In a real implementation, this would convert the actual model objects
-        # to VTK actors. For now, we're just rendering the sample model.
+        # Import VTK helper functions
+        from ui.vtk_helpers import create_node_actor, create_line_actor
         
-        # Render changes
+        # Get all nodes and elements from the model
+        nodes = self._model_manager.get_nodes()
+        elements = self._model_manager.get_elements()
+        
+        # Create node lookup dictionary for quick access
+        node_lookup = {node.id: node for node in nodes}
+        
+        # Render nodes
+        for node in nodes:
+            # Get node coordinates
+            try:
+                x = node.get_x()
+                y = node.get_y()
+                z = node.get_z()
+            except IndexError:
+                # Handle 1D or 2D nodes
+                coords = node.coordinates
+                x = coords[0] if len(coords) > 0 else 0
+                y = coords[1] if len(coords) > 1 else 0
+                z = coords[2] if len(coords) > 2 else 0
+                
+            # Create node actor
+            node_actor = create_node_actor(
+                x, y, z, 
+                radius=self._node_radius, 
+                color=self._node_color
+            )
+            
+            # Add actor to the scene
+            self._vtk_widget.add_actor(f'node_{node.id}', node_actor)
+        
+        # Render elements
+        for element in elements:
+            # Get nodes that define this element
+            element_nodes = []
+            for node_id in element.nodes:
+                if node_id in node_lookup:
+                    element_nodes.append(node_lookup[node_id])
+            
+            # Skip if not all nodes are found
+            if len(element_nodes) != len(element.nodes):
+                logger.warning(f"Cannot render element {element.id} - some nodes not found")
+                continue
+                
+            # Create points for the element
+            points = []
+            for node in element_nodes:
+                try:
+                    x = node.get_x()
+                    y = node.get_y()
+                    z = node.get_z()
+                except IndexError:
+                    # Handle 1D or 2D nodes
+                    coords = node.coordinates
+                    x = coords[0] if len(coords) > 0 else 0
+                    y = coords[1] if len(coords) > 1 else 0
+                    z = coords[2] if len(coords) > 2 else 0
+                
+                points.append((x, y, z))
+            
+            # Create element line actor
+            element_actor = create_line_actor(
+                points, 
+                color=self._element_color, 
+                line_width=self._element_line_width
+            )
+            
+            # Add actor to the scene
+            self._vtk_widget.add_actor(f'element_{element.id}', element_actor)
+        
+        # Render changes and reset camera to show all objects
+        self._vtk_widget.reset_camera()
         self._vtk_widget.render()
-        logger.debug("Model visualization updated")
+        logger.info(f"Model visualization updated: {len(nodes)} nodes, {len(elements)} elements")
+    
+    def _clear_model_actors(self) -> None:
+        """Clear all model actors but keep grid and other non-model actors."""
+        if not self._vtk_widget:
+            return
+            
+        # Get all actor names
+        actor_names = list(self._vtk_widget.actors.keys())
+        
+        # Remove nodes and elements but keep grid
+        for name in actor_names:
+            if name.startswith('node_') or name.startswith('element_'):
+                self._vtk_widget.remove_actor(name)
     
     def set_view_direction(self, direction: str) -> None:
         """
