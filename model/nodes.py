@@ -4,13 +4,18 @@ Node model objects.
 This module defines the Node class used to represent points in the finite element model.
 """
 
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union
 
 from model.base.core import ModelObject, ModelObjectType, ModelMetadata
 
 
 class Node(ModelObject):
-    """Base class for node objects in the model."""
+    """Base class for node objects in the model.
+    
+    A Node represents a point in space with degrees of freedom (DOFs).
+    In structural analysis, nodes typically have translational and rotational DOFs
+    which can be fixed or free.
+    """
     
     def __init__(self, id: int, metadata: ModelMetadata, coordinates: List[float], 
                  mass: Optional[List[float]] = None, fixed_dofs: Optional[List[bool]] = None):
@@ -19,9 +24,11 @@ class Node(ModelObject):
         Args:
             id: Unique identifier for this node
             metadata: Metadata for this node
-            coordinates: Spatial coordinates [x, y, z]
+            coordinates: Spatial coordinates [x, y, z] (1D, 2D, or 3D)
             mass: Nodal mass in each DOF direction (optional)
-            fixed_dofs: Boolean flags for fixed DOFs (optional)
+            fixed_dofs: Boolean flags for fixed DOFs (optional). For 2D nodes,
+                this should be a list of 4 booleans [ux, uy, rz, ...]. For 3D nodes,
+                this should be a list of 6 booleans [ux, uy, uz, rx, ry, rz, ...].
         """
         super().__init__(id, metadata)
         self.coordinates = coordinates
@@ -31,6 +38,102 @@ class Node(ModelObject):
     def get_type(self) -> ModelObjectType:
         """Get the type of this model object."""
         return ModelObjectType.NODE
+    
+    def get_x(self) -> float:
+        """Get the X coordinate of this node."""
+        if len(self.coordinates) >= 1:
+            return self.coordinates[0]
+        raise IndexError("Node does not have an X coordinate")
+    
+    def get_y(self) -> float:
+        """Get the Y coordinate of this node."""
+        if len(self.coordinates) >= 2:
+            return self.coordinates[1]
+        raise IndexError("Node does not have a Y coordinate")
+    
+    def get_z(self) -> float:
+        """Get the Z coordinate of this node."""
+        if len(self.coordinates) >= 3:
+            return self.coordinates[2]
+        raise IndexError("Node does not have a Z coordinate")
+        
+    def set_x(self, value: float) -> None:
+        """Set the X coordinate of this node."""
+        if len(self.coordinates) >= 1:
+            self.coordinates[0] = value
+        else:
+            raise IndexError("Node does not have an X coordinate")
+            
+    def set_y(self, value: float) -> None:
+        """Set the Y coordinate of this node."""
+        if len(self.coordinates) >= 2:
+            self.coordinates[1] = value
+        else:
+            raise IndexError("Node does not have a Y coordinate")
+            
+    def set_z(self, value: float) -> None:
+        """Set the Z coordinate of this node."""
+        if len(self.coordinates) >= 3:
+            self.coordinates[2] = value
+        else:
+            raise IndexError("Node does not have a Z coordinate")
+    
+    def get_num_dofs(self) -> int:
+        """Get the number of DOFs for this node.
+        
+        Returns:
+            The number of DOFs, which is twice the number of coordinates
+            (translational and rotational DOFs for each dimension).
+        """
+        return len(self.coordinates) * 2
+    
+    def set_fixed_dofs(self, fixed_dofs: List[bool]) -> None:
+        """Set the fixed DOFs for this node.
+        
+        Args:
+            fixed_dofs: Boolean flags for fixed DOFs. For 2D nodes,
+                this should be a list of 4 booleans. For 3D nodes,
+                this should be a list of 6 booleans.
+        """
+        if len(fixed_dofs) != self.get_num_dofs():
+            raise ValueError(f"Expected {self.get_num_dofs()} DOFs, got {len(fixed_dofs)}")
+        self.fixed_dofs = fixed_dofs
+    
+    def is_dof_fixed(self, dof_index: int) -> bool:
+        """Check if a specific DOF is fixed.
+        
+        Args:
+            dof_index: Index of the DOF to check (0-based)
+                For 2D: 0=ux, 1=uy, 2=rz, 3=extra
+                For 3D: 0=ux, 1=uy, 2=uz, 3=rx, 4=ry, 5=rz
+                
+        Returns:
+            True if the DOF is fixed, False otherwise
+        """
+        if dof_index < 0 or dof_index >= self.get_num_dofs():
+            raise IndexError(f"DOF index {dof_index} out of range (0-{self.get_num_dofs()-1})")
+            
+        if self.fixed_dofs is None:
+            # If fixed_dofs is not specified, all DOFs are free (not fixed)
+            return False
+            
+        return self.fixed_dofs[dof_index]
+    
+    def get_coordinates_as_tuple(self) -> tuple:
+        """Get coordinates as tuple.
+        
+        Returns:
+            Tuple of coordinates (x, y, z) for 3D or (x, y) for 2D or (x,) for 1D
+        """
+        return tuple(self.coordinates)
+    
+    def get_dimension(self) -> int:
+        """Get the dimension of this node (1D, 2D, or 3D).
+        
+        Returns:
+            The number of dimensions (1, 2, or 3)
+        """
+        return len(self.coordinates)
     
     def validate(self) -> bool:
         """Validate this node."""
@@ -49,7 +152,7 @@ class Node(ModelObject):
             )
         
         # Validate optional fixed DOFs if provided
-        if self.fixed_dofs is not None and len(self.fixed_dofs) != len(self.coordinates) * 2:
+        if self.fixed_dofs is not None and len(self.fixed_dofs) != self.get_num_dofs():
             self._validation_messages.append(
                 f"Fixed DOFs must have twice the number of components as coordinates"
             )

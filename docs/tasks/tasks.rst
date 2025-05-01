@@ -57,7 +57,7 @@ Model Components
      - Priority
    * - MODEL-001
      - Design and implement Node class with coordinates and DOFs
-     - Not Started
+     - Completed
      - High
    * - MODEL-002
      - Design and implement base Element class and common derived types
