@@ -16,8 +16,8 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
     'sphinx.ext.intersphinx',
-    'sphinx.ext.graphviz',
     'sphinx_rtd_theme',
+    'sphinxcontrib.mermaid',
 ]
 
 # Templates
@@ -39,7 +39,4 @@ autodoc_default_options = {
     'special-members': '__init__',
     'undoc-members': True,
     'exclude-members': '__weakref__'
-}
-
-# Graphviz settings
-graphviz_output_format = 'svg' 
+} 
