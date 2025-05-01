@@ -1,80 +1,257 @@
 Development Tasks
 ================
 
-Current Sprint
--------------
+Current Sprint Tasks
+------------------
 
-High Priority
-~~~~~~~~~~~~
+Core Infrastructure
+~~~~~~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
-   :widths: 10 30 10 10
+   :widths: 10 40 10 10
 
    * - ID
      - Task
      - Status
      - Priority
-   * - TASK-001
-     - Implement core functionality
-     - In Progress
-     - High
-   * - TASK-002
-     - Add unit tests
+   * - CORE-001
+     - Establish project structure and core architecture components
      - Not Started
      - High
+   * - CORE-002
+     - Implement PyQt6 main window with dockable panels
+     - Not Started
+     - High
+   * - CORE-003
+     - Setup VTK integration for 3D rendering
+     - Not Started
+     - High
+   * - CORE-004
+     - Develop Model Explorer panel with tree view structure
+     - Not Started
+     - High
+   * - CORE-005
+     - Create Properties Editor panel with dynamic form generation
+     - Not Started
+     - High
+   * - CORE-006
+     - Implement project file (.msee) saving and loading
+     - Not Started
+     - High
+   * - CORE-007
+     - Develop splash screen and dependency checker
+     - Not Started
+     - Medium
 
-Medium Priority
+Model Components
 ~~~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
-   :widths: 10 30 10 10
+   :widths: 10 40 10 10
 
    * - ID
      - Task
      - Status
      - Priority
-   * - TASK-003
-     - Documentation updates
+   * - MODEL-001
+     - Design and implement Node class with coordinates and DOFs
+     - Not Started
+     - High
+   * - MODEL-002
+     - Design and implement base Element class and common derived types
+     - Not Started
+     - High
+   * - MODEL-003
+     - Design and implement Material class hierarchy
+     - Not Started
+     - High
+   * - MODEL-004
+     - Design and implement Section class hierarchy
      - Not Started
      - Medium
-   * - TASK-004
-     - Performance optimization
+   * - MODEL-005
+     - Implement Boundary Condition classes
      - Not Started
      - Medium
+   * - MODEL-006
+     - Develop Load class hierarchy (point, distributed, etc.)
+     - Not Started
+     - Medium
+   * - MODEL-007
+     - Create Stage management system for multi-stage analysis
+     - Not Started
+     - Low
+
+Visualization and Interaction
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 10 40 10 10
+
+   * - ID
+     - Task
+     - Status
+     - Priority
+   * - VIS-001
+     - Implement basic node and element rendering in VTK
+     - Not Started
+     - High
+   * - VIS-002
+     - Develop camera controls (rotate, pan, zoom)
+     - Not Started
+     - High
+   * - VIS-003
+     - Implement selection system for nodes and elements
+     - Not Started
+     - High
+   * - VIS-004
+     - Create view preset system (XY, YZ, XZ, isometric)
+     - Not Started
+     - Medium
+   * - VIS-005
+     - Implement grid and axis visualization
+     - Not Started
+     - Medium
+   * - VIS-006
+     - Develop color themes and visual styling system
+     - Not Started
+     - Low
+
+OpenSees Integration
+~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 10 40 10 10
+
+   * - ID
+     - Task
+     - Status
+     - Priority
+   * - OS-001
+     - Design OpenSees TCL export format and templates
+     - Not Started
+     - High
+   * - OS-002
+     - Implement OpenSeesPy code generation
+     - Not Started
+     - High
+   * - OS-003
+     - Develop recorder definition system
+     - Not Started
+     - Medium
+   * - OS-004
+     - Create HDF5 results storage and management
+     - Not Started
+     - Medium
+   * - OS-005
+     - Implement integrated OpenSeesPy runner
+     - Not Started
+     - Low
+
+User Interface Enhancements
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 10 40 10 10
+
+   * - ID
+     - Task
+     - Status
+     - Priority
+   * - UI-001
+     - Design and implement toolbar with common actions
+     - Not Started
+     - Medium
+   * - UI-002
+     - Create Roboto font integration for consistent text
+     - Not Started
+     - Medium
+   * - UI-003
+     - Develop menu structure with all required options
+     - Not Started
+     - Medium
+   * - UI-004
+     - Implement console output panel with filtering
+     - Not Started
+     - Medium
+   * - UI-005
+     - Create settings dialog for application preferences
+     - Not Started
+     - Low
+
+Future Development Roadmap
+------------------------
+
+Phase 2: Advanced Modeling
+~~~~~~~~~~~~~~~~~~~~~~~
+
+* Support for additional element types (shell, brick, etc.)
+* Advanced material models (damage, plasticity, etc.)
+* Complex loading scenarios (time history, response spectrum)
+* Parametric model generation tools
+* NURBS-based geometry definition
+
+Phase 3: Analysis Enhancements
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* Integrated mesh generation
+* Advanced boundary conditions (springs, multi-point constraints)
+* Result visualization enhancements (contours, deformed shapes)
+* Time history and modal analysis visualization
+* Custom analysis procedure templates
+
+Phase 4: Collaboration and Deployment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* Cloud integration for storing and sharing models
+* Version control system for models
+* Team collaboration features
+* Plugin system for extensions
+* Built-in tutorials and examples
+
+Documentation Goals
+----------------
+
+User Documentation
+~~~~~~~~~~~~~~~
+
+* Installation guide for different platforms
+* Getting started tutorial
+* Element and material reference
+* Workflow examples for common structural models
+* Troubleshooting guide
+
+Developer Documentation
+~~~~~~~~~~~~~~~~~~~
+
+* Architecture overview
+* Code style guide
+* API documentation
+* Plugin development guide
+* Testing procedures and guidelines
 
 Requirements
 -----------
 
-Functional Requirements
-~~~~~~~~~~~~~~~~~~~~~
+System Requirements
+~~~~~~~~~~~~~~~~
 
-1. Core Feature A
-   * Sub-requirement 1
-   * Sub-requirement 2
+* Windows 10/11, macOS 12+, Linux (Ubuntu 20.04+ or equivalent)
+* Python 3.9 or higher
+* 8GB RAM minimum (16GB recommended)
+* OpenGL 3.3+ capable graphics
+* 500MB disk space plus space for project files
 
-2. Core Feature B
-   * Sub-requirement 1
-   * Sub-requirement 2
+Dependencies
+~~~~~~~~~~
 
-Non-Functional Requirements
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-1. Performance
-   * Response time < 100ms
-   * Memory usage < 100MB
-
-2. Security
-   * Implement authentication
-   * Data encryption
-
-Backlog
--------
-
-Future Tasks
-~~~~~~~~~~~
-
-* Task 1
-* Task 2
-* Task 3 
+* PyQt6 (GPL-3.0)
+* VTK 9.0+
+* NumPy
+* h5py
+* OpenSeesPy (for integrated analysis) 
