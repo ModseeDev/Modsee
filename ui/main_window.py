@@ -14,6 +14,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QAction, QIcon
 
+from ui.vtk_widget import VTKWidget
+
 logger = logging.getLogger('modsee.ui.main_window')
 
 
@@ -35,6 +37,7 @@ class MainWindow(QMainWindow):
         self.model_manager = app_manager.get_component('model_manager')
         self.view_manager = app_manager.get_component('view_manager')
         self.file_service = app_manager.get_component('file_service')
+        self.renderer_manager = app_manager.get_component('renderer_manager')
         
         self.dock_widgets: Dict[str, QDockWidget] = {}
         
@@ -61,14 +64,13 @@ class MainWindow(QMainWindow):
         self.central_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.central_layout.addWidget(self.central_splitter)
         
-        # Create placeholder for 3D view
-        self.view_widget = QWidget()
-        self.view_widget.setStyleSheet("background-color: #2a2a2a;")
-        self.central_splitter.addWidget(self.view_widget)
+        # Create and add VTK widget
+        self.vtk_widget = VTKWidget()
+        self.central_splitter.addWidget(self.vtk_widget)
         
-        # TODO: Add actual VTK widget here when implementing CORE-003
-        # self.vtk_widget = VTKWidget()
-        # self.central_splitter.addWidget(self.vtk_widget)
+        # Set the VTK widget in the renderer manager
+        if self.renderer_manager:
+            self.renderer_manager.vtk_widget = self.vtk_widget
         
         # Create and setup menus
         self._create_menus()
@@ -135,7 +137,35 @@ class MainWindow(QMainWindow):
         # View menu
         self.view_menu = self.menu_bar.addMenu("&View")
         
-        # View menu will be populated in _create_dock_widgets
+        # View directions submenu
+        self.view_direction_menu = QMenu("View &Direction", self)
+        self.view_menu.addMenu(self.view_direction_menu)
+        
+        # View direction actions
+        self.xy_view_action = QAction("&XY (Plan)", self)
+        self.xy_view_action.triggered.connect(lambda: self.set_view_direction('xy'))
+        self.view_direction_menu.addAction(self.xy_view_action)
+        
+        self.xz_view_action = QAction("X&Z (Front)", self)
+        self.xz_view_action.triggered.connect(lambda: self.set_view_direction('xz'))
+        self.view_direction_menu.addAction(self.xz_view_action)
+        
+        self.yz_view_action = QAction("&YZ (Side)", self)
+        self.yz_view_action.triggered.connect(lambda: self.set_view_direction('yz'))
+        self.view_direction_menu.addAction(self.yz_view_action)
+        
+        self.iso_view_action = QAction("&Isometric", self)
+        self.iso_view_action.triggered.connect(lambda: self.set_view_direction('iso'))
+        self.view_direction_menu.addAction(self.iso_view_action)
+        
+        # Reset camera action
+        self.reset_camera_action = QAction("&Reset Camera", self)
+        self.reset_camera_action.triggered.connect(self.reset_camera)
+        self.view_menu.addAction(self.reset_camera_action)
+        
+        self.view_menu.addSeparator()
+        
+        # Dock visibility will be added in _create_dock_widgets
         
         # Help menu
         self.help_menu = self.menu_bar.addMenu("&Help")
@@ -157,7 +187,14 @@ class MainWindow(QMainWindow):
         self.main_toolbar.addAction(self.open_action)
         self.main_toolbar.addAction(self.save_action)
         
-        # Add additional buttons later
+        self.main_toolbar.addSeparator()
+        
+        # Add view direction buttons
+        self.main_toolbar.addAction(self.xy_view_action)
+        self.main_toolbar.addAction(self.xz_view_action)
+        self.main_toolbar.addAction(self.yz_view_action)
+        self.main_toolbar.addAction(self.iso_view_action)
+        self.main_toolbar.addAction(self.reset_camera_action)
     
     def _create_status_bar(self):
         """Create the status bar."""
@@ -206,6 +243,23 @@ class MainWindow(QMainWindow):
             action = dock.toggleViewAction()
             self.view_menu.addAction(action)
     
+    def set_view_direction(self, direction: str) -> None:
+        """
+        Set the VTK view direction.
+        
+        Args:
+            direction: The view direction ('xy', 'xz', 'yz', 'iso').
+        """
+        if self.renderer_manager:
+            self.renderer_manager.set_view_direction(direction)
+            self.status_bar.showMessage(f"View set to {direction.upper()}")
+    
+    def reset_camera(self) -> None:
+        """Reset the VTK camera."""
+        if self.renderer_manager:
+            self.renderer_manager.reset_camera()
+            self.status_bar.showMessage("Camera reset")
+    
     def on_new(self):
         """Handle New action."""
         if self.app_manager.is_modified:
@@ -248,38 +302,37 @@ class MainWindow(QMainWindow):
         
         # Show file dialog
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "Open Project", "", "Modsee Project Files (*.msee);;All Files (*)"
+            self, "Open Project", "", "Modsee Project (*.msee);;All Files (*)"
         )
         
         if file_path:
-            # Load project
-            success = self.app_manager.load_project(Path(file_path))
+            success = self.app_manager.open_project(file_path)
             if success:
-                self.status_bar.showMessage(f"Project loaded: {file_path}")
+                self.status_bar.showMessage(f"Opened {os.path.basename(file_path)}")
             else:
-                QMessageBox.critical(
-                    self, "Error", f"Failed to load project: {file_path}"
-                )
+                self.status_bar.showMessage("Failed to open project")
     
     def on_save(self):
         """
         Handle Save action.
         
         Returns:
-            True if save successful, False otherwise.
+            True if save was successful, False otherwise.
         """
-        if self.app_manager.project_file is None:
+        # Get current project file path
+        file_path = self.app_manager.project_file
+        
+        # If no file path, use Save As
+        if not file_path:
             return self.on_save_as()
         
-        # Save project
-        success = self.app_manager.save_project()
+        # Save to existing file
+        success = self.app_manager.save_project(file_path)
         if success:
-            self.status_bar.showMessage(f"Project saved: {self.app_manager.project_file}")
+            self.status_bar.showMessage(f"Saved {os.path.basename(file_path)}")
             return True
         else:
-            QMessageBox.critical(
-                self, "Error", f"Failed to save project: {self.app_manager.project_file}"
-            )
+            self.status_bar.showMessage("Failed to save project")
             return False
     
     def on_save_as(self):
@@ -287,38 +340,44 @@ class MainWindow(QMainWindow):
         Handle Save As action.
         
         Returns:
-            True if save successful, False otherwise.
+            True if save was successful, False otherwise.
         """
         # Show file dialog
         file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save Project", "", "Modsee Project Files (*.msee);;All Files (*)"
+            self, "Save Project", "", "Modsee Project (*.msee);;All Files (*)"
         )
         
         if file_path:
-            # Save project
-            success = self.app_manager.save_project(Path(file_path))
+            # Add .msee extension if not present
+            if not file_path.lower().endswith('.msee'):
+                file_path += '.msee'
+            
+            # Save to file
+            success = self.app_manager.save_project(file_path)
             if success:
-                self.status_bar.showMessage(f"Project saved: {file_path}")
+                self.status_bar.showMessage(f"Saved {os.path.basename(file_path)}")
                 return True
             else:
-                QMessageBox.critical(
-                    self, "Error", f"Failed to save project: {file_path}"
-                )
-        
+                self.status_bar.showMessage("Failed to save project")
+                
         return False
     
     def on_about(self):
         """Handle About action."""
         QMessageBox.about(
             self, "About Modsee",
-            "Modsee - OpenSees Finite Element Modeling GUI\n\n"
-            "Version: 0.1.0\n\n"
-            "A graphical user interface for creating and analyzing "
-            "structural models with OpenSees."
+            "Modsee\n\n"
+            "Version: 0.1.0 (alpha)\n\n"
+            "An open-source GUI application for building and analyzing structural models with OpenSees."
         )
     
     def closeEvent(self, event):
-        """Handle window close event."""
+        """
+        Handle the close event for the window.
+        
+        Args:
+            event: The close event.
+        """
         if self.app_manager.is_modified:
             reply = QMessageBox.question(
                 self, "Exit",
@@ -337,8 +396,9 @@ class MainWindow(QMainWindow):
                 event.ignore()
                 return
         
-        # Call shutdown on app components
-        self.app_manager.shutdown_components()
+        # Finalize the VTK widget
+        if hasattr(self, 'vtk_widget') and self.vtk_widget:
+            self.vtk_widget.vtk_widget.Finalize()
         
-        # Accept the event and close
+        # Accept the close event
         event.accept() 

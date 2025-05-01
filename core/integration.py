@@ -9,6 +9,7 @@ from .application import ApplicationManager
 from .model_manager import ModelManager
 from .view_manager import ViewManager
 from .file_service import FileService
+from .renderer import RendererManager
 
 logger = logging.getLogger('modsee.core.integration')
 
@@ -33,16 +34,22 @@ class Integration:
         model_manager = ModelManager()
         view_manager = ViewManager()
         file_service = FileService()
+        renderer_manager = RendererManager()
         
         # Register components with the application
         app.register_component('model_manager', model_manager)
         app.register_component('view_manager', view_manager)
         app.register_component('file_service', file_service)
+        app.register_component('renderer_manager', renderer_manager)
         
         # Set application reference in components
         model_manager.app = app
         view_manager.app = app
         file_service.app = app
+        renderer_manager.app = app
+        
+        # Connect components with each other
+        renderer_manager.set_model_manager(model_manager)
         
         # Initialize components
         app.initialize_components()
@@ -61,6 +68,7 @@ class Integration:
         # Get the components
         model_manager = app.get_component('model_manager')
         view_manager = app.get_component('view_manager')
+        renderer_manager = app.get_component('renderer_manager')
         
         # Connect model changes to view refresh
         # This is a simple implementation. In a real application, you would
@@ -76,11 +84,15 @@ class Integration:
             def new_model_changed():
                 original_model_changed()
                 view_manager.refresh_all_views()
+                if renderer_manager:
+                    renderer_manager.refresh()
             
             def new_selection_changed():
                 original_selection_changed()
                 # Refresh only selection-sensitive views in a real implementation
                 view_manager.refresh_all_views()
+                if renderer_manager:
+                    renderer_manager.refresh()
             
             # Replace the methods
             model_manager.model_changed = new_model_changed
@@ -97,7 +109,7 @@ class Integration:
             app: The application manager instance.
             main_window: The main window instance.
         """
-        # Get the view manager
+        # Get the view manager and renderer manager
         view_manager = app.get_component('view_manager')
         if view_manager:
             view_manager.main_window = main_window

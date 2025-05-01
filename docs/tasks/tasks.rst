@@ -25,11 +25,11 @@ Core Infrastructure
      - High
    * - CORE-003
      - Setup VTK integration for 3D rendering
-     - Not Started
+     - Completed
      - High
    * - CORE-004
      - Develop Model Explorer panel with tree view structure
-     - Not Started
+     - Completed
      - High
    * - CORE-005
      - Create Properties Editor panel with dynamic form generation
