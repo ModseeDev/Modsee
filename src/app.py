@@ -13,6 +13,7 @@ from .ui.style.theme import set_theme
 from .models.project import Project
 from .utils.helpers import get_app_settings
 import os
+import datetime
 
 
 class ModseeApp:
@@ -32,6 +33,24 @@ class ModseeApp:
         
         # Create main window
         self.main_window = MainWindow()
+        
+        # Set reference to this app in the main window for closeEvent handling
+        self.main_window.parent_app = self
+        
+        # Restore window size from settings or use default (1280x800)
+        settings = QSettings("Modsee", "Modsee")
+        if settings.contains("window/size"):
+            size = settings.value("window/size")
+            self.main_window.resize(size)
+        else:
+            # Set initial window size to be larger but not full screen
+            self.main_window.resize(1280, 800)
+        
+        # Restore window position if available
+        if settings.contains("window/position"):
+            position = settings.value("window/position")
+            self.main_window.move(position)
+        
         self.main_window.setWindowTitle("Modsee")
         
         # Connect signals
@@ -55,31 +74,26 @@ class ModseeApp:
         
     def _connect_signals(self):
         """Connect UI signals to handlers"""
-        # File menu actions
-        if hasattr(self.main_window, 'act_new'):
-            self.main_window.act_new.triggered.connect(self.new_project)
-        if hasattr(self.main_window, 'act_open'):
-            self.main_window.act_open.triggered.connect(self.open_project)
-        if hasattr(self.main_window, 'act_save'):
-            self.main_window.act_save.triggered.connect(self.save_project)
-        if hasattr(self.main_window, 'act_save_as'):
-            self.main_window.act_save_as.triggered.connect(self.save_project_as)
+        # Connect callbacks to MainWindow to handle UI actions
+        if hasattr(self.main_window, 'menu_bar'):
+            # Connect file menu actions 
+            self.main_window.menu_bar.act_new.triggered.connect(self.new_project)
+            self.main_window.menu_bar.act_open.triggered.connect(self.open_project)
+            self.main_window.menu_bar.act_save.triggered.connect(self.save_project)
+            self.main_window.menu_bar.act_save_as.triggered.connect(self.save_project_as)
             
-        # Edit menu actions
-        if hasattr(self.main_window, 'act_project_properties'):
-            self.main_window.act_project_properties.triggered.connect(self.show_project_properties)
+            # Connect edit menu actions
+            self.main_window.menu_bar.act_project_properties.triggered.connect(self.show_project_properties)
             
-        # Toolbar buttons
-        if hasattr(self.main_window, 'btn_new'):
-            self.main_window.btn_new.clicked.connect(self.new_project)
-        if hasattr(self.main_window, 'btn_open'):
-            self.main_window.btn_open.clicked.connect(self.open_project)
-        if hasattr(self.main_window, 'btn_save'):
-            self.main_window.btn_save.clicked.connect(self.save_project)
+        # Connect toolbar buttons
+        if hasattr(self.main_window, 'toolbar'):
+            self.main_window.toolbar.btn_new.clicked.connect(self.new_project)
+            self.main_window.toolbar.btn_open.clicked.connect(self.open_project)
+            self.main_window.toolbar.btn_save.clicked.connect(self.save_project)
         
         # Connect model explorer delete callbacks
-        if hasattr(self.main_window, 'model_explorer'):
-            self.main_window.model_explorer.set_delete_callbacks(
+        if hasattr(self.main_window, 'model_explorer_panel') and hasattr(self.main_window.model_explorer_panel, 'model_explorer'):
+            self.main_window.model_explorer_panel.model_explorer.set_delete_callbacks(
                 self.delete_model_item,
                 self.delete_category_items
             )
@@ -122,11 +136,18 @@ class ModseeApp:
 
     def log_to_console(self, message):
         """Log a message to the console output"""
-        if hasattr(self.main_window, 'terminal_output'):
-            self.main_window.terminal_output.addItem(message)
+        if hasattr(self.main_window, 'terminal_panel') and hasattr(self.main_window.terminal_panel, 'add_message'):
+            self.main_window.terminal_panel.add_message(message)
+        elif hasattr(self.main_window, 'log_to_console'):
+            self.main_window.log_to_console(message)
 
     def handle_close_event(self, event):
         """Handle window close event"""
+        # Save window size and position
+        settings = QSettings("Modsee", "Modsee")
+        settings.setValue("window/size", self.main_window.size())
+        settings.setValue("window/position", self.main_window.pos())
+        
         # Check if current project needs saving
         if self.current_project and self._is_project_modified():
             reply = QMessageBox.question(
@@ -161,54 +182,149 @@ class ModseeApp:
             self.main_window,
             "Open Project",
             last_dir,
-            "Modsee Projects (*.json *.h5 *.hdf5);;JSON Files (*.json);;HDF5 Files (*.h5 *.hdf5);;All Files (*)"
+            "Modsee Projects (*.msee);;HDF5 Files (*.h5);;JSON Files (*.json);;All Files (*)"
         )
         
-        if file_path:
-            try:
-                # Load the project
-                self.current_project = Project.load(file_path)
-                self._clear_modified()  # Loaded project starts unmodified
+        if not file_path:
+            return False
+            
+        # Try to open the project
+        try:
+            # Determine if this is a results file (.h5) directly
+            is_results_file = False
+            should_switch_to_post = False
+            model_file_path = file_path
+            
+            # Check if this is a results file and if there's a matching model file
+            if file_path.lower().endswith('.h5') or file_path.lower().endswith('.hdf5'):
+                # Get directory and base name without extension
+                directory = os.path.dirname(file_path)
+                base_name = os.path.splitext(os.path.basename(file_path))[0]
+                msee_file = os.path.join(directory, f"{base_name}.msee")
                 
-                # Update window title
-                self.main_window.setWindowTitle(f"Modsee - {os.path.basename(file_path)}")
+                if os.path.exists(msee_file):
+                    # Ask if user wants to open the model file instead and switch to post-processing
+                    reply = QMessageBox.question(
+                        self.main_window,
+                        "HDF5 Results File Selected",
+                        f"You selected a results file. Do you want to:\n\n"
+                        f"- Open the associated model file ({os.path.basename(msee_file)})\n"
+                        f"- Switch to post-processing mode automatically?",
+                        QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
+                        QMessageBox.Yes
+                    )
+                    
+                    if reply == QMessageBox.Yes:
+                        # Open the model file instead and remember to switch mode
+                        model_file_path = msee_file
+                        should_switch_to_post = True
+                        self.log_to_console(f"> Found matching model file: {os.path.basename(msee_file)}")
+                    elif reply == QMessageBox.Cancel:
+                        return False
+                else:
+                    # No matching model file, ask if user wants to open as a model anyway
+                    reply = QMessageBox.question(
+                        self.main_window,
+                        "HDF5 File Selected",
+                        "You selected an HDF5 file but no matching model file (.msee) was found. "
+                        "Do you want to open this as a model file?\n\n"
+                        "Note: This is typically a results file and might not contain complete model data.",
+                        QMessageBox.Yes | QMessageBox.No,
+                        QMessageBox.No
+                    )
+                    
+                    if reply == QMessageBox.No:
+                        return False
+            
+            # Open the selected file
+            if model_file_path.lower().endswith('.h5') or model_file_path.lower().endswith('.hdf5'):
+                # HDF5 format
+                from src.io.hdf5_storage import HDF5Storage
+                storage = HDF5Storage(model_file_path)
+                self.current_project = storage.load_project()
+            else:
+                # Default to JSON format
+                from src.models.project import Project
+                self.current_project = Project.load(model_file_path)
                 
-                # Share project reference with the main window
-                self.main_window.project = self.current_project
+            # Update last modified time
+            self.current_project.modified_at = datetime.datetime.now().isoformat()
+            
+            # Set file path
+            self.current_project.file_path = model_file_path
+            
+            # Set window title
+            self.main_window.setWindowTitle(f"Modsee - {os.path.basename(model_file_path)}")
+            
+            self._clear_modified()  # Clear modified flag after load
+            
+            # Share project reference with the main window
+            self.main_window.project = self.current_project
+            
+            # Check if the project has multiple stages (stage IDs other than 0)
+            # If so, promote the highest stage to root level for visualization
+            has_multiple_stages = False
+            highest_stage = 0
+            if hasattr(self.current_project, 'stages') and len(self.current_project.stages) > 1:
+                has_multiple_stages = True
+                # Find the highest stage ID
+                highest_stage = max(self.current_project.stages.keys())
+                if highest_stage > 0:
+                    # Promote the highest stage to root level
+                    self.current_project.promote_stage_to_root(highest_stage)
+                    # Safely handle log to console
+                    if hasattr(self.main_window, 'log_to_console'):
+                        self.main_window.log_to_console(f"Promoted stage {highest_stage} to root level for visualization")
+            
+            # Make sure the scene has access to the project reference
+            if hasattr(self.main_window, 'scene'):
+                self.main_window.scene.parent = self.main_window
                 
-                # Update model explorer
-                self.main_window.update_model_explorer(self.current_project)
+            # Update model explorer
+            self.main_window.update_model_explorer(self.current_project)
+            
+            # Set up delete callbacks for model explorer
+            self.main_window.model_explorer_panel.model_explorer.set_delete_callbacks(
+                self.delete_model_item,
+                self.delete_category_items
+            )
+            
+            # Update 3D scene with the entire project
+            # Note: previously promoted stage will be used for visualization
+            # but the toolbar stage selector will have access to all stages
+            self.main_window.scene.update_model(self.current_project)
+            
+            # Automatically fit the view to show the entire model
+            self.main_window.scene.fit_view()
+            
+            # Save last directory to settings
+            settings.setValue("files/last_directory", os.path.dirname(model_file_path))
+            
+            # Show success message and log to console
+            msg = f"Project loaded from {model_file_path}"
+            if has_multiple_stages:
+                msg += f" (visualizing stage {highest_stage})"
+            self.main_window.status_bar.set_status_message(msg)
+            
+            # Safely handle log to console
+            if hasattr(self.main_window, 'log_to_console'):
+                self.main_window.log_to_console(msg)
                 
-                # Set up delete callbacks for model explorer
-                self.main_window.model_explorer.set_delete_callbacks(
-                    self.delete_model_item,
-                    self.delete_category_items
-                )
+            # Check if we should switch to post-processing mode
+            if should_switch_to_post and hasattr(self.main_window, 'set_post_processing_mode'):
+                # Wait a moment for the UI to update before switching modes
+                QTimer.singleShot(100, self.main_window.set_post_processing_mode)
                 
-                # Update 3D scene
-                self.main_window.scene.update_model(self.current_project)
-                
-                # Automatically fit the view to show the entire model
-                self.main_window.scene.fit_view()
-                
-                # Save last directory to settings
-                settings.setValue("files/last_directory", os.path.dirname(file_path))
-                
-                # Show success message and log to console
-                msg = f"Project loaded from {file_path}"
-                self.main_window.status_message.setText(msg)
-                self.log_to_console(f"> {msg}")
-                
-            except Exception as e:
-                # Show error message
-                error_msg = f"Failed to open project: {str(e)}"
-                QMessageBox.critical(
-                    self.main_window,
-                    "Error Opening Project",
-                    error_msg
-                )
-                self.log_to_console(f"> ERROR: {error_msg}")
-                
+            return True
+        except Exception as e:
+            # Show error message
+            QMessageBox.critical(
+                self.main_window,
+                "Error",
+                f"Failed to open project: {str(e)}"
+            )
+            return False
+        
     def save_project(self):
         """Save the current project"""
         if not self.current_project:
@@ -223,7 +339,7 @@ class ModseeApp:
                 
                 # Show success message and log to console
                 msg = f"Project saved to {self.current_project.file_path}"
-                self.main_window.status_message.setText(msg)
+                self.main_window.status_bar.set_status_message(msg)
                 self.log_to_console(f"> {msg}")
                 
             except Exception as e:
@@ -275,7 +391,7 @@ class ModseeApp:
             
             # Show success message and log to console
             msg = f"Project saved to {file_path}"
-            self.main_window.status_message.setText(msg)
+            self.main_window.status_bar.set_status_message(msg)
             self.log_to_console(f"> {msg}")
             
             # Update the model explorer (in case we switched to HDF5 format with results)
@@ -322,11 +438,18 @@ class ModseeApp:
         # Set window title
         self.main_window.setWindowTitle("Modsee - New Project")
         
+        # Share project reference with the main window
+        self.main_window.project = self.current_project
+        
+        # Make sure the scene has access to the project reference
+        if hasattr(self.main_window, 'scene'):
+            self.main_window.scene.parent = self.main_window
+        
         # Update model explorer
         self.main_window.update_model_explorer(self.current_project)
         
         # Enable model explorer delete callbacks
-        self.main_window.model_explorer.set_delete_callbacks(
+        self.main_window.model_explorer_panel.model_explorer.set_delete_callbacks(
             self.delete_model_item,
             self.delete_category_items
         )
@@ -335,7 +458,7 @@ class ModseeApp:
         self.main_window.scene.update_model(self.current_project)
         
         # Show success message and log to console
-        self.main_window.status_message.setText("New project created")
+        self.main_window.status_bar.set_status_message("New project created")
         self.log_to_console("> New project created")
 
     def update_project_metadata(self, name=None, description=None, model_builder_params=None):
@@ -415,7 +538,7 @@ class ModseeApp:
                 self._clear_modified()
                 
                 # Show status message but don't log to console to avoid clutter
-                self.main_window.status_message.setText(f"Project auto-saved to {self.current_project.file_path}")
+                self.main_window.status_bar.set_status_message(f"Project auto-saved to {self.current_project.file_path}")
             except Exception as e:
                 # Log error but don't show a message box for auto-save
                 self.log_to_console(f"> ERROR: Auto-save failed: {str(e)}")
@@ -495,7 +618,7 @@ class ModseeApp:
             self.log_to_console(f"> Deleted {entity_type.rstrip('s')} {entity_id}")
             
             # Update status message
-            self.main_window.status_message.setText(f"{entity_type.rstrip('s')} {entity_id} deleted")
+            self.main_window.status_bar.set_status_message(f"{entity_type.rstrip('s')} {entity_id} deleted")
             
             return True
         
@@ -574,7 +697,7 @@ class ModseeApp:
                     self.log_to_console(f"> Deleted all {category.lower()} ({count} items)")
                     
                     # Update status message
-                    self.main_window.status_message.setText(f"All {category.lower()} deleted ({count} items)")
+                    self.main_window.status_bar.set_status_message(f"All {category.lower()} deleted ({count} items)")
                     
                     return True
         
@@ -640,7 +763,7 @@ class ModseeApp:
             self.log_to_console(f"> Deleted all model data ({total_count} items)")
             
             # Update status message
-            self.main_window.status_message.setText(f"All model data deleted ({total_count} items)")
+            self.main_window.status_bar.set_status_message(f"All model data deleted ({total_count} items)")
             
             return True
             

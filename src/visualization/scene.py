@@ -8,11 +8,16 @@ Modsee - OpenSees Finite Element Modeling Interface
 
 import vtk
 import os
-from PyQt5.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QSizePolicy, QToolBar, QToolButton, QLabel
-from PyQt5.QtCore import Qt, QSize, QSettings
-from PyQt5.QtGui import QIcon
-from PyQt5.QtSvg import QSvgRenderer
+from PyQt5.QtWidgets import QFrame, QVBoxLayout, QSizePolicy
+from PyQt5.QtCore import Qt, QSettings
 from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
+
+# Import refactored modules
+from .interaction_styles import RotateInteractionStyle, PanInteractionStyle, ZoomInteractionStyle, SelectInteractionStyle
+from .toolbar import SceneToolbar
+from .visualization_objects import (create_node, create_element, create_text_label, 
+                                  create_load_arrow, create_grid, create_axes)
+from .bc_symbols import create_bc_symbol
 
 # Define constants for consistent settings
 SETTINGS_ORGANIZATION = "Modsee"
@@ -49,210 +54,6 @@ except ImportError:
             
         def set(self, section, key, value):
             pass
-
-# Import BC symbols helper
-try:
-    from .bc_symbols import create_bc_symbol
-except ImportError:
-    # If bc_symbols module isn't available, we'll create a simple fallback
-    def create_bc_symbol(coords, dofs, size, color):
-        # Create a sphere as a fallback
-        sphere = vtk.vtkSphereSource()
-        sphere.SetCenter(coords[0], coords[1], coords[2])
-        sphere.SetRadius(size)
-        sphere.SetThetaResolution(16)
-        sphere.SetPhiResolution(16)
-        
-        mapper = vtk.vtkPolyDataMapper()
-        mapper.SetInputConnection(sphere.GetOutputPort())
-        
-        actor = vtk.vtkActor()
-        actor.SetMapper(mapper)
-        actor.GetProperty().SetColor(color)
-        actor.GetProperty().SetOpacity(0.7)
-        
-        return actor
-
-
-# Custom interaction styles
-class MouseInteractionStyle(object):
-    """Base class for mouse interaction styles"""
-    @staticmethod
-    def setup(interactor):
-        pass
-
-
-class RotateInteractionStyle(MouseInteractionStyle):
-    """Interaction style for model rotation"""
-    @staticmethod
-    def setup(interactor):
-        style = vtk.vtkInteractorStyleTrackballCamera()
-        interactor.SetInteractorStyle(style)
-
-
-class PanInteractionStyle(MouseInteractionStyle):
-    """Interaction style for panning the view"""
-    @staticmethod
-    def setup(interactor):
-        # Use trackball camera with custom event bindings
-        style = vtk.vtkInteractorStyleTrackballCamera()
-        
-        # Creating a custom pan function using the built-in methods
-        def on_left_button_down(obj, event):
-            style.OnMiddleButtonDown()
-            
-        def on_left_button_up(obj, event):
-            style.OnMiddleButtonUp()
-            
-        def on_left_button_move(obj, event):
-            style.OnMouseMove()
-        
-        # Remove default left button observers
-        style.RemoveObservers("LeftButtonPressEvent")
-        style.RemoveObservers("LeftButtonReleaseEvent")
-        style.RemoveObservers("MouseMoveEvent")
-        
-        # Add custom observers
-        style.AddObserver("LeftButtonPressEvent", on_left_button_down)
-        style.AddObserver("LeftButtonReleaseEvent", on_left_button_up)
-        style.AddObserver("MouseMoveEvent", on_left_button_move)
-        
-        interactor.SetInteractorStyle(style)
-
-
-class ZoomInteractionStyle(MouseInteractionStyle):
-    """Interaction style for zooming the view"""
-    @staticmethod
-    def setup(interactor):
-        # Use trackball camera with custom event bindings
-        style = vtk.vtkInteractorStyleTrackballCamera()
-        
-        # Creating a custom zoom function using the built-in methods
-        def on_left_button_down(obj, event):
-            style.OnRightButtonDown()
-            
-        def on_left_button_up(obj, event):
-            style.OnRightButtonUp()
-            
-        def on_left_button_move(obj, event):
-            style.OnMouseMove()
-        
-        # Remove default left button observers
-        style.RemoveObservers("LeftButtonPressEvent")
-        style.RemoveObservers("LeftButtonReleaseEvent")
-        style.RemoveObservers("MouseMoveEvent")
-        
-        # Add custom observers
-        style.AddObserver("LeftButtonPressEvent", on_left_button_down)
-        style.AddObserver("LeftButtonReleaseEvent", on_left_button_up)
-        style.AddObserver("MouseMoveEvent", on_left_button_move)
-        
-        interactor.SetInteractorStyle(style)
-
-
-class SelectInteractionStyle(MouseInteractionStyle):
-    """Interaction style for selection"""
-    @staticmethod
-    def setup(interactor):
-        # Create a custom picker style
-        style = vtk.vtkInteractorStyleTrackballCamera()
-        
-        # Create a picker for selection
-        picker = vtk.vtkCellPicker()
-        picker.SetTolerance(0.01)  # Adjust tolerance as needed
-        interactor.SetPicker(picker)
-        
-        # Store reference to the scene - needs to be set externally
-        style.scene = None
-        
-        # Create selection callback
-        def on_left_button_down(obj, event):
-            # Get the click position
-            click_pos = interactor.GetEventPosition()
-            
-            # Perform the pick operation
-            picker = interactor.GetPicker()
-            if picker.Pick(click_pos[0], click_pos[1], 0, interactor.GetRenderWindow().GetRenderers().GetFirstRenderer()):
-                # Get the picked actor
-                actor = picker.GetActor()
-                
-                # If we have a reference to the scene, use it for selection handling
-                if hasattr(style, 'scene') and style.scene is not None:
-                    style.scene.handle_selection(actor)
-                
-                # Let the trackball camera handle the event too for normal interactions
-                style.OnLeftButtonDown()
-            else:
-                # Nothing picked, clear selection
-                if hasattr(style, 'scene') and style.scene is not None:
-                    style.scene.clear_selection()
-                    
-                # Let the trackball camera handle the event too for normal interactions
-                style.OnLeftButtonDown()
-        
-        # Override default left button press behavior
-        style.AddObserver("LeftButtonPressEvent", on_left_button_down)
-        
-        interactor.SetInteractorStyle(style)
-        return style
-
-
-# Icon provider for toolbar buttons
-class IconProvider:
-    """Class to provide SVG icons for the toolbar buttons"""
-    
-    # SVG content for commonly used icons
-    SVG_ICONS = {
-        "rotate": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-refresh-cw"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>''',
-        
-        "pan": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-move"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><polyline points="15 19 12 22 9 19"></polyline><polyline points="19 9 22 12 19 15"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line></svg>''',
-        
-        "zoom": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-search"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>''',
-        
-        "select": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-mouse-pointer"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path></svg>''',
-        
-        "reset": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-home"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>''',
-        
-        "fit_view": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-maximize-2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>''',
-        
-        "view_top": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-down"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>''',
-        
-        "view_front": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>''',
-        
-        "view_side": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-left"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>''',
-        
-        "node": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-circle"><circle cx="12" cy="12" r="10"></circle></svg>''',
-        
-        "element": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-git-branch"><line x1="6" y1="3" x2="6" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg>''',
-        
-        "bc": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-lock"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>''',
-        
-        "load": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-down-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="8 12 12 16 16 12"></polyline><line x1="12" y1="8" x2="12" y2="16"></line></svg>''',
-        
-        "grid": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-grid"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>''',
-        
-        "axes": '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-box"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>''',
-    }
-    
-    @staticmethod
-    def create_icon(icon_name):
-        """Create a QIcon from SVG content"""
-        if icon_name in IconProvider.SVG_ICONS:
-            svg_content = IconProvider.SVG_ICONS[icon_name]
-            renderer = QSvgRenderer(bytearray(svg_content, encoding='utf-8'))
-            
-            # Create a QIcon from the renderer
-            from PyQt5.QtGui import QPixmap, QPainter
-            # Make the icons smaller (18x18 instead of 24x24)
-            pixmap = QPixmap(18, 18)
-            pixmap.fill(Qt.transparent)
-            painter = QPainter(pixmap)
-            renderer.render(painter)
-            painter.end()
-            
-            return QIcon(pixmap)
-        
-        return QIcon()  # Return empty icon if not found
 
 
 class ModseeScene(QFrame):
@@ -341,7 +142,7 @@ class ModseeScene(QFrame):
         self.selection_callback = None
         self.hover_callback = None
         
-        # Visibility states for filter menu - MOVED UP before create_toolbar()
+        # Visibility states for filter menu
         self.visibility_states = {
             "nodes": True,
             "elements": True,
@@ -349,11 +150,16 @@ class ModseeScene(QFrame):
             "loads": True,
             "grid": True,
             "axes": True,
-            "labels": True,  # Add labels state
+            "labels": True,
         }
         
         # Create toolbar for view controls
-        self.create_toolbar()
+        self.toolbar = SceneToolbar(self)
+        self.toolbar.connect_signals(self)
+        
+        # Initialize toolbar with project from parent if available
+        if hasattr(parent, 'project'):
+            self.toolbar.update_stages(parent.project)
 
         # Add objects to the scene
         self.add_axes()
@@ -406,302 +212,31 @@ class ModseeScene(QFrame):
         # Default fallback colors
         return (1.0, 0.0, 0.0)  # Red as fallback
     
-    def create_toolbar(self):
-        """Create a toolbar with visualization control buttons"""
-        self.toolbar = QToolBar()
-        self.toolbar.setIconSize(QSize(18, 18))  # Smaller icons (18x18)
-        self.toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-        self.toolbar.setStyleSheet("""
-            QToolBar {
-                background-color: #F5F5F5;
-                border-bottom: 1px solid #CCCCCC;
-                spacing: 2px;
-                padding: 2px;
-            }
-            QToolButton {
-                background-color: transparent;
-                border: 1px solid transparent;
-                border-radius: 3px;
-                padding: 3px;
-            }
-            QToolButton:hover {
-                background-color: rgba(0, 0, 0, 0.1);
-                border: 1px solid #CCCCCC;
-            }
-            QToolButton:checked {
-                background-color: rgba(0, 0, 0, 0.15);
-                border: 1px solid #BBBBBB;
-            }
-            QMenu {
-                background-color: #FFFFFF;
-                border: 1px solid #CCCCCC;
-            }
-            QMenu::item {
-                padding: 5px 25px 5px 30px;
-            }
-            QMenu::item:selected {
-                background-color: #E0E0E0;
-            }
-            QMenu::indicator {
-                width: 18px;
-                height: 18px;
-                padding-left: 5px;
-            }
-        """)
-        
-        # Create buttons
-        self.create_view_controls()
-        
-        # Add a separator
-        self.toolbar.addSeparator()
-        
-        # Create display filter menu button
-        self.create_display_filters()
-
-    def create_view_controls(self):
-        """Create buttons for controlling the 3D view"""
-        # View control label
-        view_label = QLabel("View Controls:")
-        view_label.setStyleSheet("padding-left: 5px; padding-right: 5px;")
-        self.toolbar.addWidget(view_label)
-        
-        # Create buttons with SVG icons
-        # Rotate button
-        self.btn_rotate = QToolButton()
-        self.btn_rotate.setText("Rotate")
-        self.btn_rotate.setIcon(IconProvider.create_icon("rotate"))
-        self.btn_rotate.setToolTip("Rotate the model (Default)\nLeft mouse: Rotate\nMiddle mouse: Pan\nRight mouse: Zoom")
-        self.btn_rotate.setCheckable(True)
-        self.btn_rotate.setChecked(True)  # Default
-        
-        # Pan button
-        self.btn_pan = QToolButton()
-        self.btn_pan.setText("Pan")
-        self.btn_pan.setIcon(IconProvider.create_icon("pan"))
-        self.btn_pan.setToolTip("Pan the view\nLeft mouse: Pan\nMiddle mouse: Pan\nRight mouse: Zoom")
-        self.btn_pan.setCheckable(True)
-        
-        # Zoom button
-        self.btn_zoom = QToolButton()
-        self.btn_zoom.setText("Zoom")
-        self.btn_zoom.setIcon(IconProvider.create_icon("zoom"))
-        self.btn_zoom.setToolTip("Zoom in/out\nLeft mouse: Zoom\nMiddle mouse: Pan")
-        self.btn_zoom.setCheckable(True)
-        
-        # Selection button
-        self.btn_select = QToolButton()
-        self.btn_select.setText("Select")
-        self.btn_select.setIcon(IconProvider.create_icon("select"))
-        self.btn_select.setToolTip("Select mode\nClick on objects to select them")
-        self.btn_select.setCheckable(True)
-        
-        # Reset view button
-        self.btn_reset = QToolButton()
-        self.btn_reset.setText("Reset")
-        self.btn_reset.setIcon(IconProvider.create_icon("reset"))
-        self.btn_reset.setToolTip("Reset camera to default view")
-        
-        # Fit to view button
-        self.btn_fit_view = QToolButton()
-        self.btn_fit_view.setText("Fit")
-        self.btn_fit_view.setIcon(IconProvider.create_icon("fit_view"))
-        self.btn_fit_view.setToolTip("Fit model to view")
-        
-        # View orientation buttons
-        self.btn_view_top = QToolButton()
-        self.btn_view_top.setText("Top")
-        self.btn_view_top.setIcon(IconProvider.create_icon("view_top"))
-        self.btn_view_top.setToolTip("View from top (XY plane)")
-        
-        self.btn_view_front = QToolButton()
-        self.btn_view_front.setText("Front")
-        self.btn_view_front.setIcon(IconProvider.create_icon("view_front"))
-        self.btn_view_front.setToolTip("View from front (XZ plane)")
-        
-        self.btn_view_side = QToolButton()
-        self.btn_view_side.setText("Side")
-        self.btn_view_side.setIcon(IconProvider.create_icon("view_side"))
-        self.btn_view_side.setToolTip("View from side (YZ plane)")
-        
-        # Add navigation buttons to toolbar
-        self.toolbar.addWidget(self.btn_rotate)
-        self.toolbar.addWidget(self.btn_pan)
-        self.toolbar.addWidget(self.btn_zoom)
-        self.toolbar.addWidget(self.btn_select)
-        
-        # Add a separator
-        self.toolbar.addSeparator()
-        
-        # Add view orientation buttons
-        self.toolbar.addWidget(self.btn_view_top)
-        self.toolbar.addWidget(self.btn_view_front)
-        self.toolbar.addWidget(self.btn_view_side)
-        
-        # Add a separator
-        self.toolbar.addSeparator()
-        
-        # Add reset view button
-        self.toolbar.addWidget(self.btn_reset)
-        
-        # Add fit view button
-        self.toolbar.addWidget(self.btn_fit_view)
-        
-        # Connect signals for navigation
-        self.btn_rotate.clicked.connect(self.set_rotate_mode)
-        self.btn_pan.clicked.connect(self.set_pan_mode)
-        self.btn_zoom.clicked.connect(self.set_zoom_mode)
-        self.btn_select.clicked.connect(self.set_select_mode)
-        self.btn_reset.clicked.connect(self.reset_view)
-        self.btn_fit_view.clicked.connect(self.fit_view)
-        
-        # Connect signals for view orientations
-        self.btn_view_top.clicked.connect(self.view_top)
-        self.btn_view_front.clicked.connect(self.view_front)
-        self.btn_view_side.clicked.connect(self.view_side)
-        
-    def create_display_filters(self):
-        """Create a dropdown menu for display filters"""
-        from PyQt5.QtWidgets import QMenu, QAction, QWidgetAction, QCheckBox, QVBoxLayout, QFrame, QLabel
-        
-        # Create the display filter button with dropdown menu
-        self.btn_display = QToolButton()
-        self.btn_display.setText("Display")
-        self.btn_display.setIcon(IconProvider.create_icon("grid"))
-        self.btn_display.setToolTip("Display Filters\nControl what objects are visible")
-        self.btn_display.setPopupMode(QToolButton.InstantPopup)
-        
-        # Create the menu
-        self.display_menu = QMenu(self)
-        self.display_menu.setStyleSheet("""
-            QMenu {
-                background-color: #FFFFFF;
-                border: 1px solid #CCCCCC;
-                padding: 5px;
-            }
-            QMenu::item {
-                padding: 5px 20px 5px 5px;
-            }
-            QMenu::item:selected {
-                background-color: #E0E0E0;
-            }
-            QCheckBox {
-                padding: 5px;
-            }
-            QCheckBox::indicator {
-                width: 18px;
-                height: 18px;
-            }
-        """)
-        
-        # Create a container for the checkboxes
-        container = QFrame()
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(5, 5, 5, 5)
-        layout.setSpacing(2)
-        
-        # Add a header label
-        header = QLabel("Display Filters")
-        header.setStyleSheet("font-weight: bold; padding: 3px;")
-        layout.addWidget(header)
-        
-        # Create the checkboxes
-        # Nodes checkbox
-        self.cb_nodes = QCheckBox("Nodes")
-        self.cb_nodes.setChecked(self.visibility_states["nodes"])
-        self.cb_nodes.stateChanged.connect(self.toggle_nodes_cb)
-        layout.addWidget(self.cb_nodes)
-        
-        # Elements checkbox
-        self.cb_elements = QCheckBox("Elements")
-        self.cb_elements.setChecked(self.visibility_states["elements"])
-        self.cb_elements.stateChanged.connect(self.toggle_elements_cb)
-        layout.addWidget(self.cb_elements)
-        
-        # Boundary conditions checkbox
-        self.cb_bcs = QCheckBox("Boundary Conditions")
-        self.cb_bcs.setChecked(self.visibility_states["bcs"])
-        self.cb_bcs.stateChanged.connect(self.toggle_bcs_cb)
-        layout.addWidget(self.cb_bcs)
-        
-        # Loads checkbox
-        self.cb_loads = QCheckBox("Loads")
-        self.cb_loads.setChecked(self.visibility_states["loads"])
-        self.cb_loads.stateChanged.connect(self.toggle_loads_cb)
-        layout.addWidget(self.cb_loads)
-        
-        # Add a separator
-        separator = QFrame()
-        separator.setFrameShape(QFrame.HLine)
-        separator.setFrameShadow(QFrame.Sunken)
-        separator.setStyleSheet("background-color: #CCCCCC;")
-        layout.addWidget(separator)
-        
-        # Grid checkbox
-        self.cb_grid = QCheckBox("Grid")
-        self.cb_grid.setChecked(self.visibility_states["grid"])
-        self.cb_grid.stateChanged.connect(self.toggle_grid_cb)
-        layout.addWidget(self.cb_grid)
-        
-        # Axes checkbox
-        self.cb_axes = QCheckBox("Axes")
-        self.cb_axes.setChecked(self.visibility_states["axes"])
-        self.cb_axes.stateChanged.connect(self.toggle_axes_cb)
-        layout.addWidget(self.cb_axes)
-        
-        # Add a separator
-        separator2 = QFrame()
-        separator2.setFrameShape(QFrame.HLine)
-        separator2.setFrameShadow(QFrame.Sunken)
-        separator2.setStyleSheet("background-color: #CCCCCC;")
-        layout.addWidget(separator2)
-        
-        # Labels checkbox
-        self.cb_labels = QCheckBox("Labels")
-        self.cb_labels.setChecked(self.visibility_states["labels"])
-        self.cb_labels.stateChanged.connect(self.toggle_labels_cb)
-        layout.addWidget(self.cb_labels)
-        
-        # Create a widget action to hold the container
-        widget_action = QWidgetAction(self.display_menu)
-        widget_action.setDefaultWidget(container)
-        self.display_menu.addAction(widget_action)
-        
-        # Set the menu
-        self.btn_display.setMenu(self.display_menu)
-        
-        # Add to toolbar
-        self.toolbar.addWidget(self.btn_display)
-
-    def create_filter_controls(self):
-        """Create buttons for filtering what's displayed in the scene"""
-        # This method is no longer used as filters are now in a dropdown menu
-        pass
-    
     def set_rotate_mode(self):
         """Set the interaction style to rotate"""
-        if self.btn_rotate.isChecked():
-            self.uncheck_other_buttons(self.btn_rotate)
+        if self.toolbar.btn_rotate.isChecked():
+            self.uncheck_other_buttons(self.toolbar.btn_rotate)
             RotateInteractionStyle.setup(self.interactor)
             self.vtk_widget.GetRenderWindow().Render()
     
     def set_pan_mode(self):
         """Set the interaction style to pan"""
-        if self.btn_pan.isChecked():
-            self.uncheck_other_buttons(self.btn_pan)
+        if self.toolbar.btn_pan.isChecked():
+            self.uncheck_other_buttons(self.toolbar.btn_pan)
             PanInteractionStyle.setup(self.interactor)
             self.vtk_widget.GetRenderWindow().Render()
     
     def set_zoom_mode(self):
         """Set the interaction style to zoom"""
-        if self.btn_zoom.isChecked():
-            self.uncheck_other_buttons(self.btn_zoom)
+        if self.toolbar.btn_zoom.isChecked():
+            self.uncheck_other_buttons(self.toolbar.btn_zoom)
             ZoomInteractionStyle.setup(self.interactor)
             self.vtk_widget.GetRenderWindow().Render()
             
     def set_select_mode(self):
         """Set the interaction style to select"""
-        if self.btn_select.isChecked():
-            self.uncheck_other_buttons(self.btn_select)
+        if self.toolbar.btn_select.isChecked():
+            self.uncheck_other_buttons(self.toolbar.btn_select)
             # Use our custom select interaction style
             style = SelectInteractionStyle.setup(self.interactor)
             # Set the reference to this scene
@@ -710,10 +245,10 @@ class ModseeScene(QFrame):
     
     def uncheck_other_buttons(self, active_button):
         """Uncheck all mode buttons except the active one"""
-        for button in [self.btn_rotate, self.btn_pan, self.btn_zoom, self.btn_select]:
+        for button in self.toolbar.get_button_group():
             if button != active_button:
                 button.setChecked(False)
-        
+    
     def add_axes(self):
         """Add coordinate axes to the scene"""
         # If there's an existing axes widget, disable it first
@@ -722,23 +257,11 @@ class ModseeScene(QFrame):
             self.axes_widget = None
             self.axes_actor = None
         
-        axes = vtk.vtkAxesActor()
-        
         # Get axes length from preferences
         axes_length = self.vis_settings.get("axes_length", 10)
-        axes.SetTotalLength(axes_length, axes_length, axes_length)
         
-        axes.SetShaftType(0)  # Make the axes a cylinder
-        axes.SetCylinderRadius(0.01)  # Adjust thickness
-        
-        # Adjust the labels
-        axes.GetXAxisCaptionActor2D().GetTextActor().SetTextScaleModeToNone()
-        axes.GetYAxisCaptionActor2D().GetTextActor().SetTextScaleModeToNone()
-        axes.GetZAxisCaptionActor2D().GetTextActor().SetTextScaleModeToNone()
-        
-        axes.GetXAxisCaptionActor2D().GetCaptionTextProperty().SetFontSize(12)
-        axes.GetYAxisCaptionActor2D().GetCaptionTextProperty().SetFontSize(12)
-        axes.GetZAxisCaptionActor2D().GetCaptionTextProperty().SetFontSize(12)
+        # Create axes actor
+        axes = create_axes(axes_length)
         
         # Get axes viewport from preferences
         axes_viewport = self.vis_settings.get("axes_viewport", [0.0, 0.0, 0.2, 0.2])
@@ -784,40 +307,11 @@ class ModseeScene(QFrame):
             # Default position if settings are invalid
             grid_position = [0, 0, 0]
         
-        # Origin is offset by the grid position
-        origin_x = -grid_size/2 + grid_position[0]
-        origin_y = -grid_size/2 + grid_position[1]
-        origin_z = grid_position[2]  # Z position directly from settings
-        
-        # Log debug info
-        self.log_to_console(f"> Creating grid: size={grid_size}, divisions={divisions}, origin=({origin_x},{origin_y},{origin_z})")
-        
-        # Create a grid source
-        grid = vtk.vtkPlaneSource()
-        grid.SetXResolution(divisions)
-        grid.SetYResolution(divisions)
-        grid.SetOrigin(origin_x, origin_y, origin_z)
-        grid.SetPoint1(origin_x + grid_size, origin_y, origin_z)
-        grid.SetPoint2(origin_x, origin_y + grid_size, origin_z)
-        
-        # Create a mapper and actor
-        mapper = vtk.vtkPolyDataMapper()
-        mapper.SetInputConnection(grid.GetOutputPort())
-        
-        # Create the grid actor
-        grid_actor = vtk.vtkActor()
-        grid_actor.SetMapper(mapper)
-        
-        # Use a wireframe representation
-        grid_actor.GetProperty().SetRepresentationToWireframe()
-        grid_actor.GetProperty().SetColor(0.7, 0.7, 0.7)  # Light gray
-        grid_actor.GetProperty().SetLineWidth(1)
+        # Create grid actor
+        self.grid_actor = create_grid(grid_size, divisions, grid_position)
         
         # Add to the renderer
-        self.renderer.AddActor(grid_actor)
-        
-        # Store reference to grid actor for visibility control
-        self.grid_actor = grid_actor
+        self.renderer.AddActor(self.grid_actor)
         
         # Always make the grid visible by default, unless explicitly toggled off
         self.grid_actor.SetVisibility(self.visibility_states.get("grid", True))
@@ -827,24 +321,6 @@ class ModseeScene(QFrame):
         self.log_to_console(f"> Grid visibility set to: {self.visibility_states.get('grid', True)}")
         
         # Force render update to make sure grid appears
-        self.vtk_widget.GetRenderWindow().Render()
-        
-    def toggle_grid_visibility(self, visible):
-        """Toggle visibility of the grid"""
-        self.visibility_states["grid"] = visible
-        if self.grid_actor:
-            self.grid_actor.SetVisibility(visible)
-            self.log_to_console(f"> Grid visibility set to: {visible}")
-            self.vtk_widget.GetRenderWindow().Render()
-            
-    def toggle_grid_cb(self, state):
-        """Callback for grid checkbox state change"""
-        visible = (state == Qt.Checked)
-        self.toggle_grid_visibility(visible)
-        status = "visible" if visible else "hidden"
-        self.log_to_console(f"> Display filter: Grid is now {status}")
-        
-        # Force render update to make sure visibility change takes effect
         self.vtk_widget.GetRenderWindow().Render()
         
     def add_node(self, node_id, x, y, z, radius=None, color=None):
@@ -857,21 +333,8 @@ class ModseeScene(QFrame):
         if color is None:
             color = self.node_color
         
-        # Create a sphere source for the node
-        sphere = vtk.vtkSphereSource()
-        sphere.SetCenter(x, y, z)
-        sphere.SetRadius(radius)
-        sphere.SetPhiResolution(16)
-        sphere.SetThetaResolution(16)
-        
-        # Create a mapper
-        mapper = vtk.vtkPolyDataMapper()
-        mapper.SetInputConnection(sphere.GetOutputPort())
-        
-        # Create an actor
-        actor = vtk.vtkActor()
-        actor.SetMapper(mapper)
-        actor.GetProperty().SetColor(color)
+        # Create a node actor
+        actor = create_node((x, y, z), radius, color)
         
         # Store the node ID as a property of the actor
         actor.node_id = node_id
@@ -902,25 +365,8 @@ class ModseeScene(QFrame):
         if color is None:
             color = self.element_color
         
-        # Create line source
-        line = vtk.vtkLineSource()
-        line.SetPoint1(node1_coords)
-        line.SetPoint2(node2_coords)
-        
-        # Create tube filter for 3D visualization
-        tube = vtk.vtkTubeFilter()
-        tube.SetInputConnection(line.GetOutputPort())
-        tube.SetRadius(radius)
-        tube.SetNumberOfSides(10)
-        
-        # Create a mapper
-        mapper = vtk.vtkPolyDataMapper()
-        mapper.SetInputConnection(tube.GetOutputPort())
-        
-        # Create an actor
-        actor = vtk.vtkActor()
-        actor.SetMapper(mapper)
-        actor.GetProperty().SetColor(color)
+        # Create element actor
+        actor = create_element(node1_coords, node2_coords, radius, color)
         
         # Store the element ID as a property of the actor
         actor.element_id = element_id
@@ -941,35 +387,60 @@ class ModseeScene(QFrame):
         
         # Return the actor for future manipulations
         return actor
+
+    def add_text_label(self, position, text, color=None, font_size=None):
+        """Add a text label at the specified position"""
+        # Use default font size from preferences if not specified
+        if font_size is None:
+            font_size = self.vis_settings.get("label_font_size", 12)
+            
+        # Use stored label color if none specified
+        if color is None:
+            color = self.label_color
+            
+        # Create text label with the active camera
+        label = create_text_label(position, text, color, font_size, self.renderer.GetActiveCamera())
         
+        return label
+    
     def clear_scene(self):
         """Clear the scene of all model objects"""
-        # Clear nodes
+        # Clear nodes and their labels
         for node_id in list(self.nodes.keys()):
             actor = self.nodes[node_id]["actor"]
             self.renderer.RemoveActor(actor)
             
-        # Clear elements
+            # Remove node label if it exists
+            if "label" in self.nodes[node_id] and self.nodes[node_id]["label"]:
+                label = self.nodes[node_id]["label"]
+                self.renderer.RemoveActor(label)
+            
+        # Clear elements and their labels
         for element_id in list(self.elements.keys()):
             actor = self.elements[element_id]["actor"]
             self.renderer.RemoveActor(actor)
             
-        # Clear boundary conditions
+            # Remove element label if it exists
+            if "label" in self.elements[element_id] and self.elements[element_id]["label"]:
+                label = self.elements[element_id]["label"]
+                self.renderer.RemoveActor(label)
+            
+        # Clear boundary conditions and their labels
         for bc_id in list(self.boundary_conditions.keys()):
             actor = self.boundary_conditions[bc_id]["actor"]
             self.renderer.RemoveActor(actor)
             
-            # Also remove the label if it exists
+            # Remove boundary condition label if it exists
             if "label" in self.boundary_conditions[bc_id] and self.boundary_conditions[bc_id]["label"]:
                 label = self.boundary_conditions[bc_id]["label"]
                 self.renderer.RemoveActor(label)
             
-        # Clear loads
+        # Clear loads and their labels
         for load_id in list(self.loads.keys()):
             actor = self.loads[load_id]["actor"]
             self.renderer.RemoveActor(actor)
             
-            # Also remove the label if it exists
+            # Remove load label if it exists
             if "label" in self.loads[load_id] and self.loads[load_id]["label"]:
                 label = self.loads[load_id]["label"]
                 self.renderer.RemoveActor(label)
@@ -987,7 +458,7 @@ class ModseeScene(QFrame):
         # Clear current selection
         self.selected_actor = None
         
-        # Update the render window
+        # Force a render to ensure clean state
         self.vtk_widget.GetRenderWindow().Render()
         
     def set_camera_position(self, position, focal_point=(0, 0, 0), view_up=(0, 0, 1)):
@@ -1010,83 +481,7 @@ class ModseeScene(QFrame):
             for obj_info in collection.values():
                 if "label" in obj_info and obj_info["label"]:
                     obj_info["label"].SetCamera(camera)
-        
-    def update_model(self, project):
-        """Update the visualization with model data"""
-        # Clear the current scene
-        self.clear_scene()
-        
-        # Add nodes
-        for node_id, node in project.nodes.items():
-            coords = node["coordinates"]
-            self.add_node(node_id, coords[0], coords[1], coords[2])
-            
-        # Add elements
-        for element_id, element in project.elements.items():
-            node_ids = element["nodes"]
-            
-            # Get node coordinates
-            if len(node_ids) >= 2:
-                node1 = project.nodes.get(node_ids[0])
-                node2 = project.nodes.get(node_ids[1])
-                
-                if node1 and node2:
-                    node1_coords = node1["coordinates"]
-                    node2_coords = node2["coordinates"]
-                    self.add_element(element_id, node1_coords, node2_coords)
-        
-        # Add boundary conditions
-        try:
-            for bc_id, bc in project.boundary_conditions.items():
-                try:
-                    node_id = bc.get("node")
-                    dofs = bc.get("dofs", [])
-                    
-                    if node_id is not None and node_id in project.nodes:
-                        node = project.nodes[node_id]
-                        coords = node["coordinates"]
-                        # Use the new symbolic boundary condition representation
-                        self.add_boundary_condition_with_symbols(bc_id, node_id, coords, dofs)
-                except Exception as e:
-                    print(f"Error processing boundary condition {bc_id}: {str(e)}")
-        except Exception as e:
-            print(f"Error accessing boundary conditions: {str(e)}")
-        
-        # Add loads
-        try:
-            for load_id, load in project.loads.items():
-                try:
-                    target_id = load.get("target")
-                    values = load.get("values", [])
-                    
-                    if target_id is not None and target_id in project.nodes:
-                        node = project.nodes[target_id]
-                        coords = node["coordinates"]
-                        self.add_load(load_id, target_id, coords, values)
-                except Exception as e:
-                    print(f"Error processing load {load_id}: {str(e)}")
-        except Exception as e:
-            print(f"Error accessing loads: {str(e)}")
-                    
-        # Update the view
-        self.vtk_widget.GetRenderWindow().Render()
-        
-    def get_screenshot(self, file_path):
-        """Take a screenshot of the current view"""
-        # Create a window to image filter
-        window_to_image = vtk.vtkWindowToImageFilter()
-        window_to_image.SetInput(self.vtk_widget.GetRenderWindow())
-        window_to_image.Update()
-        
-        # Create a PNG writer
-        writer = vtk.vtkPNGWriter()
-        writer.SetFileName(file_path)
-        writer.SetInputConnection(window_to_image.GetOutputPort())
-        writer.Write()
-        
-        return file_path
-
-    # Add new view orientation methods
+    
     def view_top(self):
         """Set camera to top view (looking down at XY plane)"""
         camera = self.renderer.GetActiveCamera()
@@ -1260,6 +655,92 @@ class ModseeScene(QFrame):
                 self.loads[load_id]["label"].SetVisibility(visible and labels_visible)
         self.vtk_widget.GetRenderWindow().Render()
         
+    def toggle_grid_visibility(self, visible):
+        """Toggle visibility of the grid"""
+        self.visibility_states["grid"] = visible
+        if self.grid_actor:
+            self.grid_actor.SetVisibility(visible)
+            self.log_to_console(f"> Grid visibility set to: {visible}")
+            self.vtk_widget.GetRenderWindow().Render()
+            
+    def toggle_labels_visibility(self, visible):
+        """Toggle visibility of all labels"""
+        self.visibility_states["labels"] = visible
+        
+        # Update boundary condition labels
+        for bc_id, bc_info in self.boundary_conditions.items():
+            if "label" in bc_info and bc_info["label"]:
+                # Make sure the label is only visible if both labels and BCs are visible
+                bc_visible = self.visibility_states["bcs"]
+                bc_info["label"].SetVisibility(visible and bc_visible)
+        
+        # Update load labels
+        for load_id, load_info in self.loads.items():
+            if "label" in load_info and load_info["label"]:
+                # Make sure the label is only visible if both labels and loads are visible
+                load_visible = self.visibility_states["loads"]
+                load_info["label"].SetVisibility(visible and load_visible)
+        
+        # Update the render window
+        self.vtk_widget.GetRenderWindow().Render()
+
+    # Callback methods for checkbox state changes
+    def toggle_nodes_cb(self, state):
+        """Callback for nodes checkbox state change"""
+        from PyQt5.QtCore import Qt
+        visible = (state == Qt.Checked)
+        self.toggle_nodes_visibility(visible)
+        status = "visible" if visible else "hidden"
+        self.log_to_console(f"> Display filter: Nodes are now {status}")
+        
+    def toggle_elements_cb(self, state):
+        """Callback for elements checkbox state change"""
+        from PyQt5.QtCore import Qt
+        visible = (state == Qt.Checked)
+        self.toggle_elements_visibility(visible)
+        status = "visible" if visible else "hidden"
+        self.log_to_console(f"> Display filter: Elements are now {status}")
+        
+    def toggle_bcs_cb(self, state):
+        """Callback for boundary conditions checkbox state change"""
+        from PyQt5.QtCore import Qt
+        visible = (state == Qt.Checked)
+        self.toggle_bcs_visibility(visible)
+        status = "visible" if visible else "hidden"
+        self.log_to_console(f"> Display filter: Boundary conditions are now {status}")
+        
+    def toggle_loads_cb(self, state):
+        """Callback for loads checkbox state change"""
+        from PyQt5.QtCore import Qt
+        visible = (state == Qt.Checked)
+        self.toggle_loads_visibility(visible)
+        status = "visible" if visible else "hidden"
+        self.log_to_console(f"> Display filter: Loads are now {status}")
+        
+    def toggle_grid_cb(self, state):
+        """Callback for grid checkbox state change"""
+        from PyQt5.QtCore import Qt
+        visible = (state == Qt.Checked)
+        self.toggle_grid_visibility(visible)
+        status = "visible" if visible else "hidden"
+        self.log_to_console(f"> Display filter: Grid is now {status}")
+        
+    def toggle_axes_cb(self, state):
+        """Callback for axes checkbox state change"""
+        from PyQt5.QtCore import Qt
+        visible = (state == Qt.Checked)
+        self.toggle_axes_visibility(visible)
+        status = "visible" if visible else "hidden"
+        self.log_to_console(f"> Display filter: Axes are now {status}")
+        
+    def toggle_labels_cb(self, state):
+        """Callback for labels checkbox state change"""
+        from PyQt5.QtCore import Qt
+        visible = (state == Qt.Checked)
+        self.toggle_labels_visibility(visible)
+        status = "visible" if visible else "hidden"
+        self.log_to_console(f"> Display filter: Labels are now {status}")
+        
     def handle_selection(self, actor):
         """Handle selection of an actor"""
         # Clear previous selection
@@ -1335,9 +816,55 @@ class ModseeScene(QFrame):
         - object_id is the ID of the selected object or None if nothing is selected
         """
         self.selection_callback = callback
+        
+    def track_mouse_movement(self):
+        """Set up mouse movement tracking for coordinate display"""
+        # Create a custom MouseMoveEvent callback
+        def mouse_move_callback(obj, event):
+            # Get current mouse position
+            pos = self.interactor.GetEventPosition()
+            x, y = pos
+            
+            # Use picker to convert 2D coordinates to 3D world coordinates
+            picker = vtk.vtkWorldPointPicker()
+            picker.Pick(x, y, 0, self.renderer)
+            world_pos = picker.GetPickPosition()
+            
+            # If we have a hover callback, call it with the world coordinates
+            if self.hover_callback:
+                self.hover_callback(world_pos[0], world_pos[1], world_pos[2])
+        
+        # Add observer for mouse movement
+        self.interactor.AddObserver("MouseMoveEvent", mouse_move_callback)
+        
+    def set_hover_callback(self, callback):
+        """Set callback for hover coordinate updates"""
+        self.hover_callback = callback
+        
+    def log_to_console(self, message):
+        """Log a message to the console output via parent chain"""
+        # Try to find the app instance through the parent chain
+        parent = self.parent
+        while parent:
+            # If the parent has log_to_console, use it
+            if hasattr(parent, 'log_to_console'):
+                parent.log_to_console(message)
+                return
+            # If it's the MainWindow, it has a terminal_output
+            elif hasattr(parent, 'terminal_output'):
+                parent.terminal_output.addItem(message)
+                return
+            # Try the next parent
+            if hasattr(parent, 'parent'):
+                parent = parent.parent
+            else:
+                parent = None
+                
+        # If we can't find anyone to log to, just print to console
+        print(message)
 
     def add_boundary_condition(self, bc_id, node_id, coords, dofs, size=None, color=None):
-        """Add a boundary condition visualization at the specified node"""
+        """Add a boundary condition visualization with specialized symbols based on fixed DOFs"""
         try:
             # Use default size from preferences if not specified
             if size is None:
@@ -1346,23 +873,12 @@ class ModseeScene(QFrame):
             # Use stored boundary condition color if none specified
             if color is None:
                 color = self.bc_color
+                
+            # Create a boundary condition symbol based on which DOFs are fixed
+            actor = create_bc_symbol(coords, dofs, size, color)
             
-            # Create a sphere for the boundary condition
-            sphere = vtk.vtkSphereSource()
-            sphere.SetCenter(coords[0], coords[1], coords[2])
-            sphere.SetRadius(size)
-            sphere.SetThetaResolution(16)
-            sphere.SetPhiResolution(16)
-            
-            # Create a mapper
-            mapper = vtk.vtkPolyDataMapper()
-            mapper.SetInputConnection(sphere.GetOutputPort())
-            
-            # Create an actor
-            actor = vtk.vtkActor()
-            actor.SetMapper(mapper)
-            actor.GetProperty().SetColor(color)  # Green for boundary conditions
-            actor.GetProperty().SetOpacity(0.7)  # Semi-transparent
+            # Store the BC ID for selection
+            actor.bc_id = bc_id
             
             # Check if labels should be shown according to preferences
             show_labels = self.vis_settings.get("show_labels", True)
@@ -1374,9 +890,6 @@ class ModseeScene(QFrame):
                 # Get font size from preferences
                 font_size = self.vis_settings.get("label_font_size", 12)
                 label = self.add_text_label(coords, text, None, font_size)
-            
-            # Store the actor's ID for selection
-            actor.bc_id = bc_id
             
             # Store data for later access
             self.boundary_conditions[bc_id] = {
@@ -1411,115 +924,15 @@ class ModseeScene(QFrame):
             # Use stored load color if none specified
             if color is None:
                 color = self.load_color
-            
-            # Ensure values has at least 3 elements (for forces)
-            if len(values) < 3:
-                values = values + [0.0] * (3 - len(values))
                 
-            # Determine the length and direction of the arrow based on the load values
-            force = values[:3]  # First 3 values are forces
-            length = sum(v*v for v in force) ** 0.5  # Magnitude of force
-            
-            if length < 0.0001:
-                # If no force, don't show anything
-                return
-                
-            # Create an arrow to represent the load
-            arrow = vtk.vtkArrowSource()
-            arrow.SetTipLength(0.35)  # Much longer tip for distinction
-            arrow.SetTipRadius(0.08)  # Wider tip
-            arrow.SetShaftRadius(0.02)  # Still thin shaft
-            
-            # Create a transform to position and scale the arrow
-            transform = vtk.vtkTransform()
-            
-            # Calculate position so the arrow tip ends exactly at the node
+            # Get node size for scaling
             node_size = self.vis_settings.get("default_node_size", 0.2)
             
-            # Get direction from the force vector
-            direction = [0, 0, 0]
-            if length > 0:
-                # Normalize the force vector
-                direction = [f/length for f in force]
-            else:
-                # Default direction if force is zero
-                direction = [0, 0, 1]
+            # Create a load arrow
+            actor = create_load_arrow(coords, values, scale, color, node_size)
             
-            # The default arrow points in +X direction in VTK
-            # We need to calculate how far back to place the arrow so its tip ends at the node
-            
-            # Calculate the arrow length based on our scale settings
-            base_size = node_size * 2
-            max_size = node_size * 10
-            arrow_scale = min(max_size, base_size + (scale * length))
-            
-            # VTK arrow is built with tip at (1,0,0) and base at (0,0,0)
-            # So moving back 1.0 units in the arrow direction will place the tip at the node
-            # Since we're scaling the arrow, we need to move back that scale factor
-            
-            # Calculate start position (arrow base)
-            start_pos = [
-                coords[0] - direction[0] * arrow_scale,
-                coords[1] - direction[1] * arrow_scale,
-                coords[2] - direction[2] * arrow_scale
-            ]
-            
-            transform.Translate(start_pos[0], start_pos[1], start_pos[2])
-            
-            # Scale the arrow to a more reasonable size
-            # Use the scale factor from preferences directly
-            # Set a much smaller base size that's proportional to the node size
-            node_size = self.vis_settings.get("default_node_size", 0.2)
-            base_size = node_size * 2  # Base size proportional to node size
-            max_size = node_size * 10  # Cap the maximum size
-            
-            # Apply the scale factor directly to the force magnitude
-            # The smaller the scale factor, the smaller the arrow
-            normalized_length = min(max_size, base_size + (scale * length))
-            
-            transform.Scale(normalized_length, normalized_length, normalized_length)
-            
-            # Rotate the arrow to align with the load direction
-            if length > 0:
-                # Calculate rotation to align with the load direction
-                # The default arrow points in (1,0,0), we need to rotate it
-                from math import acos, degrees
-                
-                # Normalize the force vector
-                normalized_force = [f/length for f in force]
-                
-                # Calculate rotation axis (cross product of default and target)
-                axis = [
-                    0 * normalized_force[2] - 1 * normalized_force[1],
-                    1 * normalized_force[0] - 0 * normalized_force[2],
-                    0 * normalized_force[1] - 0 * normalized_force[0]
-                ]
-                
-                # Calculate rotation angle (dot product of default and target)
-                angle = degrees(acos(max(-1.0, min(1.0, normalized_force[0]))))
-                
-                # Apply rotation 
-                if sum(v*v for v in axis) > 0.0001:  # Check if axis is not too small
-                    transform.RotateWXYZ(angle, axis[0], axis[1], axis[2])
-            
-            # Apply the transform to the arrow
-            transformFilter = vtk.vtkTransformPolyDataFilter()
-            transformFilter.SetInputConnection(arrow.GetOutputPort())
-            transformFilter.SetTransform(transform)
-            transformFilter.Update()
-            
-            # Create a mapper and actor
-            mapper = vtk.vtkPolyDataMapper()
-            mapper.SetInputConnection(transformFilter.GetOutputPort())
-            
-            actor = vtk.vtkActor()
-            actor.SetMapper(mapper)
-            actor.GetProperty().SetColor(color)  # Bright red for loads
-            
-            # Make the load arrow more visually distinct
-            actor.GetProperty().SetSpecular(0.7)
-            actor.GetProperty().SetSpecularPower(30)
-            actor.GetProperty().SetAmbient(0.3)
+            # Store the load ID as a property of the actor
+            actor.load_id = load_id
             
             # Check if labels should be shown according to preferences
             show_labels = self.vis_settings.get("show_labels", True)
@@ -1531,9 +944,6 @@ class ModseeScene(QFrame):
                 # Get font size from preferences
                 font_size = self.vis_settings.get("label_font_size", 12)
                 label = self.add_text_label(coords, text, None, font_size)
-            
-            # Store the actor's ID for selection
-            actor.load_id = load_id
             
             # Store data for later access
             self.loads[load_id] = {
@@ -1557,51 +967,266 @@ class ModseeScene(QFrame):
         except Exception as e:
             print(f"Error adding load {load_id}: {str(e)}")
             return None
-    
-    def add_text_label(self, position, text, color=None, font_size=None):
-        """Add a text label at the specified position"""
-        # Use default font size from preferences if not specified
-        if font_size is None:
-            font_size = self.vis_settings.get("label_font_size", 12)
             
-        # Use stored label color if none specified
-        if color is None:
-            color = self.label_color
+    def update_model(self, project):
+        """Update the scene with a new project
         
-        # Create a vtkVectorText for 3D text
-        text_source = vtk.vtkVectorText()
-        text_source.SetText(text)
-        
-        # Create mapper for the text
-        mapper = vtk.vtkPolyDataMapper()
-        mapper.SetInputConnection(text_source.GetOutputPort())
-        
-        # Create a follower actor (always faces the camera)
-        follower = vtk.vtkFollower()
-        follower.SetMapper(mapper)
-        follower.SetPosition(position[0], position[1], position[2])
-        
-        # Calculate smaller offset that's proportional to object size
-        node_size = self.vis_settings.get("default_node_size", 0.2)
-        offset_factor = max(0.5, node_size * 2)  # Smaller offset to keep labels closer
-        follower.AddPosition(offset_factor, offset_factor, offset_factor)
-        
-        # Set appearance properties - use the specified color
-        follower.GetProperty().SetColor(color)
-        
-        # Add ambient to ensure labels are visible in all lighting conditions
-        follower.GetProperty().SetAmbient(1.0)
-        follower.GetProperty().SetDiffuse(0.0)  # No lighting effect on text
-        
-        # Scale the text to an appropriate size
-        scale_factor = 0.015 * font_size
-        follower.SetScale(scale_factor, scale_factor, scale_factor)
-        
-        # Set the camera for the follower (required for vtkFollower)
-        follower.SetCamera(self.renderer.GetActiveCamera())
-        
-        return follower
+        Args:
+            project: The Project object to visualize
+        """
+        try:
+            print("\nStarting scene update...")
+            
+            # Clear existing objects and force a render to ensure clean state
+            self.clear_scene()
+            self.vtk_widget.GetRenderWindow().Render()
+            
+            # Exit if project is None
+            if project is None:
+                print("Can't update scene - project is None")
+                return
+                
+            # Update toolbar stage selector if available
+            if hasattr(self, 'toolbar') and hasattr(self.toolbar, 'update_stages'):
+                self.toolbar.update_stages(project)
+                
+            # Get the current stage ID, defaulting to 0 if not set
+            current_stage_id = getattr(self, 'current_stage_id', 0)
+            if isinstance(current_stage_id, str):
+                try:
+                    current_stage_id = int(current_stage_id)
+                except ValueError:
+                    current_stage_id = 0
+                    
+            print(f"Current stage ID: {current_stage_id}")
+            
+            # Get the current stage's data
+            if current_stage_id not in project.stages:
+                print(f"Stage {current_stage_id} not found in project stages: {list(project.stages.keys())}")
+                print(f"Project stages types: {[(k, type(k)) for k in project.stages.keys()]}")
+                return
+                
+            current_stage = project.stages[current_stage_id]
+            print(f"Stage data keys: {list(current_stage.keys())}")
+            
+            # Debug print stage data
+            print("\nDEBUG: Stage Data Summary:")
+            print(f"Stage ID: {current_stage.get('id')}")
+            print(f"Stage Name: {current_stage.get('name')}")
+            print(f"Number of nodes defined: {len(current_stage.get('nodes', {}))}")
+            print(f"Number of elements defined: {len(current_stage.get('elements', {}))}")
+            print(f"Number of boundary conditions defined: {len(current_stage.get('boundary_conditions', {}))}")
+            print(f"Number of loads defined: {len(current_stage.get('loads', {}))}")
+            
+            # Add nodes to the scene
+            print(f"\nProcessing nodes...")
+            node_count = 0
+            for node_id, node_data in current_stage['nodes'].items():
+                print(f"Processing node {node_id}: {node_data}")
+                if 'coordinates' in node_data:
+                    coords = node_data['coordinates']
+                    # Handle both 2D and 3D coordinates
+                    x = coords[0] if len(coords) > 0 else 0.0
+                    y = coords[1] if len(coords) > 1 else 0.0
+                    z = coords[2] if len(coords) > 2 else 0.0
+                    
+                    # Add the node to the scene
+                    self.add_node(node_id, x, y, z)
+                    node_count += 1
+                    
+                    # Add a label if enabled
+                    if self.visibility_states["labels"]:
+                        label = self.add_text_label((x, y, z), f"N{node_id}")
+                        self.nodes[node_id]["label"] = label
+            print(f"Added {node_count} nodes")
+            
+            # Add elements to the scene
+            print(f"\nProcessing elements...")
+            element_count = 0
+            for element_id, element_data in current_stage['elements'].items():
+                print(f"Processing element {element_id}: {element_data}")
+                if 'nodes' in element_data and len(element_data['nodes']) >= 2:
+                    # Get the nodes of the element
+                    node1_id = str(element_data['nodes'][0])
+                    node2_id = str(element_data['nodes'][1])
+                    
+                    # Get node coordinates
+                    if (node1_id in current_stage['nodes'] and 
+                        node2_id in current_stage['nodes'] and
+                        'coordinates' in current_stage['nodes'][node1_id] and
+                        'coordinates' in current_stage['nodes'][node2_id]):
+                        
+                        coords1 = current_stage['nodes'][node1_id]['coordinates']
+                        coords2 = current_stage['nodes'][node2_id]['coordinates']
+                        
+                        # Draw element from node1 to node2
+                        print(f"Drawing element from {coords1} to {coords2}")
+                        self.add_element(element_id, coords1, coords2)
+                        element_count += 1
+                        
+                        # Add a label if enabled
+                        if self.visibility_states["labels"]:
+                            # Calculate midpoint for label
+                            mid_x = (coords1[0] + coords2[0]) / 2.0
+                            mid_y = (coords1[1] + coords2[1]) / 2.0
+                            mid_z = (coords1[2] + coords2[2]) / 2.0
+                            label = self.add_text_label((mid_x, mid_y, mid_z), f"E{element_id}")
+                            self.elements[element_id]["label"] = label
+                    else:
+                        print(f"Missing node coordinates for element {element_id}")
+            print(f"Added {element_count} elements")
+            
+            # Add boundary conditions if they exist
+            print(f"\nProcessing boundary conditions...")
+            bc_count = 0
+            if 'boundary_conditions' in current_stage:
+                # Add boundary conditions to the scene
+                for bc_id, bc_data in current_stage['boundary_conditions'].items():
+                    print(f"Processing boundary condition {bc_id}: {bc_data}")
+                    if 'node' in bc_data and 'dofs' in bc_data:
+                        node_id = str(bc_data['node'])  # Convert to string for lookup
+                        dofs = bc_data['dofs']
+                        
+                        # Get node coordinates
+                        if node_id in current_stage['nodes'] and 'coordinates' in current_stage['nodes'][node_id]:
+                            coords = current_stage['nodes'][node_id]['coordinates']
+                            
+                            # Handle both 2D and 3D coordinates
+                            x = coords[0] if len(coords) > 0 else 0.0
+                            y = coords[1] if len(coords) > 1 else 0.0
+                            z = coords[2] if len(coords) > 2 else 0.0
+                            
+                            print(f"Adding boundary condition at ({x}, {y}, {z}) with DOFs: {dofs}")
+                            
+                            # Add the boundary condition to the scene
+                            self.add_boundary_condition(bc_id, node_id, (x, y, z), dofs)
+                            bc_count += 1
+                        else:
+                            print(f"Missing node coordinates for boundary condition {bc_id}")
+            print(f"Added {bc_count} boundary conditions")
+            
+            # Add loads if they exist
+            print(f"\nProcessing loads...")
+            load_count = 0
+            if 'loads' in current_stage:
+                # Add loads to the scene
+                for load_id, load_data in current_stage['loads'].items():
+                    print(f"Processing load {load_id}: {load_data}")
+                    if 'type' not in load_data or 'target' not in load_data or 'values' not in load_data:
+                        print(f"Missing required load data for load {load_id}")
+                        continue
+                        
+                    load_type = load_data['type']
+                    target = str(load_data['target'])  # Convert to string for lookup
+                    values = load_data['values']
+                    dofs = load_data.get('dofs', [])
+                    
+                    if load_type == 'point':
+                        # Point load - applied at a node
+                        if target in current_stage['nodes'] and 'coordinates' in current_stage['nodes'][target]:
+                            coords = current_stage['nodes'][target]['coordinates']
+                            
+                            # Handle both 2D and 3D coordinates
+                            x = coords[0] if len(coords) > 0 else 0.0
+                            y = coords[1] if len(coords) > 1 else 0.0
+                            z = coords[2] if len(coords) > 2 else 0.0
+                            
+                            print(f"Adding point load at node {target} ({x}, {y}, {z}) with values: {values}")
+                            
+                            # Create load vector based on DOFs
+                            load_vector = [0.0] * 6  # Initialize with zeros for all DOFs
+                            for dof_idx, dof in enumerate(dofs):
+                                if dof_idx < len(values):
+                                    # DOFs are 1-based, convert to 0-based for array index
+                                    dof_index = dof - 1
+                                    if 0 <= dof_index < 6:
+                                        load_vector[dof_index] = values[dof_idx]
+                            
+                            # Add the load to the scene
+                            self.add_load(load_id, target, (x, y, z), load_vector)
+                            load_count += 1
+                        else:
+                            print(f"Missing node coordinates for point load {load_id}")
+                            
+                    elif load_type == 'element':
+                        # Element load - applied along an element
+                        if target in current_stage['elements']:
+                            element_data = current_stage['elements'][target]
+                            if 'nodes' in element_data and len(element_data['nodes']) >= 2:
+                                # Get the nodes of the element
+                                node1_id = str(element_data['nodes'][0])
+                                node2_id = str(element_data['nodes'][1])
+                                
+                                # Get node coordinates
+                                if (node1_id in current_stage['nodes'] and 
+                                    node2_id in current_stage['nodes'] and
+                                    'coordinates' in current_stage['nodes'][node1_id] and
+                                    'coordinates' in current_stage['nodes'][node2_id]):
+                                    
+                                    coords1 = current_stage['nodes'][node1_id]['coordinates']
+                                    coords2 = current_stage['nodes'][node2_id]['coordinates']
+                                    
+                                    # Calculate midpoint for load application
+                                    x = (coords1[0] + coords2[0]) / 2.0
+                                    y = (coords1[1] + coords2[1]) / 2.0
+                                    z = (coords1[2] + coords2[2]) / 2.0
+                                    
+                                    print(f"Adding element load at element {target} midpoint ({x}, {y}, {z}) with values: {values}")
+                                    
+                                    # Create load vector based on DOFs
+                                    load_vector = [0.0] * 6  # Initialize with zeros for all DOFs
+                                    for dof_idx, dof in enumerate(dofs):
+                                        if dof_idx < len(values):
+                                            # DOFs are 1-based, convert to 0-based for array index
+                                            dof_index = dof - 1
+                                            if 0 <= dof_index < 6:
+                                                load_vector[dof_index] = values[dof_idx]
+                                    
+                                    # Add the load to the scene at element midpoint
+                                    self.add_load(load_id, target, (x, y, z), load_vector)
+                                    load_count += 1
+                                else:
+                                    print(f"Missing node coordinates for element load {load_id}")
+                            else:
+                                print(f"Invalid element data for load {load_id}")
+                        else:
+                            print(f"Element {target} not found for element load {load_id}")
+                    else:
+                        print(f"Unknown load type '{load_type}' for load {load_id}")
+            print(f"Added {load_count} loads")
+            
+            # Print final summary
+            print("\nFinal Scene Summary:")
+            print(f"Total nodes: {node_count}")
+            print(f"Total elements: {element_count}")
+            print(f"Total boundary conditions: {bc_count}")
+            print(f"Total loads: {load_count}")
+                        
+            # Render the scene
+            print("\nRendering scene...")
+            self.vtk_widget.GetRenderWindow().Render()
+            print("Scene update complete")
+            
+        except Exception as e:
+            print(f"Error updating model: {str(e)}")
+            import traceback
+            traceback.print_exc()
 
+    def get_screenshot(self, file_path):
+        """Take a screenshot of the current view"""
+        # Create a window to image filter
+        window_to_image = vtk.vtkWindowToImageFilter()
+        window_to_image.SetInput(self.vtk_widget.GetRenderWindow())
+        window_to_image.Update()
+        
+        # Create a PNG writer
+        writer = vtk.vtkPNGWriter()
+        writer.SetFileName(file_path)
+        writer.SetInputConnection(window_to_image.GetOutputPort())
+        writer.Write()
+        
+        return file_path
+        
     def refresh_settings(self):
         """Refresh visualization settings from config"""
         # Reload configuration with a fresh instance
@@ -1686,15 +1311,6 @@ class ModseeScene(QFrame):
                 print(f"\nSample Element (ID: {first_element_id}):")
                 print(f"  Node1: {first_element.get('node1')}")
                 print(f"  Node2: {first_element.get('node2')}")
-                
-                mapper = actor.GetMapper()
-                if mapper:
-                    input_data = mapper.GetInput()
-                    if input_data and hasattr(input_data, 'GetSource'):
-                        source = input_data.GetSource()
-                        if isinstance(source, vtk.vtkTubeFilter):
-                            print(f"  Tube Radius: {source.GetRadius()}")
-                            print(f"  Number of sides: {source.GetNumberOfSides()}")
         
         # Report current settings
         print("\nCURRENT VISUALIZATION SETTINGS:")
@@ -1814,168 +1430,7 @@ class ModseeScene(QFrame):
         print("Scene: Settings changed - forcing full visualization refresh")
         # Use the more aggressive refresh method
         self.force_refresh()
-
-    def track_mouse_movement(self):
-        """Set up mouse movement tracking for coordinate display"""
-        # Create a custom MouseMoveEvent callback
-        def mouse_move_callback(obj, event):
-            # Get current mouse position
-            pos = self.interactor.GetEventPosition()
-            x, y = pos
-            
-            # Use picker to convert 2D coordinates to 3D world coordinates
-            picker = vtk.vtkWorldPointPicker()
-            picker.Pick(x, y, 0, self.renderer)
-            world_pos = picker.GetPickPosition()
-            
-            # If we have a hover callback, call it with the world coordinates
-            if self.hover_callback:
-                self.hover_callback(world_pos[0], world_pos[1], world_pos[2])
-        
-        # Add observer for mouse movement
-        self.interactor.AddObserver("MouseMoveEvent", mouse_move_callback)
-        
-    def set_hover_callback(self, callback):
-        """Set callback for hover coordinate updates"""
-        self.hover_callback = callback
-
-    def log_to_console(self, message):
-        """Log a message to the console output via parent chain"""
-        # Try to find the app instance through the parent chain
-        parent = self.parent
-        while parent:
-            # If the parent has log_to_console, use it
-            if hasattr(parent, 'log_to_console'):
-                parent.log_to_console(message)
-                return
-            # If it's the MainWindow, it has a terminal_output
-            elif hasattr(parent, 'terminal_output'):
-                parent.terminal_output.addItem(message)
-                return
-            # Try the next parent
-            if hasattr(parent, 'parent'):
-                parent = parent.parent
-            else:
-                parent = None
-                
-        # If we can't find anyone to log to, just print to console
-        print(message)
-
-    # New callback methods for checkbox state changes
-    def toggle_nodes_cb(self, state):
-        """Callback for nodes checkbox state change"""
-        visible = (state == Qt.Checked)
-        self.toggle_nodes_visibility(visible)
-        status = "visible" if visible else "hidden"
-        self.log_to_console(f"> Display filter: Nodes are now {status}")
-        
-    def toggle_elements_cb(self, state):
-        """Callback for elements checkbox state change"""
-        visible = (state == Qt.Checked)
-        self.toggle_elements_visibility(visible)
-        status = "visible" if visible else "hidden"
-        self.log_to_console(f"> Display filter: Elements are now {status}")
-        
-    def toggle_bcs_cb(self, state):
-        """Callback for boundary conditions checkbox state change"""
-        visible = (state == Qt.Checked)
-        self.toggle_bcs_visibility(visible)
-        status = "visible" if visible else "hidden"
-        self.log_to_console(f"> Display filter: Boundary conditions are now {status}")
-        
-    def toggle_loads_cb(self, state):
-        """Callback for loads checkbox state change"""
-        visible = (state == Qt.Checked)
-        self.toggle_loads_visibility(visible)
-        status = "visible" if visible else "hidden"
-        self.log_to_console(f"> Display filter: Loads are now {status}")
-        
-    def toggle_axes_cb(self, state):
-        """Callback for axes checkbox state change"""
-        visible = (state == Qt.Checked)
-        self.toggle_axes_visibility(visible)
-        status = "visible" if visible else "hidden"
-        self.log_to_console(f"> Display filter: Axes are now {status}")
-        
-    def toggle_labels_cb(self, state):
-        """Callback for labels checkbox state change"""
-        visible = (state == Qt.Checked)
-        self.toggle_labels_visibility(visible)
-        status = "visible" if visible else "hidden"
-        self.log_to_console(f"> Display filter: Labels are now {status}")
-
-    def toggle_labels_visibility(self, visible):
-        """Toggle visibility of all labels"""
-        self.visibility_states["labels"] = visible
-        
-        # Update boundary condition labels
-        for bc_id, bc_info in self.boundary_conditions.items():
-            if "label" in bc_info and bc_info["label"]:
-                # Make sure the label is only visible if both labels and BCs are visible
-                bc_visible = self.visibility_states["bcs"]
-                bc_info["label"].SetVisibility(visible and bc_visible)
-        
-        # Update load labels
-        for load_id, load_info in self.loads.items():
-            if "label" in load_info and load_info["label"]:
-                # Make sure the label is only visible if both labels and loads are visible
-                load_visible = self.visibility_states["loads"]
-                load_info["label"].SetVisibility(visible and load_visible)
-        
-        # Update the render window
-        self.vtk_widget.GetRenderWindow().Render()
-
-    def add_boundary_condition_with_symbols(self, bc_id, node_id, coords, dofs, size=None, color=None):
-        """Add a boundary condition visualization with specialized symbols based on fixed DOFs"""
-        try:
-            # Use default size from preferences if not specified
-            if size is None:
-                size = self.vis_settings.get("boundary_condition_size", 0.4)
-                
-            # Use stored boundary condition color if none specified
-            if color is None:
-                color = self.bc_color
-                
-            # Create a boundary condition symbol based on which DOFs are fixed
-            actor = create_bc_symbol(coords, dofs, size, color)
-            
-            # Store the BC ID for selection
-            actor.bc_id = bc_id
-            
-            # Check if labels should be shown according to preferences
-            show_labels = self.vis_settings.get("show_labels", True)
-            label = None
-            
-            if show_labels:
-                # Add a simplified text label showing just the BC ID
-                text = f"BC {bc_id}"
-                # Get font size from preferences
-                font_size = self.vis_settings.get("label_font_size", 12)
-                label = self.add_text_label(coords, text, None, font_size)
-            
-            # Store data for later access
-            self.boundary_conditions[bc_id] = {
-                "actor": actor, 
-                "node_id": node_id,
-                "coords": coords,
-                "dofs": dofs
-            }
-            
-            if label:
-                self.boundary_conditions[bc_id]["label"] = label
-                
-            self.bc_actors[bc_id] = actor
-            
-            # Add the actor to the renderer
-            self.renderer.AddActor(actor)
-            if label:
-                self.renderer.AddActor(label)
-            
-            return bc_id
-        except Exception as e:
-            print(f"Error adding boundary condition {bc_id}: {str(e)}")
-            return None
-
+    
     def hard_reset(self, project=None):
         """Completely reset the scene by recreating the renderer
         

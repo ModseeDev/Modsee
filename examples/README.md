@@ -1,6 +1,44 @@
 # Modsee Examples
 
-This directory contains example files for Modsee.
+This directory contains example models and scripts for the Modsee structural analysis software.
+
+### File Naming Convention
+
+Modsee uses two primary file types:
+- `.msee` files: Model definition files containing the structural model information
+- `.h5` or `.hdf5` files: Results files containing analysis results
+
+When working with Modsee:
+1. Input models are stored in `.msee` files (JSON format)
+2. Analysis results are stored in `.h5` files (HDF5 format)
+
+#### Automatic Results Association
+
+In Post-Processing mode, Modsee will automatically look for a results file with the same base name as the model file. For example:
+- If you open `my_model.msee`, Modsee will automatically look for `my_model.h5` or `my_model.hdf5` in the same directory
+- If the matching results file is not found, you'll be prompted to select it manually
+
+This allows for a seamless workflow between model definition and results visualization without requiring manual file selection for each analysis.
+
+### Example Files
+
+- `cantilever_beam.msee` and `cantilever_beam_results.h5`: A multi-stage cantilever beam analysis with different loading conditions
+- `multi_builder_bridge.msee` and `multi_builder_bridge.h5`: A bridge model demonstrating different model builders for different stages
+- Other examples demonstrating various features of Modsee
+
+### Model Builder Customization
+
+Each stage in a model can have its own model builder configuration. The `custom_model_builder.py` example demonstrates how to define and use different model builders for different stages of analysis. See `model_builder_readme.md` for more details.
+
+### Running Examples
+
+To run an example script:
+
+```
+python examples/cantilever_beam_example.py
+```
+
+This will generate the corresponding `.msee` and `.h5` files in the examples directory.
 
 ## HDF5 File Format Example
 

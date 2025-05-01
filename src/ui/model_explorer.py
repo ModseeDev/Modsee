@@ -667,25 +667,21 @@ class ModelExplorer:
         self.propagate_stage_callback = propagate_stage_callback
     
     def update_model(self, project):
-        """Update the model explorer with project data"""
+        """Update the model with new project data"""
         # Save reference to current project
         self.current_project = project
         
-        if project is None:
-            self.tree_model.setupModelData(None)
-            return
-        
-        # Update model with project
+        # Update tree model
         self.tree_model.setupModelData(project)
         
-        # Expand the model root
+        # Expand the first few levels by default
         self.tree_view.expandToDepth(1)
         
         # Ensure columns are properly sized
         self.tree_view.resizeColumnToContents(0)
         # Make sure the main column is at least 250px wide
-        if self.tree_view.columnWidth(0) < 250:
-            self.tree_view.setColumnWidth(0, 250)
+        if self.tree_view.columnWidth(0) < 350:
+            self.tree_view.setColumnWidth(0, 350)
 
     def on_selection_changed(self, selected, deselected):
         """Handle selection changes in the tree view"""

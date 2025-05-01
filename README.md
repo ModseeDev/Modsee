@@ -15,6 +15,11 @@ It provides a modern, intuitive user interface for building, managing, visualizi
 - Integrated OpenSeesPy runner
 - Model visualization with VTK or similar tools
 - Cross-platform: Windows, macOS, Linux
+- Intuitive graphical interface for model creation and visualization
+- Support for staged analysis with progressive model changes
+- Analysis results visualization
+- Automatic association between model files (.msee) and results files (.h5)
+- Model builder flexibility with different configurations for each stage
 
 ---
 

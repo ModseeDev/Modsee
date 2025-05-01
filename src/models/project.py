@@ -236,7 +236,7 @@ class Project:
         self.stages[stage_id]['nodes'][node_id] = {
             "id": node_id,
             "coordinates": [x, y, z],
-            "mass": [0.0, 0.0, 0.0]
+            "mass": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # Mass values for [mx, my, mz, mrx, mry, mrz]
         }
         self._mark_modified()
         return node_id
@@ -557,6 +557,11 @@ class Project:
         storage = HDF5Storage(file_path)
         return storage.load_project()
         
+    @classmethod
+    def load_from_file(cls, file_path):
+        """Compatibility method for loading a project from a file"""
+        return cls.load(file_path)
+        
     def add_analysis_results(self, analysis_id, results):
         """Add analysis results to the project
         
@@ -644,4 +649,126 @@ class Project:
             self.model_builder_params["model_type"] = model_type
             
         self._mark_modified()
-        return self.model_builder_params 
+        return self.model_builder_params
+        
+    def find_matching_results_file(self):
+        """Find a results file with the same base name as the model file
+        
+        This method is used in post-processing mode to automatically locate
+        the HDF5 results file associated with the current model.
+        
+        Returns:
+            Path to the results file if found, None otherwise
+        """
+        if not self.file_path:
+            return None
+            
+        # Get the base name without extension
+        base_path = os.path.splitext(self.file_path)[0]
+        
+        # Check for common HDF5 extensions
+        for ext in ['.h5', '.hdf5']:
+            results_path = f"{base_path}{ext}"
+            if os.path.exists(results_path):
+                return results_path
+                
+        return None
+        
+    def promote_stage_to_root(self, stage_id=None):
+        """Promote a stage to be the root stage (stage 0)
+        
+        Args:
+            stage_id: The ID of the stage to promote. If None, uses the highest stage.
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        # Print available stages for debugging
+        print(f"Available stages: {list(self.stages.keys())}")
+        
+        # Convert stage_id to int if it's a string
+        if isinstance(stage_id, str):
+            try:
+                stage_id = int(stage_id)
+            except ValueError:
+                print(f"Warning: Could not convert stage_id '{stage_id}' to integer")
+                stage_id = 0
+        
+        # If no stage_id is specified, use the highest stage
+        if stage_id is None:
+            if not self.stages:
+                print("Warning: Project has no stages to promote")
+                return False
+            # Find the highest numeric stage ID
+            numeric_stages = [id for id in self.stages.keys() if isinstance(id, (int, float))]
+            if numeric_stages:
+                stage_id = max(numeric_stages)
+                print(f"Using highest numeric stage: {stage_id}")
+            else:
+                # If no numeric stages, use the first stage
+                stage_id = next(iter(self.stages.keys()))
+                print(f"No numeric stages found, using first stage: {stage_id}")
+        
+        # Convert all stage keys to integers if possible
+        stages_dict = {}
+        for key in self.stages.keys():
+            try:
+                if isinstance(key, str):
+                    stages_dict[int(key)] = self.stages[key]
+                else:
+                    stages_dict[key] = self.stages[key]
+            except ValueError:
+                stages_dict[key] = self.stages[key]
+        self.stages = stages_dict
+        
+        # Make sure the requested stage exists
+        if stage_id not in self.stages:
+            print(f"Stage {stage_id} not found in stages: {list(self.stages.keys())}")
+            # Find the highest numeric stage ID
+            numeric_stages = [id for id in self.stages.keys() if isinstance(id, (int, float))]
+            if numeric_stages:
+                fallback_stage = max(numeric_stages)
+                print(f"Using highest numeric stage as fallback: {fallback_stage}")
+            else:
+                # If no numeric stages, use the first stage
+                fallback_stage = next(iter(self.stages.keys()))
+                print(f"No numeric stages found, using first stage as fallback: {fallback_stage}")
+            print(f"Warning: Stage {stage_id} not found, using stage {fallback_stage}")
+            stage_id = fallback_stage
+        
+        print(f"Promoting stage {stage_id} to root")
+        
+        # Get the stage data
+        stage_data = self.stages[stage_id]
+        
+        # Clear the existing stage 0 data
+        self.stages[0] = {
+            'id': 0,
+            'name': f"Visualization of Stage {stage_id}",
+            'nodes': {},
+            'elements': {},
+            'materials': {},
+            'boundary_conditions': {},
+            'loads': {},
+            'sections': {},
+            'constraints': {},
+            'recorders': {},
+            'transformations': {},
+            'timeseries': {},
+            'patterns': {}
+        }
+        
+        # Copy all data from the selected stage to stage 0
+        for key in ['nodes', 'elements', 'materials', 'boundary_conditions', 
+                   'loads', 'sections', 'constraints', 'recorders', 
+                   'transformations', 'timeseries', 'patterns']:
+            if key in stage_data:
+                self.stages[0][key] = stage_data[key].copy()
+        
+        # Mark the project as modified
+        self._mark_modified()
+        
+        return True
+
+# Add a compatible alias for the Project class
+ModseeProject = Project  # Alias for backward compatibility with external imports 

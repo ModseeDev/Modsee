@@ -3,207 +3,164 @@
 
 """
 Modsee - OpenSees Finite Element Modeling Interface
-Application theme and styling
+Theme utility functions
 """
 
-from PyQt5.QtGui import QColor, QPalette, QFont
-from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPalette, QColor
 
-# Modern color palette
-COLORS = {
-    # Primary colors
-    "primary": "#2979FF",  # Blue
-    "primary_light": "#75A7FF",
-    "primary_dark": "#004ECB",
+
+def set_dark_theme(window):
+    """Apply dark theme to the application window
     
-    # Background colors
-    "background": "#FFFFFF",
-    "background_secondary": "#F5F5F5",
-    "foreground": "#212121",
-    "foreground_secondary": "#757575",
-    "border": "#DDDDDD",
-}
-
-# Font settings
-FONTS = {
-    "default": QFont("Segoe UI", 9),
-    "title": QFont("Segoe UI Semibold", 10),
-    "subtitle": QFont("Segoe UI", 9),
-}
-
-# Basic stylesheet
-STYLESHEET = """
-QMainWindow, QDialog {
-    background-color: white;
-    color: #212121;
-}
-
-QSplitter::handle {
-    background-color: #DDDDDD;
-}
-
-QSplitter::handle:horizontal {
-    width: 1px;
-}
-
-QSplitter::handle:vertical {
-    height: 1px;
-}
-
-QPushButton {
-    background-color: #2979FF;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 6px 12px;
-    font-weight: bold;
-}
-
-QPushButton:hover {
-    background-color: #75A7FF;
-}
-
-QPushButton:pressed {
-    background-color: #004ECB;
-}
-
-QToolButton {
-    background-color: transparent;
-    border: none;
-    border-radius: 4px;
-    padding: 4px;
-}
-
-QToolButton:hover {
-    background-color: rgba(0, 0, 0, 0.1);
-}
-
-QToolButton:pressed {
-    background-color: #75A7FF;
-}
-
-QTabWidget::pane {
-    border: 1px solid #DDDDDD;
-    border-radius: 4px;
-}
-
-QTabBar::tab {
-    background-color: #F5F5F5;
-    border: 1px solid #DDDDDD;
-    border-bottom: none;
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
-    padding: 6px 10px;
-    margin-right: 2px;
-}
-
-QTabBar::tab:selected {
-    background-color: white;
-    border-bottom: 2px solid #2979FF;
-}
-
-QTreeView, QListView {
-    border: 1px solid #DDDDDD;
-    border-radius: 4px;
-    alternate-background-color: #F5F5F5;
-}
-"""
-
-
-def set_dark_theme(app):
-    """Apply a dark theme to the application"""
-    # Create a dark color palette
-    dark_palette = QPalette()
-    
-    # Set dark color palette
-    dark_palette.setColor(QPalette.Window, QColor(53, 53, 53))
-    dark_palette.setColor(QPalette.WindowText, Qt.white)
-    dark_palette.setColor(QPalette.Base, QColor(25, 25, 25))
-    dark_palette.setColor(QPalette.AlternateBase, QColor(53, 53, 53))
-    dark_palette.setColor(QPalette.ToolTipBase, Qt.white)
-    dark_palette.setColor(QPalette.ToolTipText, Qt.white)
-    dark_palette.setColor(QPalette.Text, Qt.white)
-    dark_palette.setColor(QPalette.Button, QColor(53, 53, 53))
-    dark_palette.setColor(QPalette.ButtonText, Qt.white)
-    dark_palette.setColor(QPalette.BrightText, Qt.red)
-    dark_palette.setColor(QPalette.Link, QColor(42, 130, 218))
-    dark_palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
-    dark_palette.setColor(QPalette.HighlightedText, Qt.black)
-    
-    # Apply the palette
-    app.setPalette(dark_palette)
-    
-    # Dark stylesheet
-    dark_stylesheet = """
-    QMainWindow, QDialog {
-        background-color: #212121;
-        color: #EEEEEE;
-    }
-    
-    QSplitter::handle {
-        background-color: #444444;
-    }
-    
-    QPushButton {
-        background-color: #2979FF;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        padding: 6px 12px;
-        font-weight: bold;
-    }
-    
-    QPushButton:hover {
-        background-color: #75A7FF;
-    }
-    
-    QToolButton {
-        background-color: transparent;
-        border: none;
-        border-radius: 4px;
-        padding: 4px;
-    }
-    
-    QToolButton:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-    }
-    
-    QTabWidget::pane {
-        border: 1px solid #444444;
-    }
-    
-    QTabBar::tab {
-        background-color: #2A2A2A;
-        border: 1px solid #444444;
-        border-bottom: none;
-        border-top-left-radius: 4px;
-        border-top-right-radius: 4px;
-        padding: 6px 10px;
-        margin-right: 2px;
-    }
-    
-    QTabBar::tab:selected {
-        background-color: #212121;
-        border-bottom: 2px solid #2979FF;
-    }
-    
-    QTreeView, QListView {
-        border: 1px solid #444444;
-        alternate-background-color: #2A2A2A;
-    }
+    Args:
+        window: The window to apply the theme to
     """
+    # Create dark palette
+    palette = QPalette()
     
-    # Apply the stylesheet
-    app.setStyleSheet(dark_stylesheet)
-
+    # Window and window text
+    palette.setColor(QPalette.Window, QColor(53, 53, 53))
+    palette.setColor(QPalette.WindowText, QColor(255, 255, 255))
+    
+    # Base (background for views) and text
+    palette.setColor(QPalette.Base, QColor(35, 35, 35))
+    palette.setColor(QPalette.Text, QColor(255, 255, 255))
+    
+    # Button and button text
+    palette.setColor(QPalette.Button, QColor(53, 53, 53))
+    palette.setColor(QPalette.ButtonText, QColor(255, 255, 255))
+    
+    # Highlight and highlighted text
+    palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
+    palette.setColor(QPalette.HighlightedText, QColor(0, 0, 0))
+    
+    # Disabled colors
+    palette.setColor(QPalette.Disabled, QPalette.Text, QColor(150, 150, 150))
+    palette.setColor(QPalette.Disabled, QPalette.ButtonText, QColor(150, 150, 150))
+    
+    # Apply palette
+    window.setPalette(palette)
+    
+    # Additional stylesheet for specific widgets
+    window.setStyleSheet("""
+        QMenuBar, QStatusBar {
+            background-color: #2D2D2D;
+            color: #FFFFFF;
+        }
+        QMenuBar::item {
+            background-color: #2D2D2D;
+        }
+        QMenuBar::item:selected {
+            background-color: #3D3D3D;
+        }
+        QMenu {
+            background-color: #2D2D2D;
+            color: #FFFFFF;
+            border: 1px solid #555555;
+        }
+        QMenu::item:selected {
+            background-color: #3D3D3D;
+        }
+        QToolBar {
+            background-color: #2D2D2D;
+            border-bottom: 1px solid #555555;
+        }
+        QToolButton {
+            background-color: #2D2D2D;
+            color: #FFFFFF;
+            border: 1px solid transparent;
+        }
+        QToolButton:hover {
+            background-color: #3D3D3D;
+            border: 1px solid #777777;
+        }
+        QTabWidget::pane {
+            border: 1px solid #555555;
+            background-color: #2D2D2D;
+        }
+        QTabBar::tab {
+            background-color: #2D2D2D;
+            color: #FFFFFF;
+            border: 1px solid #555555;
+        }
+        QTabBar::tab:selected {
+            background-color: #3D3D3D;
+            border-bottom: 2px solid #2979FF;
+        }
+        QSplitter::handle {
+            background-color: #555555;
+        }
+        QTreeView, QListView {
+            background-color: #2D2D2D;
+            color: #FFFFFF;
+            alternate-background-color: #353535;
+        }
+        QHeaderView::section {
+            background-color: #2D2D2D;
+            color: #FFFFFF;
+            border: 1px solid #555555;
+        }
+        QTreeView::item:selected, QListView::item:selected {
+            background-color: #3D3D3D;
+        }
+        QLineEdit, QTextEdit, QPlainTextEdit {
+            background-color: #2D2D2D;
+            color: #FFFFFF;
+            border: 1px solid #555555;
+        }
+        QPushButton {
+            background-color: #2D2D2D;
+            color: #FFFFFF;
+            border: 1px solid #555555;
+            padding: 5px 10px;
+        }
+        QPushButton:hover {
+            background-color: #3D3D3D;
+        }
+        QComboBox {
+            background-color: #2D2D2D;
+            color: #FFFFFF;
+            border: 1px solid #555555;
+        }
+        QComboBox::drop-down {
+            background-color: #3D3D3D;
+        }
+        QComboBox QAbstractItemView {
+            background-color: #2D2D2D;
+            color: #FFFFFF;
+            selection-background-color: #3D3D3D;
+        }
+        QScrollBar {
+            background-color: #2D2D2D;
+        }
+        QScrollBar::handle {
+            background-color: #555555;
+        }
+        QScrollBar::add-line, QScrollBar::sub-line {
+            background-color: #2D2D2D;
+        }
+    """)
+    
+def set_light_theme(window):
+    """Apply light theme to the application window
+    
+    Args:
+        window: The window to apply the theme to
+    """
+    # Reset to system default palette
+    window.setPalette(QPalette())
+    
+    # Clear any theme-specific stylesheet
+    window.setStyleSheet("")
 
 def set_theme(app, is_dark=False):
-    """Apply the appropriate theme to the application"""
-    # Set the application font
-    app.setFont(FONTS["default"])
+    """Apply the appropriate theme to the application (compatibility function)
     
+    Args:
+        app: The application or window to apply the theme to
+        is_dark (bool): Whether to use dark theme (True) or light theme (False)
+    """
     if is_dark:
         set_dark_theme(app)
     else:
-        # Apply the light stylesheet
-        app.setStyleSheet(STYLESHEET)
+        set_light_theme(app)

@@ -111,6 +111,38 @@ class ProjectIO:
         settings.setValue("recent_projects", recent_projects)
         
     @staticmethod
+    def auto_load_results(project):
+        """Automatically load analysis results for a project
+        
+        This method is used in post-processing mode to automatically find and
+        load the HDF5 results file associated with the current model.
+        
+        Args:
+            project: The Project object to load results for
+            
+        Returns:
+            Path to the results file if found and loaded, None otherwise
+        """
+        if not project or not project.file_path:
+            return None
+            
+        # Try to find matching results file
+        results_path = project.find_matching_results_file()
+        
+        if results_path and os.path.exists(results_path):
+            try:
+                # Set the results file path for future reference
+                project.results_file_path = results_path
+                
+                # If the results file is HDF5, we don't need to load it into memory
+                # The HDF5Storage class will handle reading as needed
+                return results_path
+            except Exception as e:
+                print(f"Failed to load results file: {str(e)}")
+                
+        return None
+        
+    @staticmethod
     def create_backup(project):
         """Create a backup of the project"""
         if project.file_path is None:
