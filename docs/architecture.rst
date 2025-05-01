@@ -9,16 +9,12 @@ This document describes the system architecture and component relationships of M
 Component Relationships
 ---------------------
 
-.. graphviz::
+.. mermaid::
 
-   digraph architecture {
-      rankdir=LR;
-      node [shape=box];
-      
-      "Component A" -> "Component B";
-      "Component B" -> "Component C";
-      "Component A" -> "Component C";
-   }
+   graph LR
+      A[Component A] --> B[Component B]
+      B --> C[Component C]
+      A --> C
 
 System Components
 ----------------
@@ -41,12 +37,8 @@ Description of Component C and its responsibilities.
 Data Flow
 ---------
 
-.. graphviz::
+.. mermaid::
 
-   digraph dataflow {
-      rankdir=LR;
-      node [shape=box];
-      
-      "Input" -> "Processing";
-      "Processing" -> "Output";
-   } 
+   graph LR
+      Input --> Processing
+      Processing --> Output 
