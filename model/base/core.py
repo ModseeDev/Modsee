@@ -20,6 +20,7 @@ class ModelObjectType(Enum):
     BOUNDARY_CONDITION = auto()
     RECORDER = auto()
     ANALYSIS = auto()
+    STAGE = auto()
     OTHER = auto()
 
 

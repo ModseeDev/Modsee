@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from model.elements.base import Element
     from model.materials.base import Material
     from model.sections.base import Section
+    from model.stages import Stage, StageManager
 
 from model.base.registry import ModelObjectRegistry
 
@@ -32,11 +33,14 @@ class ModelManager:
         from model.elements.base import Element
         from model.materials.base import Material
         from model.sections.base import Section
+        from model.stages import StageManager
         
         self.nodes = ModelObjectRegistry[Node]()
         self.elements = ModelObjectRegistry[Element]()
         self.materials = ModelObjectRegistry[Material]()
         self.sections = ModelObjectRegistry[Section]()
+        # Initialize the stage manager
+        self.stage_manager = StageManager()
         # Additional registries for loads, boundary conditions, etc.
         
         # Registry of registered element/material/section types
@@ -146,6 +150,7 @@ class ModelManager:
         self.elements.clear()
         self.materials.clear()
         self.sections.clear()
+        self.stage_manager.clear()
     
     def validate(self) -> bool:
         """Validate the entire model.
@@ -171,6 +176,21 @@ class ModelManager:
         for section in self.sections.all():
             is_valid = section.validate() and is_valid
         
+        # Validate all stages
+        for stage in self.stage_manager.get_all_stages():
+            is_valid = stage.validate() and is_valid
+            
+            # Validate that all referenced objects in the stage exist
+            for node_id in stage.active_nodes:
+                if self.nodes.get(node_id) is None:
+                    is_valid = False
+                    stage._validation_messages.append(f"Referenced node {node_id} does not exist")
+            
+            for element_id in stage.active_elements:
+                if self.elements.get(element_id) is None:
+                    is_valid = False
+                    stage._validation_messages.append(f"Referenced element {element_id} does not exist")
+        
         return is_valid
     
     def to_dict(self) -> Dict[str, Any]:
@@ -183,7 +203,8 @@ class ModelManager:
             "nodes": [node.to_dict() for node in self.nodes.all()],
             "elements": [element.to_dict() for element in self.elements.all()],
             "materials": [material.to_dict() for material in self.materials.all()],
-            "sections": [section.to_dict() for section in self.sections.all()]
+            "sections": [section.to_dict() for section in self.sections.all()],
+            "stages": self.stage_manager.to_dict()
         }
     
     def from_dict(self, data: Dict[str, Any]):
@@ -229,4 +250,8 @@ class ModelManager:
             
             element_class = self._registered_element_types[element_type]
             element = element_class.from_dict(element_data)
-            self.elements.add(element) 
+            self.elements.add(element)
+        
+        # Load stages
+        if "stages" in data:
+            self.stage_manager.from_dict(data["stages"]) 

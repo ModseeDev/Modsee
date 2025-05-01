@@ -32,6 +32,11 @@ from model.loads import (
     SelfWeightLoad,
     TimeVaryingLoad
 )
+from model.stages import (
+    Stage,
+    StageType,
+    StageManager
+)
 
 __all__ = [
     'ModelMetadata', 
@@ -57,5 +62,8 @@ __all__ = [
     'PointLoad',
     'DistributedLoad',
     'SelfWeightLoad',
-    'TimeVaryingLoad'
+    'TimeVaryingLoad',
+    'Stage',
+    'StageType',
+    'StageManager'
 ] 

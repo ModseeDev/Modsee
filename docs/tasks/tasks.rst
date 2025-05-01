@@ -81,7 +81,7 @@ Model Components
      - Medium
    * - MODEL-007
      - Create Stage management system for multi-stage analysis
-     - Not Started
+     - Completed
      - Low
 
 Visualization and Interaction
