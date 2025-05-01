@@ -69,7 +69,7 @@ Model Components
      - High
    * - MODEL-004
      - Design and implement Section class hierarchy
-     - Not Started
+     - Completed
      - Medium
    * - MODEL-005
      - Implement Boundary Condition classes

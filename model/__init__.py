@@ -14,6 +14,7 @@ from model.elements.base import Element
 from model.materials.base import Material
 from model.materials.factory import MaterialFactory
 from model.sections.base import Section
+from model.sections.factory import SectionFactory
 
 __all__ = [
     'ModelMetadata', 
@@ -25,5 +26,6 @@ __all__ = [
     'Element',
     'Material',
     'MaterialFactory',
-    'Section'
+    'Section',
+    'SectionFactory'
 ] 
