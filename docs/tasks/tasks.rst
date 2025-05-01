@@ -100,8 +100,8 @@ Visualization and Interaction
      - Completed
      - High
    * - VIS-002
-     - Develop camera controls (rotate, pan, zoom)
-     - Not Started
+     - Develop camera controls (rotate, pan, zoom) with keyboard shortcuts and toolbar buttons
+     - Completed
      - High
    * - VIS-003
      - Implement selection system for nodes and elements

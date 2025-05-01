@@ -35,6 +35,9 @@ class RendererManager(ViewComponent):
         self._element_color = (0.0, 0.0, 1.0)  # Blue
         self._grid_enabled = True
         
+        # Camera settings
+        self._camera_mode = "rotate"
+        
         logger.info("RendererManager initialized")
     
     @property
@@ -87,6 +90,68 @@ class RendererManager(ViewComponent):
         # If vtk widget is already set, update visualization
         if self._vtk_widget:
             self.update_model_visualization()
+    
+    def set_camera_mode(self, mode: str) -> None:
+        """
+        Set the camera interaction mode.
+        
+        Args:
+            mode: Camera control mode ('rotate', 'pan', 'zoom').
+        """
+        self._camera_mode = mode
+        
+        if self._vtk_widget:
+            self._vtk_widget.set_camera_mode(mode)
+            logger.debug(f"Camera mode set to {mode}")
+        else:
+            logger.warning("Cannot set camera mode - VTK widget not set")
+    
+    def get_camera_mode(self) -> str:
+        """
+        Get the current camera interaction mode.
+        
+        Returns:
+            Current camera mode.
+        """
+        return self._camera_mode
+    
+    def rotate_camera_to(self, azimuth: float, elevation: float) -> None:
+        """
+        Rotate camera to the specified azimuth and elevation.
+        
+        Args:
+            azimuth: Azimuth angle in degrees.
+            elevation: Elevation angle in degrees.
+        """
+        if self._vtk_widget:
+            self._vtk_widget.rotate_camera_to(azimuth, elevation)
+        else:
+            logger.warning("Cannot rotate camera - VTK widget not set")
+    
+    def zoom_camera(self, factor: float) -> None:
+        """
+        Zoom the camera by the specified factor.
+        
+        Args:
+            factor: Zoom factor (>1 to zoom in, <1 to zoom out).
+        """
+        if self._vtk_widget:
+            self._vtk_widget.zoom_camera(factor)
+        else:
+            logger.warning("Cannot zoom camera - VTK widget not set")
+    
+    def pan_camera(self, dx: float, dy: float) -> None:
+        """
+        Pan the camera by the specified deltas.
+        
+        Args:
+            dx: Delta in x-direction.
+            dy: Delta in y-direction.
+        """
+        if self._vtk_widget:
+            self._vtk_widget.pan_camera(dx, dy)
+        else:
+            logger.warning("Cannot pan camera - VTK widget not set")
     
     def update_model_visualization(self) -> None:
         """

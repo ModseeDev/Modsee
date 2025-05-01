@@ -9,7 +9,8 @@ from typing import Dict, Optional, Any
 
 from PyQt6.QtWidgets import (
     QMainWindow, QDockWidget, QToolBar, QStatusBar, QMenuBar, QMenu, 
-    QFileDialog, QMessageBox, QSplitter, QWidget, QVBoxLayout, QApplication
+    QFileDialog, QMessageBox, QSplitter, QWidget, QVBoxLayout, QApplication,
+    QButtonGroup
 )
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QAction, QIcon
@@ -201,14 +202,80 @@ class MainWindow(QMainWindow):
         self.main_toolbar.addAction(self.open_action)
         self.main_toolbar.addAction(self.save_action)
         
+        # Add separator
         self.main_toolbar.addSeparator()
         
-        # Add view direction buttons
-        self.main_toolbar.addAction(self.xy_view_action)
-        self.main_toolbar.addAction(self.xz_view_action)
-        self.main_toolbar.addAction(self.yz_view_action)
-        self.main_toolbar.addAction(self.iso_view_action)
-        self.main_toolbar.addAction(self.reset_camera_action)
+        # Camera Controls toolbar
+        self.camera_toolbar = QToolBar("Camera Controls", self)
+        self.camera_toolbar.setMovable(False)
+        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.camera_toolbar)
+        
+        # Camera mode button group
+        self.camera_mode_group = QButtonGroup(self)
+        
+        # Rotate camera action
+        self.rotate_camera_action = QAction("Rotate", self)
+        self.rotate_camera_action.setCheckable(True)
+        self.rotate_camera_action.setChecked(True)  # Default mode
+        self.rotate_camera_action.triggered.connect(lambda: self.set_camera_mode("rotate"))
+        self.rotate_camera_action.setShortcut("R")  # Shortcut key R
+        self.rotate_camera_action.setToolTip("Rotate Camera (R): Rotate model view with click and drag")
+        self.camera_toolbar.addAction(self.rotate_camera_action)
+        
+        # Pan camera action
+        self.pan_camera_action = QAction("Pan", self)
+        self.pan_camera_action.setCheckable(True)
+        self.pan_camera_action.triggered.connect(lambda: self.set_camera_mode("pan"))
+        self.pan_camera_action.setShortcut("P")  # Shortcut key P
+        self.pan_camera_action.setToolTip("Pan Camera (P): Move view around with click and drag")
+        self.camera_toolbar.addAction(self.pan_camera_action)
+        
+        # Zoom camera action
+        self.zoom_camera_action = QAction("Zoom", self)
+        self.zoom_camera_action.setCheckable(True)
+        self.zoom_camera_action.triggered.connect(lambda: self.set_camera_mode("zoom"))
+        self.zoom_camera_action.setShortcut("Z")  # Shortcut key Z
+        self.zoom_camera_action.setToolTip("Zoom Camera (Z): Zoom in/out with click and drag")
+        self.camera_toolbar.addAction(self.zoom_camera_action)
+        
+        # Reset camera action
+        self.camera_toolbar.addSeparator()
+        self.reset_camera_toolbar_action = QAction("Reset Camera", self)
+        self.reset_camera_toolbar_action.triggered.connect(self.reset_camera)
+        self.reset_camera_toolbar_action.setShortcut("Space")  # Spacebar
+        self.reset_camera_toolbar_action.setToolTip("Reset Camera (Space): Reset camera to show all objects")
+        self.camera_toolbar.addAction(self.reset_camera_toolbar_action)
+        
+        # Add camera view directions
+        self.camera_toolbar.addSeparator()
+        
+        # XY view action
+        self.xy_view_toolbar_action = QAction("XY View", self)
+        self.xy_view_toolbar_action.triggered.connect(lambda: self.set_view_direction('xy'))
+        self.xy_view_toolbar_action.setShortcut("1")  # Number 1
+        self.xy_view_toolbar_action.setToolTip("XY View (1): Top view (looking down Z-axis)")
+        self.camera_toolbar.addAction(self.xy_view_toolbar_action)
+        
+        # XZ view action
+        self.xz_view_toolbar_action = QAction("XZ View", self)
+        self.xz_view_toolbar_action.triggered.connect(lambda: self.set_view_direction('xz'))
+        self.xz_view_toolbar_action.setShortcut("2")  # Number 2
+        self.xz_view_toolbar_action.setToolTip("XZ View (2): Front view (looking along Y-axis)")
+        self.camera_toolbar.addAction(self.xz_view_toolbar_action)
+        
+        # YZ view action
+        self.yz_view_toolbar_action = QAction("YZ View", self)
+        self.yz_view_toolbar_action.triggered.connect(lambda: self.set_view_direction('yz'))
+        self.yz_view_toolbar_action.setShortcut("3")  # Number 3
+        self.yz_view_toolbar_action.setToolTip("YZ View (3): Side view (looking along X-axis)")
+        self.camera_toolbar.addAction(self.yz_view_toolbar_action)
+        
+        # Isometric view action
+        self.iso_view_toolbar_action = QAction("Isometric", self)
+        self.iso_view_toolbar_action.triggered.connect(lambda: self.set_view_direction('iso'))
+        self.iso_view_toolbar_action.setShortcut("4")  # Number 4
+        self.iso_view_toolbar_action.setToolTip("Isometric View (4): 3D isometric view")
+        self.camera_toolbar.addAction(self.iso_view_toolbar_action)
     
     def _create_status_bar(self):
         """Create the status bar."""
@@ -257,6 +324,34 @@ class MainWindow(QMainWindow):
             action = dock.toggleViewAction()
             self.view_menu.addAction(action)
     
+    def set_camera_mode(self, mode: str) -> None:
+        """
+        Set the camera interaction mode.
+        
+        Args:
+            mode: Camera mode ('rotate', 'pan', 'zoom').
+        """
+        # Update the camera mode in the VTK widget
+        if self.vtk_widget:
+            self.vtk_widget.set_camera_mode(mode)
+        
+        # Update toolbar button states
+        self.rotate_camera_action.setChecked(mode.lower() == 'rotate')
+        self.pan_camera_action.setChecked(mode.lower() == 'pan')
+        self.zoom_camera_action.setChecked(mode.lower() == 'zoom')
+        
+        # Show status message with instructions on how to use the mode
+        if mode.lower() == 'rotate':
+            self.status_bar.showMessage("Camera mode: ROTATE - Use left mouse button to rotate camera")
+        elif mode.lower() == 'pan':
+            self.status_bar.showMessage("Camera mode: PAN - Use left mouse button to pan camera")
+        elif mode.lower() == 'zoom':
+            self.status_bar.showMessage("Camera mode: ZOOM - Use left mouse button to zoom camera")
+        else:
+            self.status_bar.showMessage(f"Camera mode set to {mode}")
+        
+        logger.debug(f"Camera mode set to {mode}")
+
     def set_view_direction(self, direction: str) -> None:
         """
         Set the VTK view direction.
