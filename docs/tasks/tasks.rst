@@ -37,7 +37,7 @@ Core Infrastructure
      - High
    * - CORE-006
      - Implement project file (.msee) saving and loading
-     - Not Started
+     - Completed
      - High
    * - CORE-007
      - Develop splash screen and dependency checker

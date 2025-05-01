@@ -103,6 +103,20 @@ class MainWindow(QMainWindow):
         self.open_action.triggered.connect(self.on_open)
         self.file_menu.addAction(self.open_action)
         
+        # Recent Files submenu
+        self.recent_files_menu = QMenu("&Recently Opened", self)
+        self.file_menu.addMenu(self.recent_files_menu)
+        
+        # Add a clear recent files action
+        self.clear_recent_action = QAction("&Clear Recent Files", self)
+        self.clear_recent_action.triggered.connect(self.on_clear_recent_files)
+        self.recent_files_menu.addAction(self.clear_recent_action)
+        
+        self.recent_files_menu.addSeparator()
+        
+        # Populate recent files menu
+        self.update_recent_files_menu()
+        
         self.save_action = QAction("&Save", self)
         self.save_action.setShortcut("Ctrl+S")
         self.save_action.triggered.connect(self.on_save)
@@ -309,6 +323,9 @@ class MainWindow(QMainWindow):
             success = self.app_manager.open_project(file_path)
             if success:
                 self.status_bar.showMessage(f"Opened {os.path.basename(file_path)}")
+                
+                # Update the recent files menu
+                self.update_recent_files_menu()
             else:
                 self.status_bar.showMessage("Failed to open project")
     
@@ -401,4 +418,75 @@ class MainWindow(QMainWindow):
             self.vtk_widget.vtk_widget.Finalize()
         
         # Accept the close event
-        event.accept() 
+        event.accept()
+    
+    def update_recent_files_menu(self):
+        """Update the recent files menu."""
+        # Clear the menu (except for the first two items - Clear Recent Files and separator)
+        for action in self.recent_files_menu.actions()[2:]:
+            self.recent_files_menu.removeAction(action)
+        
+        # Get recent files from the file service
+        if not self.file_service:
+            return
+        
+        recent_files = self.file_service.get_recent_files()
+        if not recent_files:
+            # Add a disabled "No Recent Files" action
+            no_recent_action = QAction("No Recent Files", self)
+            no_recent_action.setEnabled(False)
+            self.recent_files_menu.addAction(no_recent_action)
+            return
+        
+        # Add recent files to the menu
+        for path, name in recent_files.items():
+            action = QAction(name, self)
+            action.setData(path)
+            action.triggered.connect(lambda checked, path=path: self.on_open_recent(path))
+            self.recent_files_menu.addAction(action)
+    
+    def on_open_recent(self, file_path):
+        """
+        Handle opening a recent file.
+        
+        Args:
+            file_path: The path to the file to open.
+        """
+        if not os.path.exists(file_path):
+            QMessageBox.warning(self, "File Not Found", 
+                                f"The file {file_path} does not exist.")
+            return
+        
+        # Check if there are unsaved changes
+        if self.app_manager.is_modified:
+            reply = QMessageBox.question(
+                self, "Open Project",
+                "There are unsaved changes. Do you want to save them?",
+                QMessageBox.StandardButton.Save | 
+                QMessageBox.StandardButton.Discard | 
+                QMessageBox.StandardButton.Cancel
+            )
+            
+            if reply == QMessageBox.StandardButton.Save:
+                if not self.on_save():
+                    # Save failed or cancelled
+                    return
+            elif reply == QMessageBox.StandardButton.Cancel:
+                return
+        
+        # Open the file
+        success = self.app_manager.open_project(file_path)
+        if success:
+            self.status_bar.showMessage(f"Opened {os.path.basename(file_path)}")
+            
+            # Update the recent files menu
+            self.update_recent_files_menu()
+        else:
+            self.status_bar.showMessage("Failed to open project")
+    
+    def on_clear_recent_files(self):
+        """Handle clearing the recent files list."""
+        if self.file_service:
+            self.file_service.clear_recent_files()
+            self.update_recent_files_menu()
+            self.status_bar.showMessage("Recent files cleared") 

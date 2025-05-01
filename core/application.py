@@ -35,7 +35,7 @@ class ApplicationManager:
     @project_file.setter
     def project_file(self, value: Optional[Path]) -> None:
         """Set the current project file path."""
-        self._project_file = value
+        self._project_file = value if value is None else Path(value)
         
     @property
     def is_modified(self) -> bool:
@@ -109,7 +109,7 @@ class ApplicationManager:
         logger.info("Created new project")
         return True
     
-    def load_project(self, file_path: Path) -> bool:
+    def open_project(self, file_path: str) -> bool:
         """
         Load a project from a file.
         
@@ -119,19 +119,47 @@ class ApplicationManager:
         Returns:
             True if successful, False otherwise.
         """
-        if not file_path.exists():
+        file_path_obj = Path(file_path)
+        if not file_path_obj.exists():
             logger.error(f"Project file not found: {file_path}")
             return False
         
-        # TODO: Implement actual loading logic
+        # Get components needed for loading
+        file_service = self.get_component('file_service')
+        model_manager = self.get_component('model_manager')
         
-        self._project_file = file_path
+        if not file_service or not model_manager:
+            logger.error("Required components not found")
+            return False
+        
+        # Load project data
+        data = file_service.load_project(file_path_obj)
+        if not data:
+            logger.error("Failed to load project data")
+            return False
+        
+        # Reset current project
+        self.new_project()
+        
+        # Restore model data
+        if 'model' in data:
+            success = file_service.restore_model_data(model_manager, data)
+            if not success:
+                logger.error("Failed to restore model data")
+                return False
+        
+        # Restore application settings if present
+        if 'app_settings' in data:
+            self._settings.update(data['app_settings'])
+        
+        # Update project file path
+        self._project_file = file_path_obj
         self._is_modified = False
         
-        logger.info(f"Loaded project from: {file_path}")
+        logger.info(f"Opened project from: {file_path}")
         return True
     
-    def save_project(self, file_path: Optional[Path] = None) -> bool:
+    def save_project(self, file_path: Optional[str] = None) -> bool:
         """
         Save the current project to a file.
         
@@ -142,14 +170,33 @@ class ApplicationManager:
         Returns:
             True if successful, False otherwise.
         """
+        # Update project file path if provided
         if file_path is not None:
-            self._project_file = file_path
+            self._project_file = Path(file_path)
         
         if self._project_file is None:
             logger.error("No project file specified")
             return False
         
-        # TODO: Implement actual saving logic
+        # Get components needed for saving
+        file_service = self.get_component('file_service')
+        model_manager = self.get_component('model_manager')
+        
+        if not file_service or not model_manager:
+            logger.error("Required components not found")
+            return False
+        
+        # Prepare project data
+        project_data = {
+            'model': file_service.get_model_data(model_manager),
+            'app_settings': self._settings
+        }
+        
+        # Save project data
+        success = file_service.save_project(self._project_file, project_data)
+        if not success:
+            logger.error("Failed to save project data")
+            return False
         
         self._is_modified = False
         

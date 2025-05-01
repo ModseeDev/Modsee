@@ -253,25 +253,35 @@ class ModelManager(ModelComponent):
     
     def reset(self) -> None:
         """
-        Reset the model manager.
+        Reset the model manager to initial state.
         """
         self.clear()
-        logger.info("ModelManager reset")
+        logger.info("Model manager reset")
+        
+        # Notify that the model has changed
+        self.model_changed()
         
         # Call base class reset
         super().reset()
     
     def model_changed(self) -> None:
         """
-        Called when the model has changed.
+        Notify that the model has changed.
+        
+        This method is called when the model data changes.
+        It should be overridden by integration code to handle the changes.
         """
-        # Notify application of model change
-        if self.app:
+        # Set the modified flag in application if we have access to it
+        if hasattr(self, 'app') and self.app:
             self.app.is_modified = True
+        
+        logger.debug("Model changed")
     
     def selection_changed(self) -> None:
         """
-        Called when the selection has changed.
+        Notify that the selection has changed.
+        
+        This method is called when the selection changes.
+        It should be overridden by integration code to handle the changes.
         """
-        # Notify application of selection change
-        pass 
+        logger.debug("Selection changed") 
