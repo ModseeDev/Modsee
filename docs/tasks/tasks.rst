@@ -73,7 +73,7 @@ Model Components
      - Medium
    * - MODEL-005
      - Implement Boundary Condition classes
-     - Not Started
+     - Completed
      - Medium
    * - MODEL-006
      - Develop Load class hierarchy (point, distributed, etc.)

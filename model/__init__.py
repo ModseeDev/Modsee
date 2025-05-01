@@ -15,6 +15,14 @@ from model.materials.base import Material
 from model.materials.factory import MaterialFactory
 from model.sections.base import Section
 from model.sections.factory import SectionFactory
+from model.boundary_conditions import (
+    BoundaryCondition, 
+    BoundaryConditionType,
+    FixedBoundaryCondition,
+    SpringBoundaryCondition,
+    DisplacementBoundaryCondition,
+    MultiPointConstraint
+)
 
 __all__ = [
     'ModelMetadata', 
@@ -27,5 +35,11 @@ __all__ = [
     'Material',
     'MaterialFactory',
     'Section',
-    'SectionFactory'
+    'SectionFactory',
+    'BoundaryCondition',
+    'BoundaryConditionType',
+    'FixedBoundaryCondition',
+    'SpringBoundaryCondition',
+    'DisplacementBoundaryCondition',
+    'MultiPointConstraint'
 ] 
