@@ -23,6 +23,15 @@ from model.boundary_conditions import (
     DisplacementBoundaryCondition,
     MultiPointConstraint
 )
+from model.loads import (
+    Load,
+    LoadType,
+    LoadDirection,
+    PointLoad,
+    DistributedLoad,
+    SelfWeightLoad,
+    TimeVaryingLoad
+)
 
 __all__ = [
     'ModelMetadata', 
@@ -41,5 +50,12 @@ __all__ = [
     'FixedBoundaryCondition',
     'SpringBoundaryCondition',
     'DisplacementBoundaryCondition',
-    'MultiPointConstraint'
+    'MultiPointConstraint',
+    'Load',
+    'LoadType',
+    'LoadDirection',
+    'PointLoad',
+    'DistributedLoad',
+    'SelfWeightLoad',
+    'TimeVaryingLoad'
 ] 

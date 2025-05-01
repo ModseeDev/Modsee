@@ -77,7 +77,7 @@ Model Components
      - Medium
    * - MODEL-006
      - Develop Load class hierarchy (point, distributed, etc.)
-     - Not Started
+     - Completed
      - Medium
    * - MODEL-007
      - Create Stage management system for multi-stage analysis
