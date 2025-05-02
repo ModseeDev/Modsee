@@ -10,9 +10,9 @@ from typing import Dict, Optional, Any
 from PyQt6.QtWidgets import (
     QMainWindow, QDockWidget, QToolBar, QStatusBar, QMenuBar, QMenu, 
     QFileDialog, QMessageBox, QSplitter, QWidget, QVBoxLayout, QApplication,
-    QButtonGroup, QToolButton
+    QButtonGroup, QToolButton, QComboBox, QLabel, QDoubleSpinBox, QPushButton
 )
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt, QSize, QSettings
 from PyQt6.QtGui import QAction, QIcon, QActionGroup
 
 from ui.vtk_widget import VTKWidget
@@ -72,6 +72,10 @@ class MainWindow(QMainWindow):
         # Set the VTK widget in the renderer manager
         if self.renderer_manager:
             self.renderer_manager.vtk_widget = self.vtk_widget
+            
+            # Set the renderer manager in the selection style for grid snapping
+            if hasattr(self.vtk_widget, 'selection_style'):
+                self.vtk_widget.set_renderer_manager(self.renderer_manager)
         
         # Create and setup menus
         self._create_menus()
@@ -550,7 +554,7 @@ class MainWindow(QMainWindow):
         self.help_menu.addAction(self.about_action)
     
     def _create_toolbars(self):
-        """Create toolbars."""
+        """Create the main toolbars."""
         # Main toolbar
         self.main_toolbar = QToolBar("Main", self)
         self.main_toolbar.setMovable(False)
@@ -645,6 +649,47 @@ class MainWindow(QMainWindow):
         self.reset_camera_toolbar_action.setToolTip("Reset camera to show all objects")
         self.reset_camera_toolbar_action.triggered.connect(self.reset_camera)
         self.view_toolbar.addAction(self.reset_camera_toolbar_action)
+        
+        # Create Grid Toolbar
+        self.grid_toolbar = QToolBar("Grid Controls")
+        self.grid_toolbar.setObjectName("grid_toolbar")
+        
+        # Grid Size Dropdown
+        self.grid_size_combo = QComboBox()
+        self.grid_size_combo.addItems(["1m", "5m", "10m", "20m", "50m", "100m", "Custom...", "Grid Settings..."])
+        
+        # Set default selection based on current settings
+        settings = QSettings()
+        grid_size = settings.value('grid/size', 10.0, type=float)
+        grid_unit = settings.value('grid/unit', 'm')
+        
+        # Try to find a matching preset
+        preset_found = False
+        for i, preset in enumerate(["1m", "5m", "10m", "20m", "50m", "100m"]):
+            preset_value = float(preset.replace('m', ''))
+            if abs(preset_value - grid_size) < 0.1 and grid_unit == 'm':
+                self.grid_size_combo.setCurrentIndex(i)
+                preset_found = True
+                break
+        
+        if not preset_found:
+            # Set to "Custom..." if no preset matches
+            self.grid_size_combo.setCurrentIndex(6)
+        
+        self.grid_size_combo.currentIndexChanged.connect(self._on_grid_size_changed)
+        
+        self.grid_toolbar.addWidget(QLabel("Grid Size: "))
+        self.grid_toolbar.addWidget(self.grid_size_combo)
+        self.grid_toolbar.addSeparator()
+        
+        # Grid Snap Toggle
+        self.grid_snap_action = QAction("Snap to Grid", self)
+        self.grid_snap_action.setCheckable(True)
+        self.grid_snap_action.setChecked(settings.value('grid/enable_snapping', False, type=bool))
+        self.grid_snap_action.toggled.connect(self._on_grid_snap_toggled)
+        self.grid_toolbar.addAction(self.grid_snap_action)
+        
+        self.addToolBar(self.grid_toolbar)
     
     def _create_status_bar(self):
         """Create the status bar."""
@@ -1061,9 +1106,65 @@ class MainWindow(QMainWindow):
             #     self.model_manager.delete_objects(selection)
     
     def on_preferences(self):
-        """Open preferences dialog."""
-        logger.info("Opening preferences dialog")
-        # Implement preferences dialog
+        """
+        Show the preferences dialog.
+        """
+        from ui.settings_dialog import show_settings_dialog, SettingsDialog
+        # Create the dialog directly instead of using the helper function
+        dialog = SettingsDialog(self.app_manager, self)
+        
+        # Connect signals
+        dialog.settings_applied.connect(self._on_settings_changed)
+        
+        # Show the dialog
+        dialog.exec()
+    
+    def _on_settings_changed(self):
+        """
+        Handle settings changes from the settings dialog.
+        """
+        # Get updated settings
+        settings = QSettings()
+        
+        # Update grid settings if renderer manager exists
+        if hasattr(self, 'renderer_manager') and self.renderer_manager:
+            # Update grid visibility
+            show_grid = settings.value('visualization/show_grid', True, type=bool)
+            self.renderer_manager.set_grid_visibility(show_grid)
+            
+            # Update grid size and divisions
+            grid_size = settings.value('grid/size', 10.0, type=float)
+            grid_divisions = settings.value('grid/divisions', 10, type=int)
+            grid_unit = settings.value('grid/unit', 'm')
+            
+            self.renderer_manager.set_grid_size(grid_size)
+            self.renderer_manager.set_grid_divisions(grid_divisions)
+            self.renderer_manager.set_grid_unit(grid_unit)
+            
+            # Update major gridlines
+            show_major_gridlines = settings.value('grid/show_major_gridlines', True, type=bool)
+            major_interval = settings.value('grid/major_interval', 5, type=int)
+            self.renderer_manager.set_major_gridlines(show_major_gridlines, major_interval)
+            
+            # Update grid snapping
+            enable_snapping = settings.value('grid/enable_snapping', False, type=bool)
+            self.renderer_manager.set_grid_snapping(enable_snapping)
+            
+            logger.info("Applied grid settings from preferences")
+        
+        # Update other visualization settings
+        if hasattr(self, 'vtk_widget') and self.vtk_widget:
+            # Update axis visibility
+            show_axis = settings.value('visualization/show_axis', True, type=bool)
+            if self.renderer_manager:
+                self.renderer_manager.set_axis_visibility(show_axis)
+            
+            # Update node and element display properties
+            # This would require us to refresh the visualization
+            if self.renderer_manager:
+                self.renderer_manager.refresh()
+                
+        logger.info("Applied settings from preferences")
     
     def set_display_mode(self, mode: str):
         """Set the display mode for the 3D view."""
@@ -1227,4 +1328,122 @@ class MainWindow(QMainWindow):
     def on_check_updates(self):
         """Check for application updates."""
         logger.info("Checking for updates")
-        # Implement update checking logic 
+        # Implement update checking logic
+    
+    def _on_grid_size_changed(self, index):
+        """
+        Handle grid size preset selection.
+        
+        Args:
+            index: The index of the selected preset.
+        """
+        if not hasattr(self, 'renderer_manager') or not self.renderer_manager:
+            return
+            
+        # Get the current grid unit
+        settings = QSettings()
+        grid_unit = settings.value('grid/unit', 'm')
+        
+        # Handle preset sizes
+        if index < 6:  # Presets
+            # Get the size value from the text (removing the unit)
+            size_text = self.grid_size_combo.currentText()
+            size_value = float(size_text.replace('m', ''))
+            
+            # Update renderer and settings
+            self.renderer_manager.set_grid_size(size_value)
+            settings.setValue('grid/size', size_value)
+            settings.setValue('grid/unit', 'm')
+            
+            logger.info(f"Grid size changed to {size_value}m")
+        
+        elif index == 6:  # Custom
+            # Show a dialog for custom grid size
+            from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QDoubleSpinBox, QPushButton
+            
+            dialog = QDialog(self)
+            dialog.setWindowTitle("Custom Grid Size")
+            
+            layout = QVBoxLayout()
+            
+            # Size input
+            size_layout = QHBoxLayout()
+            size_layout.addWidget(QLabel("Grid Size:"))
+            
+            size_spin = QDoubleSpinBox()
+            size_spin.setRange(0.1, 1000.0)
+            size_spin.setSingleStep(1.0)
+            size_spin.setValue(self.renderer_manager.grid_size)
+            size_spin.setSuffix(f" {grid_unit}")
+            size_layout.addWidget(size_spin)
+            
+            layout.addLayout(size_layout)
+            
+            # Buttons
+            button_layout = QHBoxLayout()
+            ok_button = QPushButton("OK")
+            cancel_button = QPushButton("Cancel")
+            
+            button_layout.addWidget(ok_button)
+            button_layout.addWidget(cancel_button)
+            
+            layout.addLayout(button_layout)
+            
+            dialog.setLayout(layout)
+            
+            # Connect buttons
+            ok_button.clicked.connect(dialog.accept)
+            cancel_button.clicked.connect(dialog.reject)
+            
+            # Show dialog
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                size_value = size_spin.value()
+                
+                # Update renderer and settings
+                self.renderer_manager.set_grid_size(size_value)
+                settings.setValue('grid/size', size_value)
+                
+                logger.info(f"Grid size changed to {size_value}{grid_unit}")
+            
+            # Reset to Custom index
+            self.grid_size_combo.setCurrentIndex(6)
+            
+        elif index == 7:  # Grid Settings
+            # Open the settings dialog focused on the Visualization tab
+            self.on_preferences()
+            
+            # Reset to previously selected index
+            # Find the current grid size in the presets
+            grid_size = settings.value('grid/size', 10.0, type=float)
+            grid_unit = settings.value('grid/unit', 'm')
+            
+            preset_found = False
+            for i, preset in enumerate(["1m", "5m", "10m", "20m", "50m", "100m"]):
+                preset_value = float(preset.replace('m', ''))
+                if abs(preset_value - grid_size) < 0.1 and grid_unit == 'm':
+                    self.grid_size_combo.setCurrentIndex(i)
+                    preset_found = True
+                    break
+            
+            if not preset_found:
+                # Set to "Custom..." if no preset matches
+                self.grid_size_combo.setCurrentIndex(6)
+    
+    def _on_grid_snap_toggled(self, checked):
+        """
+        Handle grid snap toggle.
+        
+        Args:
+            checked: Whether grid snapping is enabled.
+        """
+        if not hasattr(self, 'renderer_manager') or not self.renderer_manager:
+            return
+            
+        # Update renderer and settings
+        self.renderer_manager.set_grid_snapping(checked)
+        
+        # Save to settings
+        settings = QSettings()
+        settings.setValue('grid/enable_snapping', checked)
+        
+        logger.info(f"Grid snapping {'enabled' if checked else 'disabled'}") 

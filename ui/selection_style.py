@@ -38,6 +38,9 @@ class SelectionInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
         # Reference to the model manager
         self._model_manager = None
         
+        # Reference to the renderer manager for grid snapping
+        self._renderer_manager = None
+        
         # Actor data cache (maps actor -> model object)
         self._actor_data: Dict[vtk.vtkActor, Tuple[str, int]] = {}
         
@@ -52,6 +55,16 @@ class SelectionInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
         """
         self._model_manager = model_manager
         logger.debug("Model manager set in selection style")
+    
+    def set_renderer_manager(self, renderer_manager: Any) -> None:
+        """
+        Set the renderer manager instance for grid snapping functionality.
+        
+        Args:
+            renderer_manager: The renderer manager.
+        """
+        self._renderer_manager = renderer_manager
+        logger.debug("Renderer manager set in selection style")
     
     def register_actor(self, actor: vtk.vtkActor, obj_type: str, obj_id: int) -> None:
         """
@@ -68,6 +81,32 @@ class SelectionInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
         """Clear the actor to model object mapping."""
         self._actor_data.clear()
     
+    def snap_to_grid(self, x: float, y: float, z: float) -> Tuple[float, float, float]:
+        """
+        Snap a point to the nearest grid intersection if snapping is enabled.
+        
+        Args:
+            x: X coordinate.
+            y: Y coordinate.
+            z: Z coordinate.
+            
+        Returns:
+            Tuple of snapped coordinates.
+        """
+        if not self._renderer_manager or not self._renderer_manager.grid_snapping_enabled:
+            return (x, y, z)
+        
+        spacing = self._renderer_manager.grid_spacing
+        
+        # Snap to nearest grid point
+        snapped_x = round(x / spacing) * spacing
+        snapped_y = round(y / spacing) * spacing
+        snapped_z = round(z / spacing) * spacing
+        
+        logger.debug(f"Snapped point ({x:.3f}, {y:.3f}, {z:.3f}) to grid: ({snapped_x:.3f}, {snapped_y:.3f}, {snapped_z:.3f})")
+        
+        return (snapped_x, snapped_y, snapped_z)
+
     def _on_left_button_press(self, obj: Any, event: str) -> None:
         """
         Handle left button press events.

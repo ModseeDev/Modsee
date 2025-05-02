@@ -37,9 +37,15 @@ class RendererManager(ViewComponent):
         
         # Grid settings
         self._grid_enabled = True
-        self._grid_size = 10.0
-        self._grid_divisions = 10
-        self._grid_color = (0.5, 0.5, 0.5)  # Gray
+        self._grid_size = 10.0                # Total size of the grid
+        self._grid_divisions = 10             # Number of divisions
+        self._grid_spacing = 1.0              # Derived value (size/divisions)
+        self._grid_color = (0.5, 0.5, 0.5)    # Gray color for minor gridlines
+        self._grid_unit = "m"                 # Display unit (for documentation)
+        self._show_major_gridlines = True     # Show emphasized major gridlines
+        self._major_grid_interval = 5         # Interval for major gridlines
+        self._major_grid_color = (0.3, 0.3, 0.3)  # Darker gray for major gridlines
+        self._enable_grid_snapping = False    # Grid snapping enabled
         self._grid_planes = {
             'xy': False,
             'xz': True,  # Front view active by default
@@ -160,7 +166,10 @@ class RendererManager(ViewComponent):
                     size=self._grid_size, 
                     divisions=self._grid_divisions, 
                     color=self._grid_color, 
-                    plane='xy'
+                    plane='xy',
+                    show_major_gridlines=self._show_major_gridlines,
+                    major_interval=self._major_grid_interval,
+                    major_color=self._major_grid_color
                 )
                 self._vtk_widget.add_actor('grid_xy', grid_xy_actor)
             
@@ -169,7 +178,10 @@ class RendererManager(ViewComponent):
                     size=self._grid_size, 
                     divisions=self._grid_divisions, 
                     color=self._grid_color, 
-                    plane='xz'
+                    plane='xz',
+                    show_major_gridlines=self._show_major_gridlines,
+                    major_interval=self._major_grid_interval,
+                    major_color=self._major_grid_color
                 )
                 self._vtk_widget.add_actor('grid_xz', grid_xz_actor)
             
@@ -178,7 +190,10 @@ class RendererManager(ViewComponent):
                     size=self._grid_size, 
                     divisions=self._grid_divisions, 
                     color=self._grid_color, 
-                    plane='yz'
+                    plane='yz',
+                    show_major_gridlines=self._show_major_gridlines,
+                    major_interval=self._major_grid_interval,
+                    major_color=self._major_grid_color
                 )
                 self._vtk_widget.add_actor('grid_yz', grid_yz_actor)
         
@@ -328,7 +343,10 @@ class RendererManager(ViewComponent):
                         size=self._grid_size, 
                         divisions=self._grid_divisions, 
                         color=self._grid_color, 
-                        plane=plane
+                        plane=plane,
+                        show_major_gridlines=self._show_major_gridlines,
+                        major_interval=self._major_grid_interval,
+                        major_color=self._major_grid_color
                     )
                     self._vtk_widget.add_actor(f'grid_{plane}', grid_actor)
         
@@ -370,7 +388,10 @@ class RendererManager(ViewComponent):
                     size=self._grid_size,
                     divisions=self._grid_divisions,
                     color=self._grid_color,
-                    plane=plane  # Pass the exact plane name
+                    plane=plane,  # Pass the exact plane name
+                    show_major_gridlines=self._show_major_gridlines,
+                    major_interval=self._major_grid_interval,
+                    major_color=self._major_grid_color
                 )
                 self._vtk_widget.add_actor(grid_name, grid_actor)
             
@@ -621,7 +642,13 @@ class RendererManager(ViewComponent):
         self._grid_enabled = True
         self._grid_size = 10.0
         self._grid_divisions = 10
+        self._grid_spacing = 1.0
         self._grid_color = (0.5, 0.5, 0.5)  # Gray
+        self._grid_unit = "m"
+        self._show_major_gridlines = True
+        self._major_grid_interval = 5
+        self._major_grid_color = (0.3, 0.3, 0.3)
+        self._enable_grid_snapping = False
         self._grid_planes = {'xy': False, 'xz': True, 'yz': False}
         self._axis_enabled = True
         
@@ -630,4 +657,107 @@ class RendererManager(ViewComponent):
             self.clear_visualization()
         
         # Call base class reset
-        super().reset() 
+        super().reset()
+    
+    def set_grid_size(self, size: float) -> None:
+        """
+        Set the size of the grid and update visualization.
+        
+        Args:
+            size: Size of the grid.
+        """
+        if size <= 0:
+            logger.warning(f"Invalid grid size: {size}, must be positive")
+            return
+            
+        self._grid_size = size
+        self._grid_spacing = self._grid_size / self._grid_divisions
+        
+        logger.info(f"Grid size set to {size}, spacing updated to {self._grid_spacing}")
+        
+        # Update grid visualization
+        self.set_grid_visibility(self._grid_enabled)
+    
+    def set_grid_divisions(self, divisions: int) -> None:
+        """
+        Set the number of grid divisions and update visualization.
+        
+        Args:
+            divisions: Number of grid divisions.
+        """
+        if divisions < 1:
+            logger.warning(f"Invalid grid divisions: {divisions}, must be positive")
+            return
+            
+        self._grid_divisions = divisions
+        self._grid_spacing = self._grid_size / self._grid_divisions
+        
+        logger.info(f"Grid divisions set to {divisions}, spacing updated to {self._grid_spacing}")
+        
+        # Update grid visualization
+        self.set_grid_visibility(self._grid_enabled)
+    
+    def set_grid_unit(self, unit: str) -> None:
+        """
+        Set the grid unit (for documentation purposes only, does not affect rendering).
+        
+        Args:
+            unit: The unit to display (e.g., "m", "ft").
+        """
+        self._grid_unit = unit
+        logger.debug(f"Grid unit set to {unit}")
+    
+    def set_major_gridlines(self, show: bool, interval: int = 5) -> None:
+        """
+        Set major gridline visibility and interval.
+        
+        Args:
+            show: Whether to show major gridlines.
+            interval: Interval for major gridlines.
+        """
+        if interval < 1:
+            logger.warning(f"Invalid major grid interval: {interval}, must be positive")
+            return
+            
+        self._show_major_gridlines = show
+        self._major_grid_interval = interval
+        
+        logger.info(f"Major gridlines visibility set to {show}, interval set to {interval}")
+        
+        # Update grid visualization
+        self.set_grid_visibility(self._grid_enabled)
+    
+    def set_grid_snapping(self, enabled: bool) -> None:
+        """
+        Enable or disable grid snapping.
+        
+        Args:
+            enabled: Whether grid snapping should be enabled.
+        """
+        self._enable_grid_snapping = enabled
+        logger.info(f"Grid snapping set to {enabled}")
+    
+    @property
+    def grid_size(self) -> float:
+        """Get the current grid size."""
+        return self._grid_size
+    
+    @property
+    def grid_divisions(self) -> int:
+        """Get the current number of grid divisions."""
+        return self._grid_divisions
+    
+    @property
+    def grid_spacing(self) -> float:
+        """Get the current grid spacing."""
+        return self._grid_spacing
+    
+    @property
+    def grid_unit(self) -> str:
+        """Get the current grid unit."""
+        return self._grid_unit
+    
+    @property
+    def grid_snapping_enabled(self) -> bool:
+        """Check if grid snapping is enabled."""
+        return self._enable_grid_snapping 

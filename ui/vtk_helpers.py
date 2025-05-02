@@ -194,15 +194,21 @@ def create_axis_actor(origin: Tuple[float, float, float] = (0.0, 0.0, 0.0),
 
 def create_grid_actor(size: float = 10.0, divisions: int = 10, 
                       color: Tuple[float, float, float] = (0.7, 0.7, 0.7),
-                      plane: str = 'xy') -> vtk.vtkActor:
+                      plane: str = 'xy',
+                      show_major_gridlines: bool = True,
+                      major_interval: int = 5,
+                      major_color: Tuple[float, float, float] = (0.5, 0.5, 0.5)) -> vtk.vtkActor:
     """
     Create a VTK actor representing a grid.
     
     Args:
         size: Size of the grid.
         divisions: Number of divisions.
-        color: RGB color tuple (values 0.0-1.0).
+        color: RGB color tuple for minor gridlines (values 0.0-1.0).
         plane: Plane for the grid ('xy', 'xz', or 'yz').
+        show_major_gridlines: Whether to show emphasized major gridlines.
+        major_interval: Interval for major gridlines (every N divisions).
+        major_color: RGB color tuple for major gridlines (values 0.0-1.0).
         
     Returns:
         VTK actor representing the grid.
@@ -281,37 +287,125 @@ def create_grid_actor(size: float = 10.0, divisions: int = 10,
     edges = vtk.vtkExtractEdges()
     edges.SetInputData(grid)
     
-    # Create a tube filter to make the grid lines
-    tubes = vtk.vtkTubeFilter()
-    tubes.SetInputConnection(edges.GetOutputPort())
-    tubes.SetRadius(0.01)
-    tubes.SetNumberOfSides(12)
+    # We'll create separate actors for minor and major gridlines
+    grid_actors = vtk.vtkAssembly()
+    
+    # Create minor gridlines
+    minor_tubes = vtk.vtkTubeFilter()
+    minor_tubes.SetInputConnection(edges.GetOutputPort())
+    minor_tubes.SetRadius(0.01)
+    minor_tubes.SetNumberOfSides(12)
     
     # Set default normals based on the plane
     if plane == 'xy':
         logger.debug("Setting XY plane default normal to (0, 0, 1)")
-        tubes.SetDefaultNormal(0, 0, 1)
+        minor_tubes.SetDefaultNormal(0, 0, 1)
     elif plane == 'xz':
         logger.debug("Setting XZ plane default normal to (0, 1, 0)")
-        tubes.SetDefaultNormal(0, 1, 0)
+        minor_tubes.SetDefaultNormal(0, 1, 0)
     elif plane == 'yz':
         logger.debug("Setting YZ plane default normal to (1, 0, 0)")
-        tubes.SetDefaultNormal(1, 0, 0)
+        minor_tubes.SetDefaultNormal(1, 0, 0)
     
     # Use default normals if auto-orientation fails
-    tubes.SetUseDefaultNormal(True)
+    minor_tubes.SetUseDefaultNormal(True)
     
-    # Create mapper
-    mapper = vtk.vtkPolyDataMapper()
-    mapper.SetInputConnection(tubes.GetOutputPort())
+    # Create mapper for minor gridlines
+    minor_mapper = vtk.vtkPolyDataMapper()
+    minor_mapper.SetInputConnection(minor_tubes.GetOutputPort())
     
-    # Create actor
-    actor = vtk.vtkActor()
-    actor.SetMapper(mapper)
-    actor.GetProperty().SetColor(color)
+    # Create actor for minor gridlines
+    minor_actor = vtk.vtkActor()
+    minor_actor.SetMapper(minor_mapper)
+    minor_actor.GetProperty().SetColor(color)
     
-    logger.info(f"Created grid actor for {plane} plane")
-    return actor
+    # Add minor gridlines to the assembly
+    grid_actors.AddPart(minor_actor)
+    
+    # If major gridlines are enabled, create them
+    if show_major_gridlines and major_interval > 1:
+        # Create a grid for major gridlines
+        major_grid = vtk.vtkRectilinearGrid()
+        
+        # Set grid dimensions for major gridlines
+        major_divisions = divisions // major_interval
+        
+        if plane == 'xy':
+            major_grid.SetDimensions(major_divisions + 1, major_divisions + 1, 1)
+        elif plane == 'xz':
+            major_grid.SetDimensions(major_divisions + 1, 1, major_divisions + 1)
+        elif plane == 'yz':
+            major_grid.SetDimensions(1, major_divisions + 1, major_divisions + 1)
+        
+        # Create coordinates for major gridlines
+        major_x_coords = vtk.vtkDoubleArray()
+        major_y_coords = vtk.vtkDoubleArray()
+        major_z_coords = vtk.vtkDoubleArray()
+        
+        major_spacing = size / major_divisions
+        
+        # Create coordinate arrays for major gridlines
+        if plane == 'xy':
+            for i in range(major_divisions + 1):
+                x_value = -half_size + i * major_spacing
+                y_value = -half_size + i * major_spacing
+                major_x_coords.InsertNextValue(x_value)
+                major_y_coords.InsertNextValue(y_value)
+            major_z_coords.InsertNextValue(0)
+        elif plane == 'xz':
+            for i in range(major_divisions + 1):
+                x_value = -half_size + i * major_spacing
+                z_value = -half_size + i * major_spacing
+                major_x_coords.InsertNextValue(x_value)
+                major_z_coords.InsertNextValue(z_value)
+            major_y_coords.InsertNextValue(0)
+        elif plane == 'yz':
+            for i in range(major_divisions + 1):
+                y_value = -half_size + i * major_spacing
+                z_value = -half_size + i * major_spacing
+                major_y_coords.InsertNextValue(y_value)
+                major_z_coords.InsertNextValue(z_value)
+            major_x_coords.InsertNextValue(0)
+        
+        # Set coordinates for major gridlines
+        major_grid.SetXCoordinates(major_x_coords)
+        major_grid.SetYCoordinates(major_y_coords)
+        major_grid.SetZCoordinates(major_z_coords)
+        
+        # Extract the edges for major gridlines
+        major_edges = vtk.vtkExtractEdges()
+        major_edges.SetInputData(major_grid)
+        
+        # Create tubes for major gridlines
+        major_tubes = vtk.vtkTubeFilter()
+        major_tubes.SetInputConnection(major_edges.GetOutputPort())
+        major_tubes.SetRadius(0.02)  # Thicker lines for major gridlines
+        major_tubes.SetNumberOfSides(12)
+        
+        # Set default normals for major gridlines
+        if plane == 'xy':
+            major_tubes.SetDefaultNormal(0, 0, 1)
+        elif plane == 'xz':
+            major_tubes.SetDefaultNormal(0, 1, 0)
+        elif plane == 'yz':
+            major_tubes.SetDefaultNormal(1, 0, 0)
+        
+        major_tubes.SetUseDefaultNormal(True)
+        
+        # Create mapper for major gridlines
+        major_mapper = vtk.vtkPolyDataMapper()
+        major_mapper.SetInputConnection(major_tubes.GetOutputPort())
+        
+        # Create actor for major gridlines
+        major_actor = vtk.vtkActor()
+        major_actor.SetMapper(major_mapper)
+        major_actor.GetProperty().SetColor(major_color)
+        
+        # Add major gridlines to the assembly
+        grid_actors.AddPart(major_actor)
+    
+    logger.info(f"Created grid actor for {plane} plane with {divisions} divisions")
+    return grid_actors
 
 
 def create_sample_model() -> Dict[str, vtk.vtkActor]:

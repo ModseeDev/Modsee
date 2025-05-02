@@ -201,14 +201,75 @@ class SettingsDialog(QDialog):
         
         layout.addWidget(theme_group)
         
-        # Display Settings Group
-        display_group = QGroupBox("Display Settings")
-        display_layout = QFormLayout(display_group)
+        # Grid Settings Group
+        grid_group = QGroupBox("Grid Settings")
+        grid_layout = QFormLayout(grid_group)
         
         # Show grid
         self.show_grid_check = QCheckBox()
         self.show_grid_check.setChecked(self.settings['show_grid'])
-        display_layout.addRow("Show grid:", self.show_grid_check)
+        grid_layout.addRow("Show grid:", self.show_grid_check)
+        
+        # Grid size
+        self.grid_size_spin = QDoubleSpinBox()
+        self.grid_size_spin.setRange(1.0, 1000.0)
+        self.grid_size_spin.setSingleStep(1.0)
+        self.grid_size_spin.setValue(self.settings.get('grid_size', 10.0))
+        self.grid_size_spin.setSuffix(" units")
+        grid_layout.addRow("Grid size:", self.grid_size_spin)
+        
+        # Grid divisions
+        self.grid_divisions_spin = QSpinBox()
+        self.grid_divisions_spin.setRange(2, 100)
+        self.grid_divisions_spin.setValue(self.settings.get('grid_divisions', 10))
+        grid_layout.addRow("Grid divisions:", self.grid_divisions_spin)
+        
+        # Grid spacing (calculated, read-only)
+        grid_size = self.settings.get('grid_size', 10.0)
+        grid_divisions = self.settings.get('grid_divisions', 10)
+        grid_unit = self.settings.get('grid_unit', 'm')
+        spacing = grid_size / grid_divisions
+        self.grid_spacing_label = QLabel(f"{spacing:.2f} {grid_unit}")
+        grid_layout.addRow("Grid spacing:", self.grid_spacing_label)
+        
+        # Update spacing when size or divisions change
+        def update_spacing():
+            size = self.grid_size_spin.value()
+            divisions = self.grid_divisions_spin.value()
+            spacing = size / divisions if divisions > 0 else 0
+            self.grid_spacing_label.setText(f"{spacing:.2f} {self.grid_unit_combo.currentText()}")
+            
+        self.grid_size_spin.valueChanged.connect(update_spacing)
+        self.grid_divisions_spin.valueChanged.connect(update_spacing)
+        
+        # Grid unit
+        self.grid_unit_combo = QComboBox()
+        self.grid_unit_combo.addItems(["mm", "cm", "m", "km", "in", "ft", "yd"])
+        self.grid_unit_combo.setCurrentText(self.settings.get('grid_unit', "m"))
+        self.grid_unit_combo.currentTextChanged.connect(update_spacing)
+        grid_layout.addRow("Grid unit:", self.grid_unit_combo)
+        
+        # Show major gridlines
+        self.major_grid_check = QCheckBox()
+        self.major_grid_check.setChecked(self.settings.get('show_major_gridlines', True))
+        grid_layout.addRow("Show major gridlines:", self.major_grid_check)
+        
+        # Major grid interval
+        self.major_interval_spin = QSpinBox()
+        self.major_interval_spin.setRange(2, 20)
+        self.major_interval_spin.setValue(self.settings.get('major_grid_interval', 5))
+        grid_layout.addRow("Major grid interval:", self.major_interval_spin)
+        
+        # Enable grid snapping
+        self.grid_snap_check = QCheckBox()
+        self.grid_snap_check.setChecked(self.settings.get('enable_grid_snapping', False))
+        grid_layout.addRow("Enable grid snapping:", self.grid_snap_check)
+        
+        layout.addWidget(grid_group)
+        
+        # Display Settings Group
+        display_group = QGroupBox("Display Settings")
+        display_layout = QFormLayout(display_group)
         
         # Show axis
         self.show_axis_check = QCheckBox()
@@ -414,6 +475,30 @@ class SettingsDialog(QDialog):
         
         layout.addWidget(tcl_group)
         
+        # OpenSeesPy Export Settings Group
+        py_group = QGroupBox("OpenSeesPy Export Settings")
+        py_layout = QFormLayout(py_group)
+        
+        # Export format
+        self.py_format_combo = QComboBox()
+        py_formats = ["Single File", "Multi-File", "Structured"]
+        self.py_format_combo.addItems(py_formats)
+        
+        # Set current format
+        current_py_format = self.settings.get('openseespy_export_format', 'Single File')
+        index = self.py_format_combo.findText(current_py_format)
+        if index >= 0:
+            self.py_format_combo.setCurrentIndex(index)
+        
+        py_layout.addRow("OpenSeesPy export format:", self.py_format_combo)
+        
+        # Include comments
+        self.include_py_comments_check = QCheckBox()
+        self.include_py_comments_check.setChecked(self.settings.get('include_py_comments', True))
+        py_layout.addRow("Include comments in OpenSeesPy:", self.include_py_comments_check)
+        
+        layout.addWidget(py_group)
+        
         # Analysis Options Group
         analysis_group = QGroupBox("Analysis Options")
         analysis_layout = QFormLayout(analysis_group)
@@ -489,6 +574,11 @@ class SettingsDialog(QDialog):
         
         results_layout.addRow("Results directory:", results_dir_layout)
         
+        # Auto backup results
+        self.auto_backup_results_check = QCheckBox()
+        self.auto_backup_results_check.setChecked(self.settings.get('auto_backup_results', True))
+        results_layout.addRow("Auto backup results:", self.auto_backup_results_check)
+        
         layout.addWidget(results_group)
         
         # Add stretch at the end to push everything to the top
@@ -498,150 +588,135 @@ class SettingsDialog(QDialog):
     
     def _load_settings(self) -> Dict[str, Any]:
         """
-        Load settings from QSettings or application manager.
+        Load application settings from QSettings.
         
         Returns:
-            A dictionary of settings
+            Dict containing all application settings.
         """
-        # First try to get settings from application manager
-        if hasattr(self.app_manager, '_settings'):
-            app_settings = self.app_manager._settings
-        else:
-            app_settings = {}
-        
-        # Create Qt settings object for persistent storage
-        qt_settings = QSettings()
-        
-        # Merge settings, with app_settings taking precedence
+        app_settings = QSettings()
         settings = {}
         
-        # General settings with defaults
-        settings['ui_language'] = qt_settings.value('ui_language', 'System', str)
-        settings['auto_save'] = qt_settings.value('auto_save', True, bool)
-        settings['auto_save_interval'] = qt_settings.value('auto_save_interval', 5, int)
-        settings['recent_files_limit'] = qt_settings.value('recent_files_limit', 10, int)
-        settings['default_project_dir'] = qt_settings.value(
-            'default_project_dir', 
-            str(Path.home() / 'Modsee Projects'), 
-            str
+        # General UI settings
+        settings['ui_language'] = app_settings.value('ui/language', 'System')
+        settings['show_splash_screen'] = app_settings.value('ui/show_splash_screen', True, type=bool)
+        settings['check_for_updates'] = app_settings.value('ui/check_for_updates', True, type=bool)
+        
+        # File management settings
+        settings['auto_save'] = app_settings.value('files/auto_save', True, type=bool)
+        settings['auto_save_interval'] = app_settings.value('files/auto_save_interval', 5, type=int)
+        settings['recent_files_limit'] = app_settings.value('files/recent_files_limit', 10, type=int)
+        settings['default_project_dir'] = app_settings.value('files/default_project_dir', str(Path.home()))
+        
+        # Plugin settings
+        settings['plugin_path'] = app_settings.value('plugins/path', '')
+        
+        # Theme settings
+        settings['theme'] = app_settings.value('theme/current', 'dark')
+        
+        # Visualization settings
+        settings['show_grid'] = app_settings.value('visualization/show_grid', True, type=bool)
+        settings['show_axis'] = app_settings.value('visualization/show_axis', True, type=bool)
+        settings['display_mode'] = app_settings.value('visualization/display_mode', 'Solid')
+        settings['node_size'] = app_settings.value('visualization/node_size', 0.2, type=float)
+        settings['element_width'] = app_settings.value('visualization/element_width', 3.0, type=float)
+        settings['load_scale'] = app_settings.value('visualization/load_scale', 10.0, type=float)
+        settings['deformation_scale'] = app_settings.value('visualization/deformation_scale', 1.0, type=float)
+        
+        # Grid settings
+        settings['grid_size'] = app_settings.value('grid/size', 10.0, type=float)
+        settings['grid_divisions'] = app_settings.value('grid/divisions', 10, type=int)
+        settings['grid_unit'] = app_settings.value('grid/unit', 'm')
+        settings['show_major_gridlines'] = app_settings.value('grid/show_major_gridlines', True, type=bool)
+        settings['major_grid_interval'] = app_settings.value('grid/major_interval', 5, type=int)
+        settings['enable_grid_snapping'] = app_settings.value('grid/enable_snapping', False, type=bool)
+        
+        # Performance settings
+        settings['multithreading'] = app_settings.value('performance/multithreading', True, type=bool)
+        settings['thread_count'] = app_settings.value('performance/thread_count', 4, type=int)
+        settings['use_caching'] = app_settings.value('performance/use_caching', True, type=bool)
+        settings['cache_size_mb'] = app_settings.value('performance/cache_size_mb', 512, type=int)
+        settings['show_performance_metrics'] = app_settings.value('performance/show_metrics', False, type=bool)
+        settings['log_performance_data'] = app_settings.value('performance/log_data', False, type=bool)
+        
+        # Analysis settings
+        settings['use_openseespy'] = app_settings.value('analysis/use_openseespy', True, type=bool)
+        settings['opensees_path'] = app_settings.value('analysis/opensees_path', '')
+        settings['solver_timeout'] = app_settings.value('analysis/solver_timeout', 300, type=int)
+        settings['default_units'] = app_settings.value('analysis/default_units', 'SI', type=str)
+        settings['tcl_export_format'] = app_settings.value('analysis/tcl_export_format', 'Single File')
+        settings['include_tcl_comments'] = app_settings.value('analysis/include_tcl_comments', True, type=bool)
+        settings['openseespy_export_format'] = app_settings.value('analysis/openseespy_export_format', 'Single File')
+        settings['include_py_comments'] = app_settings.value('analysis/include_py_comments', True, type=bool)
+        settings['results_directory'] = app_settings.value(
+            'analysis/results_directory', 
+            str(Path.home() / 'ModseeResults')
         )
-        settings['show_splash_screen'] = qt_settings.value('show_splash_screen', True, bool)
-        settings['check_for_updates'] = qt_settings.value('check_for_updates', True, bool)
+        settings['auto_backup_results'] = app_settings.value('analysis/auto_backup_results', True, type=bool)
         
-        # Visualization settings with defaults 
-        # Note: Theme settings are managed by theme_manager but we still need the value
-        settings['theme'] = qt_settings.value('theme', 'light', str)
-        settings['show_grid'] = qt_settings.value('show_grid', True, bool)
-        settings['show_axis'] = qt_settings.value('show_axis', True, bool)
-        settings['display_mode'] = qt_settings.value('display_mode', 'solid', str)
-        settings['node_size'] = qt_settings.value('node_size', 1.0, float)
-        settings['element_width'] = qt_settings.value('element_width', 1.0, float)
-        settings['load_scale'] = qt_settings.value('load_scale', 10.0, float)
-        settings['deformation_scale'] = qt_settings.value('deformation_scale', 1.0, float)
-        
-        # Performance settings with defaults
-        settings['multithreading'] = qt_settings.value('multithreading', True, bool)
-        settings['thread_count'] = qt_settings.value('thread_count', 4, int)
-        settings['use_caching'] = qt_settings.value('use_caching', True, bool)
-        settings['cache_size_mb'] = qt_settings.value('cache_size_mb', 512, int)
-        settings['show_performance_metrics'] = qt_settings.value('show_performance_metrics', False, bool)
-        settings['log_performance_data'] = qt_settings.value('log_performance_data', False, bool)
-        
-        # Analysis settings with defaults
-        settings['use_openseespy'] = qt_settings.value('use_openseespy', True, bool)
-        settings['opensees_path'] = qt_settings.value('opensees_path', '', str)
-        settings['solver_timeout'] = qt_settings.value('solver_timeout', 600, int)  # 10 minutes
-        settings['default_units'] = qt_settings.value('default_units', 'SI', str)
-        settings['default_analysis_type'] = qt_settings.value('default_analysis_type', 'Static', str)
-        settings['auto_run_analysis'] = qt_settings.value('auto_run_analysis', False, bool)
-        settings['max_stored_results'] = qt_settings.value('max_stored_results', 10, int)
-        settings['results_format'] = qt_settings.value('results_format', 'HDF5', str)
-        settings['results_directory'] = qt_settings.value(
-            'results_directory', 
-            str(Path.home() / 'Modsee Results'), 
-            str
-        )
-        
-        # TCL export settings
-        settings['tcl_export_format'] = qt_settings.value('tcl_export_format', 'Single File', str)
-        settings['include_tcl_comments'] = qt_settings.value('include_tcl_comments', True, bool)
-        
-        # Override with app_settings if present
-        for key, value in app_settings.items():
-            settings[key] = value
-        
+        logger.debug("Settings loaded from QSettings")
         return settings
     
     def _save_settings(self):
-        """Save settings to QSettings and application manager."""
-        # Gather values from UI components
+        """Save settings to QSettings."""
+        app_settings = QSettings()
         
-        # General Tab
-        self.settings['ui_language'] = self.language_combo.currentText()
-        self.settings['show_splash_screen'] = self.show_splash_check.isChecked()
-        self.settings['check_for_updates'] = self.check_updates_check.isChecked()
-        self.settings['auto_save'] = self.auto_save_check.isChecked()
-        self.settings['auto_save_interval'] = self.auto_save_interval.value()
-        self.settings['recent_files_limit'] = self.recent_files_limit.value()
-        self.settings['default_project_dir'] = self.default_dir_edit.text()
-        self.settings['plugin_path'] = self.plugin_path_edit.text()
+        # UI settings
+        app_settings.setValue('ui/language', self.language_combo.currentText())
+        app_settings.setValue('ui/show_splash_screen', self.show_splash_check.isChecked())
+        app_settings.setValue('ui/check_for_updates', self.check_updates_check.isChecked())
         
-        # Visualization Tab
-        # Note: Theme settings managed by theme_manager and theme_dialog
-        self.settings['show_grid'] = self.show_grid_check.isChecked()
-        self.settings['show_axis'] = self.show_axis_check.isChecked()
-        self.settings['display_mode'] = self.display_mode_combo.currentText().lower()
-        self.settings['node_size'] = self.node_size_spin.value()
-        self.settings['element_width'] = self.element_width_spin.value()
-        self.settings['load_scale'] = self.load_scale_spin.value()
-        self.settings['deformation_scale'] = self.deform_scale_spin.value()
+        # File management settings
+        app_settings.setValue('files/auto_save', self.auto_save_check.isChecked())
+        app_settings.setValue('files/auto_save_interval', self.auto_save_interval.value())
+        app_settings.setValue('files/recent_files_limit', self.recent_files_limit.value())
+        app_settings.setValue('files/default_project_dir', self.default_dir_edit.text())
         
-        # Performance Tab
-        self.settings['multithreading'] = self.multithreading_check.isChecked()
-        self.settings['thread_count'] = self.thread_count_spin.value()
-        self.settings['use_caching'] = self.caching_check.isChecked()
-        self.settings['cache_size_mb'] = self.cache_size_spin.value()
-        self.settings['show_performance_metrics'] = self.show_metrics_check.isChecked()
-        self.settings['log_performance_data'] = self.log_performance_check.isChecked()
+        # Plugin settings
+        app_settings.setValue('plugins/path', self.plugin_path_edit.text())
         
-        # Analysis Tab
-        self.settings['use_openseespy'] = self.openseespy_check.isChecked()
-        self.settings['opensees_path'] = self.opensees_path_edit.text()
-        self.settings['solver_timeout'] = self.solver_timeout_spin.value()
+        # We don't save theme settings here - that's handled by the Theme Manager
         
-        # TCL export settings
-        self.settings['tcl_export_format'] = self.tcl_format_combo.currentText()
-        self.settings['include_tcl_comments'] = self.include_comments_check.isChecked()
+        # Visualization settings
+        app_settings.setValue('visualization/show_grid', self.show_grid_check.isChecked())
+        app_settings.setValue('visualization/show_axis', self.show_axis_check.isChecked())
+        app_settings.setValue('visualization/display_mode', self.display_mode_combo.currentText())
+        app_settings.setValue('visualization/node_size', self.node_size_spin.value())
+        app_settings.setValue('visualization/element_width', self.element_width_spin.value())
+        app_settings.setValue('visualization/load_scale', self.load_scale_spin.value())
+        app_settings.setValue('visualization/deformation_scale', self.deform_scale_spin.value())
         
-        # Map units combo to internal values
-        units_map = {
-            0: "SI",
-            1: "SI_MM",
-            2: "US",
-            3: "US_FT"
-        }
-        self.settings['default_units'] = units_map[self.units_combo.currentIndex()]
+        # Grid settings
+        app_settings.setValue('grid/size', self.grid_size_spin.value())
+        app_settings.setValue('grid/divisions', self.grid_divisions_spin.value())
+        app_settings.setValue('grid/unit', self.grid_unit_combo.currentText())
+        app_settings.setValue('grid/show_major_gridlines', self.major_grid_check.isChecked())
+        app_settings.setValue('grid/major_interval', self.major_interval_spin.value())
+        app_settings.setValue('grid/enable_snapping', self.grid_snap_check.isChecked())
         
-        self.settings['default_analysis_type'] = self.default_analysis_combo.currentText()
-        self.settings['auto_run_analysis'] = self.auto_run_check.isChecked()
-        self.settings['max_stored_results'] = self.max_results_spin.value()
-        self.settings['results_format'] = self.results_format_combo.currentText()
-        self.settings['results_directory'] = self.results_dir_edit.text()
+        # Performance settings
+        app_settings.setValue('performance/multithreading', self.multithreading_check.isChecked())
+        app_settings.setValue('performance/thread_count', self.thread_count_spin.value())
+        app_settings.setValue('performance/use_caching', self.caching_check.isChecked())
+        app_settings.setValue('performance/cache_size_mb', self.cache_size_spin.value())
+        app_settings.setValue('performance/show_metrics', self.show_metrics_check.isChecked())
+        app_settings.setValue('performance/log_data', self.log_performance_check.isChecked())
         
-        # Save to QSettings
-        qt_settings = QSettings()
-        for key, value in self.settings.items():
-            qt_settings.setValue(key, value)
+        # Analysis settings
+        app_settings.setValue('analysis/use_openseespy', self.openseespy_check.isChecked())
+        app_settings.setValue('analysis/opensees_path', self.opensees_path_edit.text())
+        app_settings.setValue('analysis/solver_timeout', self.solver_timeout_spin.value())
+        app_settings.setValue('analysis/default_units', self.units_combo.currentText())
+        app_settings.setValue('analysis/tcl_export_format', self.tcl_format_combo.currentText())
+        app_settings.setValue('analysis/include_tcl_comments', self.include_comments_check.isChecked())
+        app_settings.setValue('analysis/openseespy_export_format', self.py_format_combo.currentText())
+        app_settings.setValue('analysis/include_py_comments', self.include_py_comments_check.isChecked())
+        app_settings.setValue('analysis/results_directory', self.results_dir_edit.text())
+        app_settings.setValue('analysis/auto_backup_results', self.auto_backup_results_check.isChecked())
         
-        # Update app_manager settings
-        if hasattr(self.app_manager, '_settings'):
-            self.app_manager._settings.update(self.settings)
-            # Call save_settings on app_manager if it exists
-            if hasattr(self.app_manager, 'save_settings'):
-                self.app_manager.save_settings()
+        logger.debug("Settings saved to QSettings")
         
-        # Theme changes are handled separately through the theme_manager
-        logger.info("Settings saved")
+        # Emit settings applied signal
+        self.settings_applied.emit()
     
     def _on_ok(self):
         """Handle the OK button click."""
@@ -651,7 +726,6 @@ class SettingsDialog(QDialog):
     def _on_apply(self):
         """Handle the Apply button click."""
         self._save_settings()
-        self.settings_applied.emit()
         logger.info("Settings applied")
     
     def _on_auto_save_changed(self, state):

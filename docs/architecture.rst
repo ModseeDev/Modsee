@@ -186,7 +186,14 @@ Handles the import of models from various sources, including .msee files and pot
 3D Renderer
 ~~~~~~~~~~
 
-Visualization component based on VTK that handles all 3D graphics operations, model display, selection, and interaction. Supports both pre-processing and post-processing visualization modes.
+Visualization component based on VTK that handles all 3D graphics operations, model display, selection, and interaction. Supports both pre-processing and post-processing visualization modes. Features include:
+
+* Camera controls for model navigation
+* Display options for nodes, elements, and boundary conditions
+* View presets (top, front, side, isometric)
+* Customizable grid system with adjustable size, spacing, and visualization options
+* Support for grid snapping to facilitate precise model creation
+* Selection highlighting for model manipulation
 
 Results Manager
 ~~~~~~~~~~

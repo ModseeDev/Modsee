@@ -89,6 +89,16 @@ class VTKWidget(QFrame):
         self.selection_style.set_model_manager(model_manager)
         logger.debug("Model manager set in VTKWidget")
     
+    def set_renderer_manager(self, renderer_manager: Any) -> None:
+        """
+        Set the renderer manager for grid snapping functionality.
+        
+        Args:
+            renderer_manager: The renderer manager instance.
+        """
+        self.selection_style.set_renderer_manager(renderer_manager)
+        logger.debug("Renderer manager set in selection style for grid snapping")
+    
     def set_background_color(self, color: Tuple[float, float, float]) -> None:
         """
         Set the background color of the renderer.

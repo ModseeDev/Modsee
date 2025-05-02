@@ -130,6 +130,7 @@ Renderer Capabilities
 * Camera controls (rotate, pan, zoom)
 * Selection tools (node, element, face selection)
 * View presets (XY, YZ, XZ planes, isometric)
+* Customizable grid system with size, spacing, and snapping options
 * Support for both pre-processing and post-processing visualization
 
 Design Patterns

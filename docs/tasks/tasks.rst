@@ -119,6 +119,10 @@ Visualization and Interaction
      - Develop color themes and visual styling system
      - Completed
      - Low
+   * - VIS-007
+     - Implement customizable grid size and spacing settings
+     - Completed
+     - Medium
 
 OpenSees Integration
 ~~~~~~~~~~~~~~~~~
