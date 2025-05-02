@@ -117,7 +117,7 @@ Visualization and Interaction
      - Medium
    * - VIS-006
      - Develop color themes and visual styling system
-     - Not Started
+     - Completed
      - Low
 
 OpenSees Integration

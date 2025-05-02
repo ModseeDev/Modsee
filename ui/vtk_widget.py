@@ -63,7 +63,7 @@ class VTKWidget(QFrame):
         self.vtk_widget.SetInteractorStyle(self.rotate_style)
         self.interactor_style = self.rotate_style
         
-        # Colors and setup
+        # Colors and setup (defaults, will be overridden by theme)
         self.renderer.SetBackground(0.2, 0.2, 0.2)  # Dark gray background
         
         # Setup axes
@@ -88,6 +88,16 @@ class VTKWidget(QFrame):
         self._model_manager = model_manager
         self.selection_style.set_model_manager(model_manager)
         logger.debug("Model manager set in VTKWidget")
+    
+    def set_background_color(self, color: Tuple[float, float, float]) -> None:
+        """
+        Set the background color of the renderer.
+        
+        Args:
+            color: RGB color tuple (values 0.0-1.0).
+        """
+        self.renderer.SetBackground(*color)
+        self.render()
     
     def _setup_axes(self) -> None:
         """Set up coordinate axes."""
@@ -179,14 +189,33 @@ class VTKWidget(QFrame):
             azimuth: Azimuth angle in degrees.
             elevation: Elevation angle in degrees.
         """
+        logger.info(f"Rotating camera to azimuth={azimuth}, elevation={elevation}")
+        
         camera = self.renderer.GetActiveCamera()
+        
+        # Save current settings for debugging
+        old_pos = camera.GetPosition()
+        old_focal = camera.GetFocalPoint()
+        old_view_up = camera.GetViewUp()
+        
+        logger.debug(f"Before rotation - Position: {old_pos}, Focal: {old_focal}, ViewUp: {old_view_up}")
+        
+        # Reset to standard position
         camera.SetPosition(0, 0, 1)  # Start at a standard position
         camera.SetFocalPoint(0, 0, 0)
         camera.SetViewUp(0, 1, 0)
         
+        # Apply rotation
         camera.Azimuth(azimuth)
         camera.Elevation(elevation)
         camera.OrthogonalizeViewUp()
+        
+        # Log new settings
+        new_pos = camera.GetPosition()
+        new_focal = camera.GetFocalPoint()
+        new_view_up = camera.GetViewUp()
+        
+        logger.debug(f"After rotation - Position: {new_pos}, Focal: {new_focal}, ViewUp: {new_view_up}")
         
         self.renderer.ResetCamera()
         self.render()
@@ -206,70 +235,96 @@ class VTKWidget(QFrame):
     
     def pan_camera(self, dx: float, dy: float) -> None:
         """
-        Pan the camera by the specified deltas.
+        Pan the camera by the specified delta in screen coordinates.
         
         Args:
-            dx: Delta in x-direction.
-            dy: Delta in y-direction.
+            dx: Delta x in screen coordinates.
+            dy: Delta y in screen coordinates.
         """
-        camera = self.renderer.GetActiveCamera()
+        # Convert screen coordinates to normalized device coordinates
+        renderer = self.renderer
+        camera = renderer.GetActiveCamera()
         
-        # Get the current camera info
-        focal_point = camera.GetFocalPoint()
-        position = camera.GetPosition()
-        view_up = camera.GetViewUp()
+        # Get the renderer size to normalize dx and dy
+        size = renderer.GetSize()
+        dx_norm = dx / size[0]
+        dy_norm = dy / size[1]
         
-        # Calculate the camera view direction
-        forward = [focal_point[i] - position[i] for i in range(3)]
+        # Get the camera configuration
+        camera_pos = list(camera.GetPosition())
+        camera_focal = list(camera.GetFocalPoint())
+        camera_up = list(camera.GetViewUp())
         
-        # Normalize the forward vector
-        length = sum(x**2 for x in forward) ** 0.5
-        forward = [x / length for x in forward]
-        
-        # Calculate the camera right vector using cross product of view-up and forward
-        right = [
-            view_up[1] * forward[2] - view_up[2] * forward[1],
-            view_up[2] * forward[0] - view_up[0] * forward[2],
-            view_up[0] * forward[1] - view_up[1] * forward[0]
+        # Camera viewing vector and right vector
+        view_vector = [
+            camera_focal[0] - camera_pos[0],
+            camera_focal[1] - camera_pos[1],
+            camera_focal[2] - camera_pos[2]
         ]
         
-        # Scale the right and view-up vectors by dx and dy
-        movement = [
-            right[i] * dx + view_up[i] * dy for i in range(3)
+        # Calculate the right vector using cross product
+        right_vector = [
+            camera_up[1] * view_vector[2] - camera_up[2] * view_vector[1],
+            camera_up[2] * view_vector[0] - camera_up[0] * view_vector[2],
+            camera_up[0] * view_vector[1] - camera_up[1] * view_vector[0]
         ]
         
-        # Move the camera and focal point
-        new_position = [position[i] + movement[i] for i in range(3)]
-        new_focal_point = [focal_point[i] + movement[i] for i in range(3)]
+        # Normalize the right vector
+        right_length = (right_vector[0]**2 + right_vector[1]**2 + right_vector[2]**2)**0.5
+        if right_length > 0:
+            right_vector = [v / right_length for v in right_vector]
         
-        camera.SetPosition(new_position)
-        camera.SetFocalPoint(new_focal_point)
+        # Adjust the camera position and focal point
+        camera_move = [
+            dx_norm * right_vector[0] - dy_norm * camera_up[0],
+            dx_norm * right_vector[1] - dy_norm * camera_up[1],
+            dx_norm * right_vector[2] - dy_norm * camera_up[2]
+        ]
+        
+        # Scale the movement based on the distance to the focal point
+        dist = ((camera_pos[0] - camera_focal[0])**2 + 
+                (camera_pos[1] - camera_focal[1])**2 + 
+                (camera_pos[2] - camera_focal[2])**2)**0.5
+        scale = dist * 2.0
+        camera_move = [v * scale for v in camera_move]
+        
+        # Apply the movement
+        new_pos = [camera_pos[i] + camera_move[i] for i in range(3)]
+        new_focal = [camera_focal[i] + camera_move[i] for i in range(3)]
+        
+        camera.SetPosition(new_pos)
+        camera.SetFocalPoint(new_focal)
         
         self.render()
         logger.debug(f"Camera panned by dx: {dx}, dy: {dy}")
-        
+    
     def add_actor(self, name: str, actor: vtk.vtkProp, 
                   obj_type: Optional[str] = None, obj_id: Optional[int] = None) -> None:
         """
-        Add an actor to the renderer.
+        Add an actor to the scene.
         
         Args:
-            name: A unique name for the actor.
+            name: Name for the actor (used for later reference).
             actor: The VTK actor to add.
-            obj_type: The object type ('node' or 'element') for selection.
-            obj_id: The object ID for selection.
+            obj_type: Type of the object this actor represents (optional).
+            obj_id: ID of the object this actor represents (optional).
         """
-        if name in self.actors:
-            logger.warning(f"Actor '{name}' already exists, replacing")
-            self.renderer.RemoveActor(self.actors[name])
-        
+        # Store actor reference in dictionary
         self.actors[name] = actor
+        
+        # Set object information in actor's user-defined data
+        if obj_type is not None:
+            actor.SetProperty(actor.GetProperty())  # Ensure property exists
+            
+            # VTK doesn't have direct support for storing arbitrary data with actors
+            # We'll use hidden properties to store the info
+            # Store as string properties
+            actor.GetProperty().AddObserver('ModifiedEvent', lambda *args: None)  # Dummy observer to create container
+            actor.obj_type = obj_type
+            actor.obj_id = obj_id
+        
+        # Add to renderer
         self.renderer.AddActor(actor)
-        
-        # Register for selection if object type and ID are provided
-        if obj_type and obj_id is not None and hasattr(self.interactor_style, 'register_actor'):
-            self.selection_style.register_actor(actor, obj_type, obj_id)
-        
         logger.debug(f"Added actor: {name}")
     
     def highlight_object(self, name: str, original_actor: vtk.vtkActor, 
@@ -313,38 +368,32 @@ class VTKWidget(QFrame):
         # Add the highlight actor
         self.highlight_actors[highlight_name] = highlight_actor
         self.renderer.AddActor(highlight_actor)
-        
-        # Make sure the highlight is in front of the original
-        highlight_actor.SetPosition(
-            original_actor.GetPosition()[0],
-            original_actor.GetPosition()[1],
-            original_actor.GetPosition()[2] + 0.001  # Slight offset to prevent z-fighting
-        )
-        
-        logger.debug(f"Added highlight for: {name}")
+        self.render()
+        logger.debug(f"Highlighted object: {name}")
     
     def remove_highlight(self, name: str) -> bool:
         """
-        Remove highlighting for an object.
+        Remove the highlight for an object.
         
         Args:
             name: The name of the object.
             
         Returns:
-            True if highlight was removed, False otherwise.
+            True if the highlight was removed, False otherwise.
         """
         highlight_name = f"highlight_{name}"
         if highlight_name in self.highlight_actors:
-            self.renderer.RemoveActor(self.highlight_actors[highlight_name])
+            highlight_actor = self.highlight_actors[highlight_name]
+            self.renderer.RemoveActor(highlight_actor)
             del self.highlight_actors[highlight_name]
-            logger.debug(f"Removed highlight for: {name}")
+            self.render()
+            logger.debug(f"Removed highlight for object: {name}")
             return True
-        
         return False
     
     def remove_actor(self, name: str) -> bool:
         """
-        Remove an actor from the renderer.
+        Remove an actor from the scene.
         
         Args:
             name: The name of the actor to remove.
@@ -353,11 +402,17 @@ class VTKWidget(QFrame):
             True if the actor was removed, False otherwise.
         """
         if name in self.actors:
-            self.renderer.RemoveActor(self.actors[name])
+            # Remove the actor
+            actor = self.actors[name]
+            self.renderer.RemoveActor(actor)
             del self.actors[name]
             
-            # Remove any highlight for this actor
-            self.remove_highlight(name)
+            # Remove any associated highlight
+            highlight_name = f"highlight_{name}"
+            if highlight_name in self.highlight_actors:
+                highlight_actor = self.highlight_actors[highlight_name]
+                self.renderer.RemoveActor(highlight_actor)
+                del self.highlight_actors[highlight_name]
             
             logger.debug(f"Removed actor: {name}")
             return True
@@ -365,99 +420,121 @@ class VTKWidget(QFrame):
         return False
     
     def clear_actors(self) -> None:
-        """Remove all actors from the renderer."""
+        """Remove all actors from the scene."""
+        # Remove all actors from renderer
         for name, actor in list(self.actors.items()):
             self.renderer.RemoveActor(actor)
-            del self.actors[name]
         
-        # Also clear all highlights
+        # Remove all highlight actors
         for name, actor in list(self.highlight_actors.items()):
             self.renderer.RemoveActor(actor)
-            del self.highlight_actors[name]
         
-        # Clear selection data
-        if hasattr(self.selection_style, 'clear_actor_data'):
-            self.selection_style.clear_actor_data()
+        # Clear dictionaries
+        self.actors = {}
+        self.highlight_actors = {}
         
         logger.debug("Cleared all actors")
-        
+    
     def update_selection_highlights(self, selected_objects: List[Any]) -> None:
         """
-        Update the visual highlights for selected objects.
+        Update selection highlights based on selected objects.
         
         Args:
-            selected_objects: List of selected objects from the model manager.
+            selected_objects: List of selected model objects.
         """
-        # First, remove all existing highlights
-        for name, actor in list(self.highlight_actors.items()):
-            self.renderer.RemoveActor(actor)
-            del self.highlight_actors[name]
-        
-        # Add highlights for selected objects
+        # Get IDs of selected objects
+        selected_ids = set()
         for obj in selected_objects:
-            if hasattr(obj, 'id'):
-                obj_id = obj.id
-                # Determine if it's a node or element
-                actor_name = None
-                if obj.__class__.__name__.lower().endswith('node'):
-                    actor_name = f"node_{obj_id}"
-                elif 'element' in obj.__class__.__name__.lower():
-                    actor_name = f"element_{obj_id}"
-                
-                if actor_name and actor_name in self.actors:
-                    self.highlight_object(actor_name, self.actors[actor_name])
+            try:
+                selected_ids.add(obj.id)
+            except AttributeError:
+                logger.warning(f"Selected object has no ID: {obj}")
         
-        # Render the changes
+        # Clear all existing highlights
+        for name in list(self.highlight_actors.keys()):
+            self.renderer.RemoveActor(self.highlight_actors[name])
+        self.highlight_actors.clear()
+        
+        # Highlight selected objects
+        for name, actor in self.actors.items():
+            try:
+                obj_id = getattr(actor, 'obj_id', None)
+                if obj_id is not None and obj_id in selected_ids:
+                    try:
+                        obj_type = getattr(actor, 'obj_type', None)
+                        highlight_color = (1.0, 1.0, 0.0)  # Default yellow
+                        self.highlight_object(name, actor, highlight_color)
+                    except Exception as e:
+                        logger.error(f"Error highlighting object: {e}")
+            except Exception as e:
+                logger.error(f"Error processing actor {name}: {e}")
+        
         self.render()
-        
+    
     def set_view_direction(self, direction: str) -> None:
         """
-        Set the camera view direction.
+        Set the view direction.
         
         Args:
-            direction: The view direction ('xy', 'xz', 'yz', 'iso').
+            direction: View direction ('xy', 'xz', 'yz', 'iso').
         """
-        camera = self.renderer.GetActiveCamera()
+        logger.info(f"Setting view direction to: {direction}")
         
-        # Reset camera position
-        camera.SetFocalPoint(0, 0, 0)
-        
+        # Note: When we say "XY view", we mean looking at the XY plane,
+        # which means looking down the Z axis (with Y up)
         if direction.lower() == 'xy':
-            camera.SetPosition(0, 0, 10)
-            camera.SetViewUp(0, 1, 0)
+            # When viewing the XY plane, we look down the Z-axis (elevation=90)
+            logger.debug("XY view: Setting camera to azimuth=0, elevation=90 (looking down Z-axis)")
+            self.rotate_camera_to(0, 90)
+        # When we say "XZ view", we mean looking at the XZ plane, 
+        # which means looking along the negative Y axis (with Z up)
         elif direction.lower() == 'xz':
-            camera.SetPosition(0, -10, 0)
-            camera.SetViewUp(0, 0, 1)
+            # When viewing the XZ plane, we look along the -Y-axis
+            logger.debug("XZ view: Setting camera to azimuth=0, elevation=0 (looking along -Y-axis)")
+            # Looking along -Y axis with Z up
+            camera = self.renderer.GetActiveCamera()
+            camera.SetPosition(0, -1, 0)  # Position along -Y axis
+            camera.SetFocalPoint(0, 0, 0) # Looking at origin
+            camera.SetViewUp(0, 0, 1)     # Z is up
+            self.renderer.ResetCamera()
+            self.render()
+        # When we say "YZ view", we mean looking at the YZ plane,
+        # which means looking along the negative X axis (with Z up)
         elif direction.lower() == 'yz':
-            camera.SetPosition(10, 0, 0)
-            camera.SetViewUp(0, 0, 1)
+            # When viewing the YZ plane, we look along the -X-axis
+            logger.debug("YZ view: Setting camera to looking along -X-axis (with Z up)")
+            # Looking along -X axis with Z up
+            camera = self.renderer.GetActiveCamera()
+            camera.SetPosition(-1, 0, 0)  # Position along -X axis
+            camera.SetFocalPoint(0, 0, 0) # Looking at origin
+            camera.SetViewUp(0, 0, 1)     # Z is up
+            self.renderer.ResetCamera()
+            self.render()
         elif direction.lower() == 'iso':
-            camera.SetPosition(5, 5, 5)
-            camera.SetViewUp(0, 0, 1)
+            # Isometric view
+            logger.debug("Isometric view: Setting camera to azimuth=45, elevation=35")
+            self.rotate_camera_to(45, 35)
         else:
             logger.warning(f"Unknown view direction: {direction}")
-            return
-        
-        self.renderer.ResetCamera()
-        self.render()
-        logger.debug(f"Set view direction: {direction}")
     
     def closeEvent(self, event: Any) -> None:
         """
-        Handle the close event for the widget.
+        Handle widget close event.
         
         Args:
-            event: The close event.
+            event: Close event.
         """
-        self.vtk_widget.Finalize()
+        # Clean up VTK widget resources
+        self.vtk_widget.GetRenderWindow().Finalize()
+        self.vtk_widget.SetRenderWindow(None)
         super().closeEvent(event)
     
     def resizeEvent(self, event: Any) -> None:
         """
-        Handle the resize event for the widget.
+        Handle widget resize event.
         
         Args:
-            event: The resize event.
+            event: Resize event.
         """
         super().resizeEvent(event)
         self.render() 

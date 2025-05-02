@@ -36,11 +36,16 @@ class Integration:
         file_service = FileService()
         renderer_manager = RendererManager()
         
+        # Create theme manager
+        from ui.theme_manager import ThemeManager
+        theme_manager = ThemeManager()
+        
         # Register components with the application
         app.register_component('model_manager', model_manager)
         app.register_component('view_manager', view_manager)
         app.register_component('file_service', file_service)
         app.register_component('renderer_manager', renderer_manager)
+        app.register_component('theme_manager', theme_manager)
         
         # Set application reference in components
         model_manager.app = app
@@ -50,6 +55,7 @@ class Integration:
         
         # Connect components with each other
         renderer_manager.set_model_manager(model_manager)
+        renderer_manager.set_theme_manager(theme_manager)
         
         # Initialize components
         app.initialize_components()
@@ -143,5 +149,52 @@ class Integration:
         view_manager = app.get_component('view_manager')
         if view_manager:
             view_manager.main_window = main_window
+        
+        # Set theme menu actions in main window
+        theme_manager = app.get_component('theme_manager')
+        if theme_manager and hasattr(main_window, 'view_menu'):
+            # Create a theme submenu
+            from PyQt6.QtWidgets import QMenu
+            from PyQt6.QtGui import QAction
+            from ui.theme_dialog import show_theme_dialog
+            
+            # Add theme menu to view menu
+            theme_menu = QMenu("&Theme", main_window)
+            main_window.view_menu.addSeparator()
+            main_window.view_menu.addMenu(theme_menu)
+            
+            # Add theme settings action
+            theme_settings_action = QAction("Theme &Settings...", main_window)
+            theme_settings_action.triggered.connect(lambda: show_theme_dialog(theme_manager, main_window))
+            theme_menu.addAction(theme_settings_action)
+            
+            # Add separator
+            theme_menu.addSeparator()
+            
+            # Add built-in theme actions
+            from ui.theme_manager import ThemeType
+            
+            # Light theme
+            light_theme_action = QAction("&Light Theme", main_window)
+            light_theme_action.triggered.connect(lambda: theme_manager.set_theme(ThemeType.LIGHT))
+            theme_menu.addAction(light_theme_action)
+            
+            # Dark theme
+            dark_theme_action = QAction("&Dark Theme", main_window)
+            dark_theme_action.triggered.connect(lambda: theme_manager.set_theme(ThemeType.DARK))
+            theme_menu.addAction(dark_theme_action)
+            
+            # Blue theme
+            blue_theme_action = QAction("&Blue Theme", main_window)
+            blue_theme_action.triggered.connect(lambda: theme_manager.set_theme(ThemeType.BLUE))
+            theme_menu.addAction(blue_theme_action)
+            
+            # High Contrast theme
+            high_contrast_action = QAction("&High Contrast Theme", main_window)
+            high_contrast_action.triggered.connect(lambda: theme_manager.set_theme(ThemeType.HIGH_CONTRAST))
+            theme_menu.addAction(high_contrast_action)
+            
+            # Apply initial theme
+            theme_manager.set_theme(ThemeType.LIGHT)
         
         logger.info("Main window setup complete") 

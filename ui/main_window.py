@@ -196,18 +196,19 @@ class MainWindow(QMainWindow):
         self.visualization_menu.addMenu(self.grid_planes_menu)
         
         # Grid plane actions
-        self.xy_grid_action = QAction("&XY Plane", self)
+        self.xy_grid_action = QAction("&XY Plane (Horizontal)", self)
         self.xy_grid_action.setCheckable(True)
-        self.xy_grid_action.setChecked(True)
+        self.xy_grid_action.setChecked(False)  # Not checked by default
         self.xy_grid_action.triggered.connect(lambda checked: self.toggle_grid_plane('xy', checked))
         self.grid_planes_menu.addAction(self.xy_grid_action)
         
-        self.xz_grid_action = QAction("X&Z Plane", self)
+        self.xz_grid_action = QAction("X&Z Plane (Front)", self)
         self.xz_grid_action.setCheckable(True)
+        self.xz_grid_action.setChecked(True)  # Checked by default
         self.xz_grid_action.triggered.connect(lambda checked: self.toggle_grid_plane('xz', checked))
         self.grid_planes_menu.addAction(self.xz_grid_action)
         
-        self.yz_grid_action = QAction("&YZ Plane", self)
+        self.yz_grid_action = QAction("&YZ Plane (Side)", self)
         self.yz_grid_action.setCheckable(True)
         self.yz_grid_action.triggered.connect(lambda checked: self.toggle_grid_plane('yz', checked))
         self.grid_planes_menu.addAction(self.yz_grid_action)
@@ -300,19 +301,19 @@ class MainWindow(QMainWindow):
         
         # XY view (Plan view)
         self.xy_view_toolbar_action = QAction("XY", self)
-        self.xy_view_toolbar_action.setToolTip("Set view to XY plane (top view)")
+        self.xy_view_toolbar_action.setToolTip("Set view to XY plane (top view - looking down Z-axis)")
         self.xy_view_toolbar_action.triggered.connect(lambda: self.set_view_direction('xy'))
         self.view_toolbar.addAction(self.xy_view_toolbar_action)
         
         # XZ view (Front view)
         self.xz_view_toolbar_action = QAction("XZ", self)
-        self.xz_view_toolbar_action.setToolTip("Set view to XZ plane (front view)")
+        self.xz_view_toolbar_action.setToolTip("Set view to XZ plane (front view - looking along Y-axis)")
         self.xz_view_toolbar_action.triggered.connect(lambda: self.set_view_direction('xz'))
         self.view_toolbar.addAction(self.xz_view_toolbar_action)
         
         # YZ view (Side view)
         self.yz_view_toolbar_action = QAction("YZ", self)
-        self.yz_view_toolbar_action.setToolTip("Set view to YZ plane (side view)")
+        self.yz_view_toolbar_action.setToolTip("Set view to YZ plane (side view - looking along X-axis)")
         self.yz_view_toolbar_action.triggered.connect(lambda: self.set_view_direction('yz'))
         self.view_toolbar.addAction(self.yz_view_toolbar_action)
         
@@ -414,9 +415,12 @@ class MainWindow(QMainWindow):
         Args:
             direction: The view direction ('xy', 'xz', 'yz', 'iso').
         """
+        logger.info(f"MainWindow: Setting view direction to '{direction}'")
         if self.renderer_manager:
             self.renderer_manager.set_view_direction(direction)
             self.status_bar.showMessage(f"View set to {direction.upper()}")
+        else:
+            logger.warning("Cannot set view direction - renderer manager not set")
     
     def reset_camera(self) -> None:
         """Reset the VTK camera."""

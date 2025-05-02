@@ -207,11 +207,24 @@ def create_grid_actor(size: float = 10.0, divisions: int = 10,
     Returns:
         VTK actor representing the grid.
     """
+    logger.info(f"Creating grid actor for plane: {plane}")
+    
     # Create a grid
     grid = vtk.vtkRectilinearGrid()
     
-    # Set grid dimensions (one more than divisions)
-    grid.SetDimensions(divisions + 1, divisions + 1, 1)
+    # Set grid dimensions based on the plane
+    if plane == 'xy':
+        logger.debug("XY plane: grid dimensions=(divisions+1, divisions+1, 1)")
+        grid.SetDimensions(divisions + 1, divisions + 1, 1)
+    elif plane == 'xz':
+        logger.debug("XZ plane: grid dimensions=(divisions+1, 1, divisions+1)")
+        grid.SetDimensions(divisions + 1, 1, divisions + 1)
+    elif plane == 'yz':
+        logger.debug("YZ plane: grid dimensions=(1, divisions+1, divisions+1)")
+        grid.SetDimensions(1, divisions + 1, divisions + 1)
+    else:
+        logger.warning(f"Unknown plane: {plane}, defaulting to XY plane")
+        grid.SetDimensions(divisions + 1, divisions + 1, 1)
     
     # Create coordinates
     x_coords = vtk.vtkDoubleArray()
@@ -220,27 +233,49 @@ def create_grid_actor(size: float = 10.0, divisions: int = 10,
     
     # Calculate spacing
     spacing = size / divisions
+    half_size = size / 2
+    
+    logger.debug(f"Grid spacing: {spacing}, half_size: {half_size}")
     
     # Create coordinate arrays based on the selected plane
-    for i in range(divisions + 1):
-        coord = -size / 2 + i * spacing
-        if plane == 'xy':
-            x_coords.InsertNextValue(coord)
-            y_coords.InsertNextValue(coord)
-            z_coords.InsertNextValue(0)
-        elif plane == 'xz':
-            x_coords.InsertNextValue(coord)
-            y_coords.InsertNextValue(0)
-            z_coords.InsertNextValue(coord)
-        elif plane == 'yz':
-            x_coords.InsertNextValue(0)
-            y_coords.InsertNextValue(coord)
-            z_coords.InsertNextValue(coord)
+    if plane == 'xy':
+        # X and Y vary, Z is fixed at 0
+        logger.debug("XY plane: X and Y coordinates vary, Z fixed at 0")
+        for i in range(divisions + 1):
+            x_value = -half_size + i * spacing
+            y_value = -half_size + i * spacing
+            x_coords.InsertNextValue(x_value)
+            y_coords.InsertNextValue(y_value)
+            logger.debug(f"  Added XY coordinate point {i}: ({x_value}, {y_value}, 0)")
+        z_coords.InsertNextValue(0)
+    elif plane == 'xz':
+        # X and Z vary, Y is fixed at 0
+        logger.debug("XZ plane: X and Z coordinates vary, Y fixed at 0")
+        for i in range(divisions + 1):
+            x_value = -half_size + i * spacing
+            z_value = -half_size + i * spacing
+            x_coords.InsertNextValue(x_value)
+            z_coords.InsertNextValue(z_value)
+            logger.debug(f"  Added XZ coordinate point {i}: ({x_value}, 0, {z_value})")
+        y_coords.InsertNextValue(0)
+    elif plane == 'yz':
+        # Y and Z vary, X is fixed at 0
+        logger.debug("YZ plane: Y and Z coordinates vary, X fixed at 0")
+        for i in range(divisions + 1):
+            y_value = -half_size + i * spacing
+            z_value = -half_size + i * spacing
+            y_coords.InsertNextValue(y_value)
+            z_coords.InsertNextValue(z_value)
+            logger.debug(f"  Added YZ coordinate point {i}: (0, {y_value}, {z_value})")
+        x_coords.InsertNextValue(0)
     
     # Set the grid coordinates
     grid.SetXCoordinates(x_coords)
     grid.SetYCoordinates(y_coords)
     grid.SetZCoordinates(z_coords)
+    
+    logger.debug(f"Grid created for {plane} plane with {x_coords.GetNumberOfTuples()} x-coords, " +
+                f"{y_coords.GetNumberOfTuples()} y-coords, {z_coords.GetNumberOfTuples()} z-coords")
     
     # Extract the grid edges
     edges = vtk.vtkExtractEdges()
@@ -249,19 +284,33 @@ def create_grid_actor(size: float = 10.0, divisions: int = 10,
     # Create a tube filter to make the grid lines
     tubes = vtk.vtkTubeFilter()
     tubes.SetInputConnection(edges.GetOutputPort())
-    tubes.SetRadius(size / 600)
-    tubes.SetNumberOfSides(6)
-    tubes.UseDefaultNormalOn()
+    tubes.SetRadius(0.01)
+    tubes.SetNumberOfSides(12)
     
-    # Create a mapper
+    # Set default normals based on the plane
+    if plane == 'xy':
+        logger.debug("Setting XY plane default normal to (0, 0, 1)")
+        tubes.SetDefaultNormal(0, 0, 1)
+    elif plane == 'xz':
+        logger.debug("Setting XZ plane default normal to (0, 1, 0)")
+        tubes.SetDefaultNormal(0, 1, 0)
+    elif plane == 'yz':
+        logger.debug("Setting YZ plane default normal to (1, 0, 0)")
+        tubes.SetDefaultNormal(1, 0, 0)
+    
+    # Use default normals if auto-orientation fails
+    tubes.SetUseDefaultNormal(True)
+    
+    # Create mapper
     mapper = vtk.vtkPolyDataMapper()
     mapper.SetInputConnection(tubes.GetOutputPort())
     
-    # Create an actor
+    # Create actor
     actor = vtk.vtkActor()
     actor.SetMapper(mapper)
     actor.GetProperty().SetColor(color)
     
+    logger.info(f"Created grid actor for {plane} plane")
     return actor
 
 
