@@ -180,6 +180,47 @@ class MainWindow(QMainWindow):
         
         self.view_menu.addSeparator()
         
+        # Grid and Axis Visualization submenu
+        self.visualization_menu = QMenu("&Grid and Axis", self)
+        self.view_menu.addMenu(self.visualization_menu)
+        
+        # Grid actions
+        self.toggle_grid_action = QAction("Show &Grid", self)
+        self.toggle_grid_action.setCheckable(True)
+        self.toggle_grid_action.setChecked(True)
+        self.toggle_grid_action.triggered.connect(self.toggle_grid)
+        self.visualization_menu.addAction(self.toggle_grid_action)
+        
+        # Grid planes submenu
+        self.grid_planes_menu = QMenu("Grid &Planes", self)
+        self.visualization_menu.addMenu(self.grid_planes_menu)
+        
+        # Grid plane actions
+        self.xy_grid_action = QAction("&XY Plane", self)
+        self.xy_grid_action.setCheckable(True)
+        self.xy_grid_action.setChecked(True)
+        self.xy_grid_action.triggered.connect(lambda checked: self.toggle_grid_plane('xy', checked))
+        self.grid_planes_menu.addAction(self.xy_grid_action)
+        
+        self.xz_grid_action = QAction("X&Z Plane", self)
+        self.xz_grid_action.setCheckable(True)
+        self.xz_grid_action.triggered.connect(lambda checked: self.toggle_grid_plane('xz', checked))
+        self.grid_planes_menu.addAction(self.xz_grid_action)
+        
+        self.yz_grid_action = QAction("&YZ Plane", self)
+        self.yz_grid_action.setCheckable(True)
+        self.yz_grid_action.triggered.connect(lambda checked: self.toggle_grid_plane('yz', checked))
+        self.grid_planes_menu.addAction(self.yz_grid_action)
+        
+        # Axis action
+        self.toggle_axis_action = QAction("Show &Axis", self)
+        self.toggle_axis_action.setCheckable(True)
+        self.toggle_axis_action.setChecked(True)
+        self.toggle_axis_action.triggered.connect(self.toggle_axis)
+        self.visualization_menu.addAction(self.toggle_axis_action)
+        
+        self.view_menu.addSeparator()
+        
         # Dock visibility will be added in _create_dock_widgets
         
         # Help menu
@@ -598,4 +639,22 @@ class MainWindow(QMainWindow):
         if self.file_service:
             self.file_service.clear_recent_files()
             self.update_recent_files_menu()
-            self.status_bar.showMessage("Recent files cleared") 
+            self.status_bar.showMessage("Recent files cleared")
+
+    def toggle_grid(self):
+        """Handle the toggle grid action."""
+        if self.renderer_manager:
+            self.renderer_manager.toggle_grid()
+            self.status_bar.showMessage("Grid visibility toggled")
+
+    def toggle_grid_plane(self, plane: str, checked: bool):
+        """Handle the toggle grid plane action."""
+        if self.renderer_manager:
+            self.renderer_manager.toggle_grid_plane(plane, checked)
+            self.status_bar.showMessage(f"Grid plane {plane.upper()} toggled")
+
+    def toggle_axis(self):
+        """Handle the toggle axis action."""
+        if self.renderer_manager:
+            self.renderer_manager.toggle_axis()
+            self.status_bar.showMessage("Axis visibility toggled") 

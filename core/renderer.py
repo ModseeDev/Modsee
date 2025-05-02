@@ -33,7 +33,27 @@ class RendererManager(ViewComponent):
         self._node_color = (1.0, 0.0, 0.0)  # Red
         self._element_line_width = 3.0
         self._element_color = (0.0, 0.0, 1.0)  # Blue
+        
+        # Grid settings
         self._grid_enabled = True
+        self._grid_size = 10.0
+        self._grid_divisions = 10
+        self._grid_color = (0.5, 0.5, 0.5)  # Gray
+        self._grid_planes = {
+            'xy': True,
+            'xz': False,
+            'yz': False
+        }
+        
+        # Axis settings
+        self._axis_enabled = True
+        self._axis_length = 5.0
+        self._axis_line_width = 2.0
+        self._axis_colors = {
+            'x': (1.0, 0.0, 0.0),  # Red
+            'y': (0.0, 1.0, 0.0),  # Green
+            'z': (0.0, 0.0, 1.0)   # Blue
+        }
         
         # Camera settings
         self._camera_mode = "rotate"
@@ -64,11 +84,50 @@ class RendererManager(ViewComponent):
             logger.warning("Cannot initialize VTK widget - widget not set")
             return
         
-        # Add a grid to the scene
+        # Import helper functions
+        from ui.vtk_helpers import create_grid_actor, create_axis_actor
+        
+        # Add grids to the scene for each enabled plane
         if self._grid_enabled:
-            from ui.vtk_helpers import create_grid_actor
-            grid_actor = create_grid_actor(size=10.0, divisions=10, color=(0.5, 0.5, 0.5), plane='xy')
-            self._vtk_widget.add_actor('grid_xy', grid_actor)
+            if self._grid_planes['xy']:
+                grid_xy_actor = create_grid_actor(
+                    size=self._grid_size, 
+                    divisions=self._grid_divisions, 
+                    color=self._grid_color, 
+                    plane='xy'
+                )
+                self._vtk_widget.add_actor('grid_xy', grid_xy_actor)
+            
+            if self._grid_planes['xz']:
+                grid_xz_actor = create_grid_actor(
+                    size=self._grid_size, 
+                    divisions=self._grid_divisions, 
+                    color=self._grid_color, 
+                    plane='xz'
+                )
+                self._vtk_widget.add_actor('grid_xz', grid_xz_actor)
+            
+            if self._grid_planes['yz']:
+                grid_yz_actor = create_grid_actor(
+                    size=self._grid_size, 
+                    divisions=self._grid_divisions, 
+                    color=self._grid_color, 
+                    plane='yz'
+                )
+                self._vtk_widget.add_actor('grid_yz', grid_yz_actor)
+        
+        # Add central coordinate axis if enabled
+        if self._axis_enabled:
+            axis_actor = create_axis_actor(
+                origin=(0.0, 0.0, 0.0),
+                length=self._axis_length,
+                x_color=self._axis_colors['x'],
+                y_color=self._axis_colors['y'],
+                z_color=self._axis_colors['z'],
+                line_width=self._axis_line_width,
+                show_labels=True
+            )
+            self._vtk_widget.add_actor('central_axis', axis_actor)
         
         # Set initial view
         self._vtk_widget.set_view_direction('iso')
@@ -173,6 +232,137 @@ class RendererManager(ViewComponent):
             self._vtk_widget.pan_camera(dx, dy)
         else:
             logger.warning("Cannot pan camera - VTK widget not set")
+
+    def set_grid_visibility(self, visible: bool) -> None:
+        """
+        Set the visibility of all grid planes.
+        
+        Args:
+            visible: Whether the grids should be visible.
+        """
+        self._grid_enabled = visible
+        
+        if not self._vtk_widget:
+            return
+            
+        # Import create_grid_actor function
+        from ui.vtk_helpers import create_grid_actor
+        
+        # Remove existing grid actors
+        for plane in ['xy', 'xz', 'yz']:
+            grid_name = f'grid_{plane}'
+            if grid_name in self._vtk_widget.actors:
+                self._vtk_widget.remove_actor(grid_name)
+        
+        # If enabled, add grid actors for each enabled plane
+        if visible:
+            for plane, enabled in self._grid_planes.items():
+                if enabled:
+                    grid_actor = create_grid_actor(
+                        size=self._grid_size, 
+                        divisions=self._grid_divisions, 
+                        color=self._grid_color, 
+                        plane=plane
+                    )
+                    self._vtk_widget.add_actor(f'grid_{plane}', grid_actor)
+        
+        # Render the scene
+        self._vtk_widget.render()
+        logger.debug(f"Grid visibility set to {visible}")
+    
+    def set_grid_plane_visibility(self, plane: str, visible: bool) -> None:
+        """
+        Set the visibility of a specific grid plane.
+        
+        Args:
+            plane: The grid plane ('xy', 'xz', or 'yz').
+            visible: Whether the grid plane should be visible.
+        """
+        if plane not in ['xy', 'xz', 'yz']:
+            logger.warning(f"Invalid grid plane: {plane}")
+            return
+            
+        self._grid_planes[plane] = visible
+        
+        if not self._vtk_widget:
+            return
+            
+        # Grid actor name based on plane
+        grid_name = f'grid_{plane}'
+        
+        # Remove the grid actor if it exists
+        if grid_name in self._vtk_widget.actors:
+            self._vtk_widget.remove_actor(grid_name)
+        
+        # Add a new grid actor if enabled
+        if visible and self._grid_enabled:
+            from ui.vtk_helpers import create_grid_actor
+            grid_actor = create_grid_actor(
+                size=self._grid_size, 
+                divisions=self._grid_divisions, 
+                color=self._grid_color, 
+                plane=plane
+            )
+            self._vtk_widget.add_actor(grid_name, grid_actor)
+        
+        # Render the scene
+        self._vtk_widget.render()
+        logger.debug(f"Grid {plane} visibility set to {visible}")
+    
+    def set_axis_visibility(self, visible: bool) -> None:
+        """
+        Set the visibility of the central coordinate axis.
+        
+        Args:
+            visible: Whether the axis should be visible.
+        """
+        self._axis_enabled = visible
+        
+        if not self._vtk_widget:
+            return
+            
+        # Remove existing axis actor
+        if 'central_axis' in self._vtk_widget.actors:
+            self._vtk_widget.remove_actor('central_axis')
+        
+        # Add a new axis actor if enabled
+        if visible:
+            from ui.vtk_helpers import create_axis_actor
+            axis_actor = create_axis_actor(
+                origin=(0.0, 0.0, 0.0),
+                length=self._axis_length,
+                x_color=self._axis_colors['x'],
+                y_color=self._axis_colors['y'],
+                z_color=self._axis_colors['z'],
+                line_width=self._axis_line_width,
+                show_labels=True
+            )
+            self._vtk_widget.add_actor('central_axis', axis_actor)
+        
+        # Render the scene
+        self._vtk_widget.render()
+        logger.debug(f"Axis visibility set to {visible}")
+    
+    def toggle_grid(self) -> None:
+        """Toggle grid visibility."""
+        self.set_grid_visibility(not self._grid_enabled)
+        logger.debug(f"Grid visibility toggled to {self._grid_enabled}")
+    
+    def toggle_grid_plane(self, plane: str, visible: bool) -> None:
+        """
+        Toggle visibility of a specific grid plane.
+        
+        Args:
+            plane: The grid plane ('xy', 'xz', or 'yz').
+            visible: Whether the grid plane should be visible.
+        """
+        self.set_grid_plane_visibility(plane, visible)
+        logger.debug(f"Grid plane {plane} visibility toggled to {visible}")
+    
+    def toggle_axis(self) -> None:
+        """Toggle axis visibility."""
+        self.set_axis_visibility(not self._axis_enabled)
+        logger.debug(f"Axis visibility toggled to {self._axis_enabled}")
     
     def update_model_visualization(self) -> None:
         """
@@ -186,7 +376,7 @@ class RendererManager(ViewComponent):
             logger.warning("Cannot update visualization - model manager not set")
             return
             
-        # Clear previous nodes and elements but keep the grid
+        # Clear previous nodes and elements but keep the grid and axis
         self._clear_model_actors()
         
         # Import VTK helper functions
@@ -257,40 +447,43 @@ class RendererManager(ViewComponent):
                 
                 points.append((x, y, z))
             
-            # Create element line actor
-            element_actor = create_line_actor(
-                points, 
-                color=self._element_color, 
-                line_width=self._element_line_width
-            )
+            # Create element actor based on element type
+            element_actor = None
+            if len(points) == 2:  # Line element (beam, truss, etc.)
+                element_actor = create_line_actor(
+                    points,
+                    color=self._element_color,
+                    line_width=self._element_line_width
+                )
+            else:  # Other element types (to be implemented)
+                # Create temporary representation using lines
+                element_actor = create_line_actor(
+                    points,
+                    color=self._element_color,
+                    line_width=self._element_line_width
+                )
             
             # Add actor to the scene with object type and ID for selection
-            self._vtk_widget.add_actor(
-                f'element_{element.id}', 
-                element_actor,
-                obj_type='element',
-                obj_id=element.id
-            )
+            if element_actor:
+                self._vtk_widget.add_actor(
+                    f'element_{element.id}',
+                    element_actor,
+                    obj_type='element',
+                    obj_id=element.id
+                )
         
-        # Update selection highlights
-        if self._model_manager:
-            selected_objects = list(self._model_manager.get_selection())
-            self._vtk_widget.update_selection_highlights(selected_objects)
-        
-        # Render changes and reset camera to show all objects
-        self._vtk_widget.reset_camera()
         self._vtk_widget.render()
         logger.info(f"Model visualization updated: {len(nodes)} nodes, {len(elements)} elements")
     
     def _clear_model_actors(self) -> None:
-        """Clear all model actors but keep grid and other non-model actors."""
+        """Clear all model actors but keep grid, axis and other non-model actors."""
         if not self._vtk_widget:
             return
             
         # Get a list of all actors to remove
         to_remove = []
         for name in self._vtk_widget.actors:
-            # Keep grid actors and other utility actors
+            # Keep grid actors, axis actors and other utility actors
             if name.startswith('node_') or name.startswith('element_'):
                 to_remove.append(name)
         
@@ -321,7 +514,9 @@ class RendererManager(ViewComponent):
         """Clear all visualization elements."""
         if self._vtk_widget:
             self._vtk_widget.clear_actors()
-            self._vtk_widget.render()
+            
+            # Re-initialize the visualization components
+            self._init_vtk_widget()
         else:
             logger.warning("Cannot clear visualization - VTK widget not set")
     
@@ -329,11 +524,27 @@ class RendererManager(ViewComponent):
         """Refresh the visualization."""
         if self._model_manager:
             self.update_model_visualization()
+        elif self._vtk_widget:
+            # Just re-render if no model is available
+            self._vtk_widget.render()
     
     def reset(self) -> None:
-        """Reset the renderer."""
-        self.clear_visualization()
-        logger.info("RendererManager reset")
+        """Reset the renderer manager to initial state."""
+        # Reset visualization settings to defaults
+        self._node_radius = 0.2
+        self._node_color = (1.0, 0.0, 0.0)  # Red
+        self._element_line_width = 3.0
+        self._element_color = (0.0, 0.0, 1.0)  # Blue
+        self._grid_enabled = True
+        self._grid_size = 10.0
+        self._grid_divisions = 10
+        self._grid_color = (0.5, 0.5, 0.5)  # Gray
+        self._grid_planes = {'xy': True, 'xz': False, 'yz': False}
+        self._axis_enabled = True
+        
+        # Reset visualization
+        if self._vtk_widget:
+            self.clear_visualization()
         
         # Call base class reset
         super().reset() 

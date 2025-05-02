@@ -111,6 +111,87 @@ def create_line_actor(points: List[Tuple[float, float, float]],
     return actor
 
 
+def create_axis_actor(origin: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+                      length: float = 5.0,
+                      x_color: Tuple[float, float, float] = (1.0, 0.0, 0.0),
+                      y_color: Tuple[float, float, float] = (0.0, 1.0, 0.0),
+                      z_color: Tuple[float, float, float] = (0.0, 0.0, 1.0),
+                      line_width: float = 2.0,
+                      show_labels: bool = True) -> vtk.vtkAssembly:
+    """
+    Create a VTK actor representing coordinate axes at the specified origin.
+    
+    Args:
+        origin: (x, y, z) origin point for the axes.
+        length: Length of each axis.
+        x_color: RGB color tuple for X axis (values 0.0-1.0).
+        y_color: RGB color tuple for Y axis (values 0.0-1.0).
+        z_color: RGB color tuple for Z axis (values 0.0-1.0).
+        line_width: Width of the axis lines.
+        show_labels: Whether to show axis labels.
+        
+    Returns:
+        VTK assembly containing the axis actors.
+    """
+    # Create an assembly to hold all the axis actors
+    assembly = vtk.vtkAssembly()
+    
+    # Create X axis
+    x_axis_points = [origin, (origin[0] + length, origin[1], origin[2])]
+    x_axis_actor = create_line_actor(x_axis_points, color=x_color, line_width=line_width)
+    assembly.AddPart(x_axis_actor)
+    
+    # Create Y axis
+    y_axis_points = [origin, (origin[0], origin[1] + length, origin[2])]
+    y_axis_actor = create_line_actor(y_axis_points, color=y_color, line_width=line_width)
+    assembly.AddPart(y_axis_actor)
+    
+    # Create Z axis
+    z_axis_points = [origin, (origin[0], origin[1], origin[2] + length)]
+    z_axis_actor = create_line_actor(z_axis_points, color=z_color, line_width=line_width)
+    assembly.AddPart(z_axis_actor)
+    
+    # Add labels if requested
+    if show_labels:
+        # Create X label
+        x_label = vtk.vtkVectorText()
+        x_label.SetText("X")
+        x_mapper = vtk.vtkPolyDataMapper()
+        x_mapper.SetInputConnection(x_label.GetOutputPort())
+        x_label_actor = vtk.vtkActor()
+        x_label_actor.SetMapper(x_mapper)
+        x_label_actor.GetProperty().SetColor(x_color)
+        x_label_actor.SetPosition(origin[0] + length + 0.2, origin[1], origin[2])
+        x_label_actor.SetScale(0.3, 0.3, 0.3)
+        assembly.AddPart(x_label_actor)
+        
+        # Create Y label
+        y_label = vtk.vtkVectorText()
+        y_label.SetText("Y")
+        y_mapper = vtk.vtkPolyDataMapper()
+        y_mapper.SetInputConnection(y_label.GetOutputPort())
+        y_label_actor = vtk.vtkActor()
+        y_label_actor.SetMapper(y_mapper)
+        y_label_actor.GetProperty().SetColor(y_color)
+        y_label_actor.SetPosition(origin[0], origin[1] + length + 0.2, origin[2])
+        y_label_actor.SetScale(0.3, 0.3, 0.3)
+        assembly.AddPart(y_label_actor)
+        
+        # Create Z label
+        z_label = vtk.vtkVectorText()
+        z_label.SetText("Z")
+        z_mapper = vtk.vtkPolyDataMapper()
+        z_mapper.SetInputConnection(z_label.GetOutputPort())
+        z_label_actor = vtk.vtkActor()
+        z_label_actor.SetMapper(z_mapper)
+        z_label_actor.GetProperty().SetColor(z_color)
+        z_label_actor.SetPosition(origin[0], origin[1], origin[2] + length + 0.2)
+        z_label_actor.SetScale(0.3, 0.3, 0.3)
+        assembly.AddPart(z_label_actor)
+    
+    return assembly
+
+
 def create_grid_actor(size: float = 10.0, divisions: int = 10, 
                       color: Tuple[float, float, float] = (0.7, 0.7, 0.7),
                       plane: str = 'xy') -> vtk.vtkActor:

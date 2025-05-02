@@ -26,55 +26,67 @@ logger = logging.getLogger('test_visualization')
 
 
 def create_simple_model(model_manager):
-    """Create a simple model with nodes and elements."""
-    logger.info("Creating simple test model...")
-    
+    """Create a simple model with nodes and elements for testing."""
     # Create some nodes
-    nodes = [
-        Node(1, ModelMetadata(name="Node 1"), [0.0, 0.0, 0.0]),
-        Node(2, ModelMetadata(name="Node 2"), [5.0, 0.0, 0.0]),
-        Node(3, ModelMetadata(name="Node 3"), [5.0, 5.0, 0.0]),
-        Node(4, ModelMetadata(name="Node 4"), [0.0, 5.0, 0.0]),
-        Node(5, ModelMetadata(name="Node 5"), [0.0, 0.0, 5.0]),
-        Node(6, ModelMetadata(name="Node 6"), [5.0, 0.0, 5.0]),
-        Node(7, ModelMetadata(name="Node 7"), [5.0, 5.0, 5.0]),
-        Node(8, ModelMetadata(name="Node 8"), [0.0, 5.0, 5.0]),
-    ]
+    from model.nodes import Node
     
-    # Add nodes to model manager
-    for node in nodes:
-        model_manager.add_node(node.id, node)
+    # Create 4 nodes in a square
+    node1 = Node(1, coordinates=[0, 0, 0])
+    node2 = Node(2, coordinates=[10, 0, 0])
+    node3 = Node(3, coordinates=[10, 10, 0])
+    node4 = Node(4, coordinates=[0, 10, 0])
     
-    # Create truss elements (simple bar elements)
-    # Bottom square
-    elements = [
-        Truss3D(1, ModelMetadata(name="Truss 1-2"), [1, 2], 1, 100.0),
-        Truss3D(2, ModelMetadata(name="Truss 2-3"), [2, 3], 1, 100.0),
-        Truss3D(3, ModelMetadata(name="Truss 3-4"), [3, 4], 1, 100.0),
-        Truss3D(4, ModelMetadata(name="Truss 4-1"), [4, 1], 1, 100.0),
-        
-        # Top square
-        Truss3D(5, ModelMetadata(name="Truss 5-6"), [5, 6], 1, 100.0),
-        Truss3D(6, ModelMetadata(name="Truss 6-7"), [6, 7], 1, 100.0),
-        Truss3D(7, ModelMetadata(name="Truss 7-8"), [7, 8], 1, 100.0),
-        Truss3D(8, ModelMetadata(name="Truss 8-5"), [8, 5], 1, 100.0),
-        
-        # Vertical supports
-        Truss3D(9, ModelMetadata(name="Truss 1-5"), [1, 5], 1, 100.0),
-        Truss3D(10, ModelMetadata(name="Truss 2-6"), [2, 6], 1, 100.0),
-        Truss3D(11, ModelMetadata(name="Truss 3-7"), [3, 7], 1, 100.0),
-        Truss3D(12, ModelMetadata(name="Truss 4-8"), [4, 8], 1, 100.0),
-        
-        # Diagonal braces
-        Truss3D(13, ModelMetadata(name="Truss 1-3"), [1, 3], 1, 100.0),
-        Truss3D(14, ModelMetadata(name="Truss 5-7"), [5, 7], 1, 100.0),
-    ]
+    # Add nodes to the model
+    model_manager.add_node(1, node1)
+    model_manager.add_node(2, node2)
+    model_manager.add_node(3, node3)
+    model_manager.add_node(4, node4)
     
-    # Add elements to model manager
-    for element in elements:
-        model_manager.add_element(element.id, element)
+    # Create some elements
+    from model.elements.frame import FrameElement
     
-    logger.info(f"Created {len(nodes)} nodes and {len(elements)} elements")
+    # Create 4 frame elements forming a square
+    element1 = FrameElement(1, nodes=[1, 2])
+    element2 = FrameElement(2, nodes=[2, 3])
+    element3 = FrameElement(3, nodes=[3, 4])
+    element4 = FrameElement(4, nodes=[4, 1])
+    
+    # Add elements to the model
+    model_manager.add_element(1, element1)
+    model_manager.add_element(2, element2)
+    model_manager.add_element(3, element3)
+    model_manager.add_element(4, element4)
+    
+    # Log model creation
+    logger.info("Simple test model created")
+
+
+def test_grid_and_axis_visualization(renderer_manager):
+    """
+    Test the grid and axis visualization functionality.
+    
+    Args:
+        renderer_manager: The renderer manager instance.
+    """
+    # Enable all grid planes
+    renderer_manager.set_grid_plane_visibility('xy', True)
+    renderer_manager.set_grid_plane_visibility('xz', True)
+    renderer_manager.set_grid_plane_visibility('yz', True)
+    logger.info("All grid planes enabled")
+    
+    # Refresh the visualization
+    renderer_manager.refresh()
+    
+    # Change view to better see all planes
+    renderer_manager.set_view_direction('iso')
+    logger.info("View set to isometric")
+    
+    # Toggle axis visibility
+    renderer_manager.set_axis_visibility(True)
+    logger.info("Central axis enabled")
+    
+    # Reset camera to show everything
+    renderer_manager.reset_camera()
 
 
 def main():
@@ -104,6 +116,9 @@ def main():
     # Get the renderer manager and trigger refresh
     renderer_manager = app_manager.get_component('renderer_manager')
     renderer_manager.refresh()
+    
+    # Test grid and axis visualization
+    test_grid_and_axis_visualization(renderer_manager)
     
     # Show window
     window.show()

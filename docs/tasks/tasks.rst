@@ -113,7 +113,7 @@ Visualization and Interaction
      - Medium
    * - VIS-005
      - Implement grid and axis visualization
-     - Not Started
+     - Completed
      - Medium
    * - VIS-006
      - Develop color themes and visual styling system
@@ -183,6 +183,10 @@ User Interface Enhancements
      - Create settings dialog for application preferences
      - Not Started
      - Low
+   * - UI-006
+     - Implement version control system, this should be checked at splash screen
+     - Not Started
+     - Medium
 
 Future Development Roadmap
 ------------------------
