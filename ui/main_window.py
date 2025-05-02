@@ -249,18 +249,43 @@ class MainWindow(QMainWindow):
         self.camera_toolbar.addWidget(select_button)
         self.camera_mode_group.addButton(select_button)
         
+        # Add space between camera control and view presets
         self.camera_toolbar.addSeparator()
         
-        # View presets
-        self.camera_toolbar.addAction(self.xy_view_action)
-        self.camera_toolbar.addAction(self.xz_view_action)
-        self.camera_toolbar.addAction(self.yz_view_action)
-        self.camera_toolbar.addAction(self.iso_view_action)
+        # View presets toolbar
+        self.view_toolbar = QToolBar("View Presets", self)
+        self.view_toolbar.setMovable(False)
+        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.view_toolbar)
         
-        self.camera_toolbar.addSeparator()
+        # XY view (Plan view)
+        self.xy_view_toolbar_action = QAction("XY", self)
+        self.xy_view_toolbar_action.setToolTip("Set view to XY plane (top view)")
+        self.xy_view_toolbar_action.triggered.connect(lambda: self.set_view_direction('xy'))
+        self.view_toolbar.addAction(self.xy_view_toolbar_action)
         
-        # Reset camera button
-        self.camera_toolbar.addAction(self.reset_camera_action)
+        # XZ view (Front view)
+        self.xz_view_toolbar_action = QAction("XZ", self)
+        self.xz_view_toolbar_action.setToolTip("Set view to XZ plane (front view)")
+        self.xz_view_toolbar_action.triggered.connect(lambda: self.set_view_direction('xz'))
+        self.view_toolbar.addAction(self.xz_view_toolbar_action)
+        
+        # YZ view (Side view)
+        self.yz_view_toolbar_action = QAction("YZ", self)
+        self.yz_view_toolbar_action.setToolTip("Set view to YZ plane (side view)")
+        self.yz_view_toolbar_action.triggered.connect(lambda: self.set_view_direction('yz'))
+        self.view_toolbar.addAction(self.yz_view_toolbar_action)
+        
+        # Isometric view
+        self.iso_view_toolbar_action = QAction("Isometric", self)
+        self.iso_view_toolbar_action.setToolTip("Set view to isometric perspective")
+        self.iso_view_toolbar_action.triggered.connect(lambda: self.set_view_direction('iso'))
+        self.view_toolbar.addAction(self.iso_view_toolbar_action)
+        
+        # Reset camera action
+        self.reset_camera_toolbar_action = QAction("Reset Camera", self)
+        self.reset_camera_toolbar_action.setToolTip("Reset camera to show all objects")
+        self.reset_camera_toolbar_action.triggered.connect(self.reset_camera)
+        self.view_toolbar.addAction(self.reset_camera_toolbar_action)
     
     def _create_status_bar(self):
         """Create the status bar."""

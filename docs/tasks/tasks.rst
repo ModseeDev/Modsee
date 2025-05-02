@@ -109,7 +109,7 @@ Visualization and Interaction
      - High
    * - VIS-004
      - Create view preset system (XY, YZ, XZ, isometric)
-     - Not Started
+     - Completed
      - Medium
    * - VIS-005
      - Implement grid and axis visualization
