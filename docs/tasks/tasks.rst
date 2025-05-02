@@ -105,7 +105,7 @@ Visualization and Interaction
      - High
    * - VIS-003
      - Implement selection system for nodes and elements
-     - Not Started
+     - Completed
      - High
    * - VIS-004
      - Create view preset system (XY, YZ, XZ, isometric)

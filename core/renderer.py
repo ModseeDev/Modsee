@@ -38,6 +38,10 @@ class RendererManager(ViewComponent):
         # Camera settings
         self._camera_mode = "rotate"
         
+        # Selection settings
+        self._selection_enabled = True
+        self._selection_color = (1.0, 1.0, 0.0)  # Yellow
+        
         logger.info("RendererManager initialized")
     
     @property
@@ -87,16 +91,33 @@ class RendererManager(ViewComponent):
         """
         self._model_manager = model_manager
         
-        # If vtk widget is already set, update visualization
+        # Connect selection changed signal if available
+        if hasattr(model_manager, 'selection_changed_signal'):
+            model_manager.selection_changed_signal.connect(self._on_selection_changed)
+        
+        # Set the model manager in VTK widget for selection
         if self._vtk_widget:
+            self._vtk_widget.set_model_manager(model_manager)
             self.update_model_visualization()
+    
+    def _on_selection_changed(self) -> None:
+        """Handle selection changed event from model manager."""
+        if not self._vtk_widget or not self._model_manager:
+            return
+            
+        # Get selected objects from model manager
+        selected_objects = list(self._model_manager.get_selection())
+        
+        # Update visualization
+        self._vtk_widget.update_selection_highlights(selected_objects)
+        logger.debug(f"Selection changed: {len(selected_objects)} objects selected")
     
     def set_camera_mode(self, mode: str) -> None:
         """
         Set the camera interaction mode.
         
         Args:
-            mode: Camera control mode ('rotate', 'pan', 'zoom').
+            mode: Camera control mode ('rotate', 'pan', 'zoom', 'select').
         """
         self._camera_mode = mode
         
@@ -199,8 +220,13 @@ class RendererManager(ViewComponent):
                 color=self._node_color
             )
             
-            # Add actor to the scene
-            self._vtk_widget.add_actor(f'node_{node.id}', node_actor)
+            # Add actor to the scene with object type and ID for selection
+            self._vtk_widget.add_actor(
+                f'node_{node.id}', 
+                node_actor,
+                obj_type='node',
+                obj_id=node.id
+            )
         
         # Render elements
         for element in elements:
@@ -238,8 +264,18 @@ class RendererManager(ViewComponent):
                 line_width=self._element_line_width
             )
             
-            # Add actor to the scene
-            self._vtk_widget.add_actor(f'element_{element.id}', element_actor)
+            # Add actor to the scene with object type and ID for selection
+            self._vtk_widget.add_actor(
+                f'element_{element.id}', 
+                element_actor,
+                obj_type='element',
+                obj_id=element.id
+            )
+        
+        # Update selection highlights
+        if self._model_manager:
+            selected_objects = list(self._model_manager.get_selection())
+            self._vtk_widget.update_selection_highlights(selected_objects)
         
         # Render changes and reset camera to show all objects
         self._vtk_widget.reset_camera()
@@ -251,57 +287,51 @@ class RendererManager(ViewComponent):
         if not self._vtk_widget:
             return
             
-        # Get all actor names
-        actor_names = list(self._vtk_widget.actors.keys())
-        
-        # Remove nodes and elements but keep grid
-        for name in actor_names:
+        # Get a list of all actors to remove
+        to_remove = []
+        for name in self._vtk_widget.actors:
+            # Keep grid actors and other utility actors
             if name.startswith('node_') or name.startswith('element_'):
-                self._vtk_widget.remove_actor(name)
+                to_remove.append(name)
+        
+        # Remove actors
+        for name in to_remove:
+            self._vtk_widget.remove_actor(name)
     
     def set_view_direction(self, direction: str) -> None:
         """
-        Set the view direction.
+        Set the camera view direction.
         
         Args:
-            direction: View direction ('xy', 'xz', 'yz', 'iso').
+            direction: The view direction ('xy', 'xz', 'yz', 'iso').
         """
-        if not self._vtk_widget:
+        if self._vtk_widget:
+            self._vtk_widget.set_view_direction(direction)
+        else:
             logger.warning("Cannot set view direction - VTK widget not set")
-            return
-        
-        self._vtk_widget.set_view_direction(direction)
-        logger.debug(f"View direction set to {direction}")
     
     def reset_camera(self) -> None:
         """Reset the camera to show all objects."""
-        if not self._vtk_widget:
+        if self._vtk_widget:
+            self._vtk_widget.reset_camera()
+        else:
             logger.warning("Cannot reset camera - VTK widget not set")
-            return
-        
-        self._vtk_widget.reset_camera()
-        logger.debug("Camera reset")
     
     def clear_visualization(self) -> None:
-        """Clear all visualization actors."""
-        if not self._vtk_widget:
+        """Clear all visualization elements."""
+        if self._vtk_widget:
+            self._vtk_widget.clear_actors()
+            self._vtk_widget.render()
+        else:
             logger.warning("Cannot clear visualization - VTK widget not set")
-            return
-        
-        self._vtk_widget.clear_actors()
-        self._vtk_widget.render()
-        logger.debug("Visualization cleared")
     
     def refresh(self) -> None:
-        """
-        Refresh the visualization.
-        """
-        self.update_model_visualization()
+        """Refresh the visualization."""
+        if self._model_manager:
+            self.update_model_visualization()
     
     def reset(self) -> None:
-        """
-        Reset the renderer manager.
-        """
+        """Reset the renderer."""
         self.clear_visualization()
         logger.info("RendererManager reset")
         

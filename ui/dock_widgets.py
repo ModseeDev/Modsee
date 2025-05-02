@@ -221,98 +221,106 @@ class ModelExplorerWidget(QWidget):
                 section_item.setData(0, Qt.ItemDataRole.UserRole, ("section", section_id))
     
     def _update_selection_from_model(self):
-        """Update tree item selection based on model selection."""
+        """Update tree selection to match model selection."""
         if not self.model_manager:
             return
             
-        # Get current selection from model
-        if hasattr(self.model_manager, 'get_selection'):
-            selection = self.model_manager.get_selection()
-        else:
-            # No selection mechanism found
+        # Skip if we're currently updating the selection programmatically
+        if hasattr(self, '_selecting_programmatically') and self._selecting_programmatically:
             return
             
-        # Block signals to prevent selection feedback loop
-        self.tree_widget.blockSignals(True)
+        # Get the current selection from the model manager
+        selected_objects = self.model_manager.get_selection()
         
-        # Clear current selection
+        # Clear current tree selection
         self.tree_widget.clearSelection()
         
-        # Highlight all tree items corresponding to selected objects
-        for category_item in self.category_items.values():
-            for i in range(category_item.childCount()):
-                child = category_item.child(i)
-                item_data = child.data(0, Qt.ItemDataRole.UserRole)
+        # If no objects are selected, we're done
+        if not selected_objects:
+            return
+            
+        # Map objects to tree items and select them
+        for obj in selected_objects:
+            # Get the object type and ID
+            obj_type = None
+            if hasattr(obj, 'id'):
+                obj_id = obj.id
                 
-                if not item_data:
-                    continue
+                if obj.__class__.__name__.lower().endswith('node'):
+                    obj_type = 'node'
+                elif 'element' in obj.__class__.__name__.lower():
+                    obj_type = 'element'
+                elif 'material' in obj.__class__.__name__.lower():
+                    obj_type = 'material'
+                elif 'section' in obj.__class__.__name__.lower():
+                    obj_type = 'section'
+                
+                if obj_type:
+                    # Find the corresponding tree item
+                    category_name = obj_type + 's'  # Convert to plural
+                    category_item = self.category_items.get(category_name.lower())
                     
-                obj_type, obj_id = item_data
-                
-                # Find corresponding object in model
-                obj = None
-                if obj_type == "node" and hasattr(self.model_manager, '_nodes'):
-                    obj = self.model_manager._nodes.get(obj_id)
-                elif obj_type == "element" and hasattr(self.model_manager, '_elements'):
-                    obj = self.model_manager._elements.get(obj_id)
-                
-                # Check if object is selected
-                if obj in selection:
-                    child.setSelected(True)
-                    # Ensure item is visible
-                    self.tree_widget.scrollToItem(child)
-        
-        # Restore signals
-        self.tree_widget.blockSignals(False)
+                    if category_item:
+                        # Look through all child items in this category
+                        for i in range(category_item.childCount()):
+                            child = category_item.child(i)
+                            data = child.data(0, Qt.ItemDataRole.UserRole)
+                            
+                            if data and data[0] == obj_type and data[1] == obj_id:
+                                # Select this item
+                                child.setSelected(True)
+                                
+                                # Ensure the item is visible
+                                self.tree_widget.scrollToItem(child)
+                                break
     
     def _on_selection_changed(self):
-        """Handle tree selection changed event."""
+        """Handle selection changed in the tree widget."""
+        # Get the currently selected items
+        selected_items = self.tree_widget.selectedItems()
+        
+        # Skip if we don't have a model manager
         if not self.model_manager:
             return
             
-        # Get selected items
-        selected_items = self.tree_widget.selectedItems()
+        # We're updating the selection programmatically, so don't trigger further updates
+        self._selecting_programmatically = True
         
-        # Don't propagate selection if a category is selected
+        # Clear the current selection in the model
+        self.model_manager.deselect_all()
+        
+        # Add each selected object to the model selection
         for item in selected_items:
-            if item in self.category_items.values():
-                return
-                
-        # Convert to model objects
-        selected_objs = []
-        for item in selected_items:
-            item_data = item.data(0, Qt.ItemDataRole.UserRole)
-            if not item_data:
+            # Skip group/category items
+            if not item.parent():
                 continue
                 
-            obj_type, obj_id = item_data
-            
-            # Find corresponding object in model
-            obj = None
-            if obj_type == "node" and hasattr(self.model_manager, '_nodes'):
-                obj = self.model_manager._nodes.get(obj_id)
-            elif obj_type == "element" and hasattr(self.model_manager, '_elements'):
-                obj = self.model_manager._elements.get(obj_id)
-            
-            if obj:
-                selected_objs.append(obj)
+            # Get the object type and ID from the item's data
+            data = item.data(0, Qt.ItemDataRole.UserRole)
+            if data:
+                obj_type, obj_id = data
+                
+                # Get the object from the model manager
+                obj = None
+                if obj_type == 'node':
+                    obj = self.model_manager.get_node(obj_id)
+                elif obj_type == 'element':
+                    obj = self.model_manager.get_element(obj_id)
+                elif obj_type == 'material':
+                    obj = self.model_manager.get_material(obj_id)
+                elif obj_type == 'section':
+                    obj = self.model_manager.get_section(obj_id)
+                
+                # Select the object if found
+                if obj:
+                    self.model_manager.select(obj)
         
-        # Update model selection
-        if hasattr(self.model_manager, 'deselect_all') and hasattr(self.model_manager, 'select'):
-            # Block signals to prevent selection feedback loop
-            model_signals_blocked = False
-            if hasattr(self.model_manager, 'blockSignals'):
-                self.model_manager.blockSignals(True)
-                model_signals_blocked = True
-                
-            # Update selection in model
-            self.model_manager.deselect_all()
-            for obj in selected_objs:
-                self.model_manager.select(obj)
-                
-            # Restore signals
-            if model_signals_blocked:
-                self.model_manager.blockSignals(False)
+        # Update selection-related widgets and views
+        self._selecting_programmatically = False
+        
+        # Emit selection changed signal to update properties panel
+        if hasattr(self.model_manager, 'selection_changed'):
+            self.model_manager.selection_changed()
     
     def _apply_filter(self, filter_text):
         """Apply filter to tree items."""

@@ -11,6 +11,8 @@ from PyQt6.QtCore import Qt
 import vtk
 from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
+from ui.selection_style import SelectionInteractorStyle
+
 logger = logging.getLogger('modsee.ui.vtk_widget')
 
 
@@ -47,12 +49,15 @@ class VTKWidget(QFrame):
         self.render_window.AddRenderer(self.renderer)
         
         # Camera control mode
-        self._camera_mode = "rotate"  # Options: "rotate", "pan", "zoom"
+        self._camera_mode = "rotate"  # Options: "rotate", "pan", "zoom", "select"
         
         # Interactor styles - using VTK's built-in styles for specific operations
         self.rotate_style = vtk.vtkInteractorStyleTrackballCamera()
-        self.pan_style = vtk.vtkInteractorStyleRubberBandZoom()  # Changed to a style that forces panning
-        self.zoom_style = vtk.vtkInteractorStyleRubberBand3D()   # Changed to a style that supports zooming
+        self.pan_style = vtk.vtkInteractorStyleJoystickCamera()
+        self.zoom_style = vtk.vtkInteractorStyleTerrain()
+        
+        # Custom selection style
+        self.selection_style = SelectionInteractorStyle()
         
         # Set initial style as rotate (default)
         self.vtk_widget.SetInteractorStyle(self.rotate_style)
@@ -66,8 +71,23 @@ class VTKWidget(QFrame):
         
         # Initialize other attributes
         self.actors = {}
+        self.highlight_actors = {}
+        
+        # Model manager reference (for selection)
+        self._model_manager = None
         
         logger.info("VTKWidget initialized")
+    
+    def set_model_manager(self, model_manager: Any) -> None:
+        """
+        Set the model manager for selection.
+        
+        Args:
+            model_manager: The model manager instance.
+        """
+        self._model_manager = model_manager
+        self.selection_style.set_model_manager(model_manager)
+        logger.debug("Model manager set in VTKWidget")
     
     def _setup_axes(self) -> None:
         """Set up coordinate axes."""
@@ -107,7 +127,7 @@ class VTKWidget(QFrame):
         Set the camera interaction mode.
         
         Args:
-            mode: Camera control mode ('rotate', 'pan', 'zoom')
+            mode: Camera control mode ('rotate', 'pan', 'zoom', 'select')
         """
         self._camera_mode = mode.lower()
         
@@ -131,6 +151,11 @@ class VTKWidget(QFrame):
             self.vtk_widget.SetInteractorStyle(self.zoom_style)
             self.interactor_style = self.zoom_style
             logger.debug("Camera mode set to zoom")
+        elif mode.lower() == 'select':
+            # Use the selection style
+            self.vtk_widget.SetInteractorStyle(self.selection_style)
+            self.interactor_style = self.selection_style
+            logger.debug("Camera mode set to select")
         else:
             logger.warning(f"Unknown camera mode: {mode}, defaulting to rotate")
             self.rotate_style = vtk.vtkInteractorStyleTrackballCamera()
@@ -223,13 +248,16 @@ class VTKWidget(QFrame):
         self.render()
         logger.debug(f"Camera panned by dx: {dx}, dy: {dy}")
         
-    def add_actor(self, name: str, actor: vtk.vtkProp) -> None:
+    def add_actor(self, name: str, actor: vtk.vtkProp, 
+                  obj_type: Optional[str] = None, obj_id: Optional[int] = None) -> None:
         """
         Add an actor to the renderer.
         
         Args:
             name: A unique name for the actor.
             actor: The VTK actor to add.
+            obj_type: The object type ('node' or 'element') for selection.
+            obj_id: The object ID for selection.
         """
         if name in self.actors:
             logger.warning(f"Actor '{name}' already exists, replacing")
@@ -237,7 +265,82 @@ class VTKWidget(QFrame):
         
         self.actors[name] = actor
         self.renderer.AddActor(actor)
+        
+        # Register for selection if object type and ID are provided
+        if obj_type and obj_id is not None and hasattr(self.interactor_style, 'register_actor'):
+            self.selection_style.register_actor(actor, obj_type, obj_id)
+        
         logger.debug(f"Added actor: {name}")
+    
+    def highlight_object(self, name: str, original_actor: vtk.vtkActor, 
+                         highlight_color: Tuple[float, float, float] = (1.0, 1.0, 0.0)) -> None:
+        """
+        Highlight an object by creating a highlighted copy of its actor.
+        
+        Args:
+            name: The name of the object.
+            original_actor: The original VTK actor.
+            highlight_color: RGB color for highlighting.
+        """
+        # Check if this object is already highlighted
+        highlight_name = f"highlight_{name}"
+        if highlight_name in self.highlight_actors:
+            # Update the existing highlight
+            highlight_actor = self.highlight_actors[highlight_name]
+            highlight_actor.GetProperty().SetColor(highlight_color)
+            return
+        
+        # Create a clone of the actor with highlight properties
+        highlight_actor = vtk.vtkActor()
+        highlight_actor.ShallowCopy(original_actor)
+        
+        # Set highlight properties
+        if isinstance(original_actor, vtk.vtkActor):
+            # For nodes (spheres), make the highlight slightly larger
+            if name.startswith("node_"):
+                highlight_actor.GetProperty().SetColor(highlight_color)
+                highlight_actor.GetProperty().SetLineWidth(3.0)
+                highlight_actor.GetProperty().SetRepresentationToWireframe()
+                highlight_actor.GetProperty().SetOpacity(1.0)
+            # For elements (lines), use thicker lines with highlight color
+            else:
+                highlight_actor.GetProperty().SetColor(highlight_color)
+                highlight_actor.GetProperty().SetLineWidth(
+                    original_actor.GetProperty().GetLineWidth() + 2.0
+                )
+                highlight_actor.GetProperty().SetOpacity(1.0)
+        
+        # Add the highlight actor
+        self.highlight_actors[highlight_name] = highlight_actor
+        self.renderer.AddActor(highlight_actor)
+        
+        # Make sure the highlight is in front of the original
+        highlight_actor.SetPosition(
+            original_actor.GetPosition()[0],
+            original_actor.GetPosition()[1],
+            original_actor.GetPosition()[2] + 0.001  # Slight offset to prevent z-fighting
+        )
+        
+        logger.debug(f"Added highlight for: {name}")
+    
+    def remove_highlight(self, name: str) -> bool:
+        """
+        Remove highlighting for an object.
+        
+        Args:
+            name: The name of the object.
+            
+        Returns:
+            True if highlight was removed, False otherwise.
+        """
+        highlight_name = f"highlight_{name}"
+        if highlight_name in self.highlight_actors:
+            self.renderer.RemoveActor(self.highlight_actors[highlight_name])
+            del self.highlight_actors[highlight_name]
+            logger.debug(f"Removed highlight for: {name}")
+            return True
+        
+        return False
     
     def remove_actor(self, name: str) -> bool:
         """
@@ -252,6 +355,10 @@ class VTKWidget(QFrame):
         if name in self.actors:
             self.renderer.RemoveActor(self.actors[name])
             del self.actors[name]
+            
+            # Remove any highlight for this actor
+            self.remove_highlight(name)
+            
             logger.debug(f"Removed actor: {name}")
             return True
         
@@ -263,7 +370,45 @@ class VTKWidget(QFrame):
             self.renderer.RemoveActor(actor)
             del self.actors[name]
         
+        # Also clear all highlights
+        for name, actor in list(self.highlight_actors.items()):
+            self.renderer.RemoveActor(actor)
+            del self.highlight_actors[name]
+        
+        # Clear selection data
+        if hasattr(self.selection_style, 'clear_actor_data'):
+            self.selection_style.clear_actor_data()
+        
         logger.debug("Cleared all actors")
+        
+    def update_selection_highlights(self, selected_objects: List[Any]) -> None:
+        """
+        Update the visual highlights for selected objects.
+        
+        Args:
+            selected_objects: List of selected objects from the model manager.
+        """
+        # First, remove all existing highlights
+        for name, actor in list(self.highlight_actors.items()):
+            self.renderer.RemoveActor(actor)
+            del self.highlight_actors[name]
+        
+        # Add highlights for selected objects
+        for obj in selected_objects:
+            if hasattr(obj, 'id'):
+                obj_id = obj.id
+                # Determine if it's a node or element
+                actor_name = None
+                if obj.__class__.__name__.lower().endswith('node'):
+                    actor_name = f"node_{obj_id}"
+                elif 'element' in obj.__class__.__name__.lower():
+                    actor_name = f"element_{obj_id}"
+                
+                if actor_name and actor_name in self.actors:
+                    self.highlight_object(actor_name, self.actors[actor_name])
+        
+        # Render the changes
+        self.render()
         
     def set_view_direction(self, direction: str) -> None:
         """

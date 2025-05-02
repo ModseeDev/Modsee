@@ -89,14 +89,44 @@ class Integration:
             
             def new_selection_changed():
                 original_selection_changed()
-                # Refresh only selection-sensitive views in a real implementation
-                view_manager.refresh_all_views()
-                if renderer_manager:
-                    renderer_manager.refresh()
+                # Update views that depend on selection
+                view_manager.refresh_view('model_explorer')
+                view_manager.refresh_view('properties')
+                
+                # Signal selection change to the renderer manager for visual highlighting
+                if renderer_manager and hasattr(renderer_manager, '_on_selection_changed'):
+                    renderer_manager._on_selection_changed()
             
             # Replace the methods
             model_manager.model_changed = new_model_changed
             model_manager.selection_changed = new_selection_changed
+            
+            # Add signals to model manager for PyQt connections
+            if not hasattr(model_manager, 'model_changed_signal'):
+                from PyQt6.QtCore import pyqtSignal, QObject
+                
+                # Create a QObject for signals
+                class SignalEmitter(QObject):
+                    model_changed_signal = pyqtSignal()
+                    selection_changed_signal = pyqtSignal()
+                
+                # Add signal emitter to model manager
+                model_manager.signal_emitter = SignalEmitter()
+                model_manager.model_changed_signal = model_manager.signal_emitter.model_changed_signal
+                model_manager.selection_changed_signal = model_manager.signal_emitter.selection_changed_signal
+                
+                # Update methods to emit signals
+                def emit_model_changed():
+                    new_model_changed()
+                    model_manager.model_changed_signal.emit()
+                
+                def emit_selection_changed():
+                    new_selection_changed()
+                    model_manager.selection_changed_signal.emit()
+                
+                # Replace the methods again to emit signals
+                model_manager.model_changed = emit_model_changed
+                model_manager.selection_changed = emit_selection_changed
         
         logger.info("Signals connected")
     
