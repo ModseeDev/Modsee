@@ -177,7 +177,7 @@ User Interface Enhancements
      - Medium
    * - UI-004
      - Implement console output panel with filtering
-     - Not Started
+     - Completed
      - Medium
    * - UI-005
      - Create settings dialog for application preferences

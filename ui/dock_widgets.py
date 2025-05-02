@@ -1112,14 +1112,22 @@ class PropertiesWidget(QWidget):
 class ConsoleWidget(QWidget):
     """
     Widget for the Console dock panel.
-    Displays log messages and command output.
+    Displays log messages and command output with filtering capabilities.
     """
     
     def __init__(self):
         """Initialize the Console widget."""
         super().__init__()
         
+        self._log_entries = []  # Store all log entries for filtering
+        self._current_filter = ""
+        self._current_level_filter = "All"
+        self._developer_mode = False  # Default to user-friendly mode
+        
         self._init_ui()
+        
+        # Set up logging handler to capture all logs
+        self._setup_logging_handler()
         
         logger.debug("ConsoleWidget initialized")
     
@@ -1128,6 +1136,41 @@ class ConsoleWidget(QWidget):
         # Create layout
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(4, 4, 4, 4)
+        
+        # Create filter tools
+        self.filter_layout = QHBoxLayout()
+        self.filter_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Add level filter dropdown
+        self.level_label = QLabel("Level:")
+        self.filter_layout.addWidget(self.level_label)
+        
+        self.level_filter = QComboBox()
+        self.level_filter.addItems(["All", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
+        self.level_filter.currentTextChanged.connect(self._apply_filters)
+        self.filter_layout.addWidget(self.level_filter)
+        
+        # Add text filter
+        self.filter_label = QLabel("Filter:")
+        self.filter_layout.addWidget(self.filter_label)
+        
+        self.filter_edit = QLineEdit()
+        self.filter_edit.setPlaceholderText("Filter log messages")
+        self.filter_edit.textChanged.connect(self._on_filter_text_changed)
+        self.filter_layout.addWidget(self.filter_edit)
+        
+        # Add developer mode checkbox
+        self.dev_mode_check = QCheckBox("Developer Mode")
+        self.dev_mode_check.setChecked(self._developer_mode)
+        self.dev_mode_check.stateChanged.connect(self._toggle_developer_mode)
+        self.filter_layout.addWidget(self.dev_mode_check)
+        
+        # Add clear filter button
+        self.clear_filter_button = QPushButton("Clear Filter")
+        self.clear_filter_button.clicked.connect(self._clear_filter)
+        self.filter_layout.addWidget(self.clear_filter_button)
+        
+        self.layout.addLayout(self.filter_layout)
         
         # Create text edit
         self.text_edit = QTextEdit()
@@ -1140,27 +1183,221 @@ class ConsoleWidget(QWidget):
         self.button_layout = QHBoxLayout()
         self.button_layout.setContentsMargins(0, 0, 0, 0)
         
-        self.clear_button = QPushButton("Clear")
+        self.clear_button = QPushButton("Clear Console")
         self.clear_button.clicked.connect(self.clear)
         self.button_layout.addWidget(self.clear_button)
+        
+        self.copy_button = QPushButton("Copy to Clipboard")
+        self.copy_button.clicked.connect(self._copy_to_clipboard)
+        self.button_layout.addWidget(self.copy_button)
+        
+        self.save_button = QPushButton("Save Log...")
+        self.save_button.clicked.connect(self._save_log)
+        self.button_layout.addWidget(self.save_button)
         
         self.button_layout.addStretch(1)
         
         self.layout.addLayout(self.button_layout)
         
         # Add welcome message
-        self.log("Welcome to Modsee Console")
-        self.log("Ready.")
+        self.log("Welcome to Modsee Console", level="INFO")
+        self.log("Ready.", level="INFO")
     
-    def log(self, message: str):
+    def _setup_logging_handler(self):
+        """Set up custom logging handler to capture all application logs."""
+        class ConsoleLogHandler(logging.Handler):
+            def __init__(self, console_widget):
+                super().__init__()
+                self.console_widget = console_widget
+            
+            def emit(self, record):
+                msg = self.format(record)
+                # Get timestamp with milliseconds
+                import time
+                msec = int((record.created - int(record.created)) * 1000)
+                timestamp = f"{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(record.created))},{msec:03d}"
+                # Store original record in log entry for developer mode toggling
+                self.console_widget.log(
+                    msg, 
+                    level=record.levelname, 
+                    logger_name=record.name, 
+                    timestamp=timestamp
+                )
+        
+        # Create and add handler
+        handler = ConsoleLogHandler(self)
+        handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        handler.setLevel(logging.DEBUG)
+        
+        # Add to root logger to capture all logs
+        logging.getLogger().addHandler(handler)
+    
+    def log(self, message: str, level: str = "INFO", logger_name: str = None, timestamp: str = None):
         """
         Add a log message to the console.
         
         Args:
             message: The message to log.
+            level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+            logger_name: The name of the logger (for developer mode)
+            timestamp: The timestamp of the log (for developer mode)
         """
-        self.text_edit.append(message)
+        # If this is a formatted message from the logger, extract the actual message
+        # This is to handle standard log format: "timestamp - logger - level - message"
+        if logger_name is not None and " - " in message:
+            # Try to extract the actual message part
+            try:
+                parts = message.split(" - ")
+                if len(parts) >= 4:  # timestamp - logger - level - message
+                    original_message = " - ".join(parts[3:])  # Include all parts after level
+                else:
+                    original_message = message
+            except:
+                original_message = message
+        else:
+            original_message = message
+            
+        # Generate timestamp if not provided
+        if timestamp is None:
+            import time
+            import datetime
+            now = datetime.datetime.now()
+            timestamp = f"{now.strftime('%Y-%m-%d %H:%M:%S')},{now.microsecond//1000:03d}"
+            
+        # Store complete entry for filtering and display mode switching
+        entry = {
+            "message": original_message,
+            "level": level,
+            "logger_name": logger_name,
+            "timestamp": timestamp,
+            "full_message": message
+        }
+        self._log_entries.append(entry)
+        
+        # Only display if it passes the current filter
+        if self._passes_filter(entry):
+            self._display_log_entry(entry)
+    
+    def _display_log_entry(self, entry):
+        """Display a log entry according to current display mode."""
+        color = self._get_level_color(entry["level"])
+        
+        if self._developer_mode and entry["logger_name"]:
+            # Developer mode: show full log with timestamp, logger, level
+            text = f'<span style="color:{color};">{entry["timestamp"]} - {entry["logger_name"]} - {entry["level"]} - {entry["message"]}</span>'
+        else:
+            # User mode: show simplified log with timestamp and message only
+            try:
+                # Extract time portion from timestamp (handles both formats)
+                if " " in entry["timestamp"]:
+                    time_part = entry["timestamp"].split(" ")[1].split(",")[0]
+                else:
+                    time_part = entry["timestamp"]
+                text = f'<span style="color:{color};">[{time_part}] {entry["message"]}</span>'
+            except Exception:
+                # Fallback if timestamp parsing fails
+                text = f'<span style="color:{color};">{entry["message"]}</span>'
+            
+        self.text_edit.append(text)
+    
+    def _toggle_developer_mode(self, state):
+        """Toggle between developer and user-friendly log display."""
+        self._developer_mode = bool(state)
+        self._apply_filters()  # Refresh display with new mode
+        
+        mode = "Developer" if self._developer_mode else "User"
+        self.log(f"Switched to {mode} logging mode", level="INFO")
+    
+    def _get_level_color(self, level: str) -> str:
+        """Get the color for a log level."""
+        colors = {
+            "DEBUG": "#808080",      # Gray
+            "INFO": "#000000",       # Black
+            "WARNING": "#FFA500",    # Orange
+            "ERROR": "#FF0000",      # Red
+            "CRITICAL": "#8B0000"    # Dark Red
+        }
+        return colors.get(level.upper(), "#000000")
+    
+    def _on_filter_text_changed(self, text: str):
+        """Handle filter text changes."""
+        self._current_filter = text.lower()
+        self._apply_filters()
+    
+    def _clear_filter(self):
+        """Clear all filters."""
+        self.filter_edit.clear()
+        self.level_filter.setCurrentText("All")
+        self._current_filter = ""
+        self._current_level_filter = "All"
+        self._apply_filters()
+    
+    def _passes_filter(self, entry: dict) -> bool:
+        """Check if a log entry passes the current filters."""
+        # Check level filter
+        if self._current_level_filter != "All" and entry["level"] != self._current_level_filter:
+            return False
+        
+        # Get the appropriate message based on mode
+        if self._developer_mode and "full_message" in entry:
+            filter_text = entry["full_message"].lower()
+        else:
+            filter_text = entry["message"].lower()
+        
+        # Check text filter
+        if self._current_filter and self._current_filter not in filter_text:
+            return False
+        
+        return True
+    
+    def _apply_filters(self):
+        """Apply current filters to the log entries."""
+        # Update level filter
+        self._current_level_filter = self.level_filter.currentText()
+        
+        # Clear display
+        self.text_edit.clear()
+        
+        # Re-add entries that pass the filter
+        for entry in self._log_entries:
+            if self._passes_filter(entry):
+                self._display_log_entry(entry)
+    
+    def _copy_to_clipboard(self):
+        """Copy console content to clipboard."""
+        text = self.text_edit.toPlainText()
+        from PyQt6.QtGui import QClipboard
+        from PyQt6.QtWidgets import QApplication
+        QApplication.clipboard().setText(text)
+        self.log("Console content copied to clipboard", level="INFO")
+    
+    def _save_log(self):
+        """Save log content to a file in full developer mode format."""
+        from PyQt6.QtWidgets import QFileDialog
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save Log File", "", "Log Files (*.log);;Text Files (*.txt);;All Files (*)"
+        )
+        
+        if file_path:
+            try:
+                with open(file_path, 'w') as f:
+                    # Always save in developer mode format regardless of current display setting
+                    for entry in self._log_entries:
+                        if self._passes_filter(entry):
+                            # Format log entry in full detail
+                            if entry["logger_name"] and entry["timestamp"]:
+                                line = f"{entry['timestamp']} - {entry['logger_name']} - {entry['level']} - {entry['message']}\n"
+                            else:
+                                # For manually added logs that might not have logger_name
+                                line = f"{entry['timestamp']} - console - {entry['level']} - {entry['message']}\n"
+                            f.write(line)
+                
+                self.log(f"Log saved to {file_path}", level="INFO")
+            except Exception as e:
+                self.log(f"Error saving log: {str(e)}", level="ERROR")
     
     def clear(self):
         """Clear the console."""
-        self.text_edit.clear() 
+        self._log_entries.clear()
+        self.text_edit.clear()
+        self.log("Console cleared", level="INFO") 
