@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
     QButtonGroup, QToolButton
 )
 from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtGui import QAction, QIcon
+from PyQt6.QtGui import QAction, QIcon, QActionGroup
 
 from ui.vtk_widget import VTKWidget
 
@@ -128,6 +128,33 @@ class MainWindow(QMainWindow):
         self.save_as_action.triggered.connect(self.on_save_as)
         self.file_menu.addAction(self.save_as_action)
         
+        # Export submenu
+        self.export_menu = QMenu("&Export", self)
+        self.file_menu.addMenu(self.export_menu)
+        
+        # Export actions
+        self.export_tcl_action = QAction("OpenSees &TCL Script...", self)
+        self.export_tcl_action.triggered.connect(self.on_export_tcl)
+        self.export_menu.addAction(self.export_tcl_action)
+        
+        self.export_py_action = QAction("OpenSees&Py Script...", self)
+        self.export_py_action.triggered.connect(self.on_export_py)
+        self.export_menu.addAction(self.export_py_action)
+        
+        # Import submenu
+        self.import_menu = QMenu("&Import", self)
+        self.file_menu.addMenu(self.import_menu)
+        
+        # Import actions
+        self.import_geometry_action = QAction("&Geometry...", self)
+        self.import_geometry_action.triggered.connect(self.on_import_geometry)
+        self.import_menu.addAction(self.import_geometry_action)
+        
+        # Project settings
+        self.project_settings_action = QAction("Project &Settings...", self)
+        self.project_settings_action.triggered.connect(self.on_project_settings)
+        self.file_menu.addAction(self.project_settings_action)
+        
         self.file_menu.addSeparator()
         
         self.exit_action = QAction("E&xit", self)
@@ -148,6 +175,48 @@ class MainWindow(QMainWindow):
         self.redo_action.setShortcut("Ctrl+Y")
         self.redo_action.setEnabled(False)  # Not implemented yet
         self.edit_menu.addAction(self.redo_action)
+        
+        self.edit_menu.addSeparator()
+        
+        # Selection actions
+        self.select_all_action = QAction("Select &All", self)
+        self.select_all_action.setShortcut("Ctrl+A")
+        self.select_all_action.triggered.connect(self.on_select_all)
+        self.edit_menu.addAction(self.select_all_action)
+        
+        self.select_none_action = QAction("Select &None", self)
+        self.select_none_action.setShortcut("Ctrl+Shift+A")
+        self.select_none_action.triggered.connect(self.on_select_none)
+        self.edit_menu.addAction(self.select_none_action)
+        
+        self.invert_selection_action = QAction("&Invert Selection", self)
+        self.invert_selection_action.triggered.connect(self.on_invert_selection)
+        self.edit_menu.addAction(self.invert_selection_action)
+        
+        self.edit_menu.addSeparator()
+        
+        # Copy/paste actions
+        self.copy_action = QAction("&Copy", self)
+        self.copy_action.setShortcut("Ctrl+C")
+        self.copy_action.triggered.connect(self.on_copy)
+        self.edit_menu.addAction(self.copy_action)
+        
+        self.paste_action = QAction("&Paste", self)
+        self.paste_action.setShortcut("Ctrl+V")
+        self.paste_action.triggered.connect(self.on_paste)
+        self.edit_menu.addAction(self.paste_action)
+        
+        self.delete_action = QAction("&Delete", self)
+        self.delete_action.setShortcut("Delete")
+        self.delete_action.triggered.connect(self.on_delete)
+        self.edit_menu.addAction(self.delete_action)
+        
+        self.edit_menu.addSeparator()
+        
+        # Preferences action
+        self.preferences_action = QAction("&Preferences...", self)
+        self.preferences_action.triggered.connect(self.on_preferences)
+        self.edit_menu.addAction(self.preferences_action)
         
         # View menu
         self.view_menu = self.menu_bar.addMenu("&View")
@@ -180,8 +249,8 @@ class MainWindow(QMainWindow):
         
         self.view_menu.addSeparator()
         
-        # Grid and Axis Visualization submenu
-        self.visualization_menu = QMenu("&Grid and Axis", self)
+        # Visualization options submenu
+        self.visualization_menu = QMenu("&Visualization", self)
         self.view_menu.addMenu(self.visualization_menu)
         
         # Grid actions
@@ -220,14 +289,262 @@ class MainWindow(QMainWindow):
         self.toggle_axis_action.triggered.connect(self.toggle_axis)
         self.visualization_menu.addAction(self.toggle_axis_action)
         
+        # Display mode submenu
+        self.display_mode_menu = QMenu("Display &Mode", self)
+        self.visualization_menu.addMenu(self.display_mode_menu)
+        
+        # Display mode actions
+        self.wireframe_action = QAction("&Wireframe", self)
+        self.wireframe_action.setCheckable(True)
+        self.wireframe_action.setChecked(True)
+        self.wireframe_action.triggered.connect(lambda: self.set_display_mode('wireframe'))
+        self.display_mode_menu.addAction(self.wireframe_action)
+        
+        self.solid_action = QAction("&Solid", self)
+        self.solid_action.setCheckable(True)
+        self.solid_action.triggered.connect(lambda: self.set_display_mode('solid'))
+        self.display_mode_menu.addAction(self.solid_action)
+        
+        # Create action group for display mode
+        self.display_mode_group = QActionGroup(self)
+        self.display_mode_group.addAction(self.wireframe_action)
+        self.display_mode_group.addAction(self.solid_action)
+        self.display_mode_group.setExclusive(True)
+        
+        # Node/Element visibility
+        self.show_nodes_action = QAction("Show &Nodes", self)
+        self.show_nodes_action.setCheckable(True)
+        self.show_nodes_action.setChecked(True)
+        self.show_nodes_action.triggered.connect(self.toggle_node_visibility)
+        self.visualization_menu.addAction(self.show_nodes_action)
+        
+        self.show_elements_action = QAction("Show &Elements", self)
+        self.show_elements_action.setCheckable(True)
+        self.show_elements_action.setChecked(True)
+        self.show_elements_action.triggered.connect(self.toggle_element_visibility)
+        self.visualization_menu.addAction(self.show_elements_action)
+        
+        self.visualization_menu.addSeparator()
+        
+        # Colors and themes
+        self.theme_menu = QMenu("&Themes", self)
+        self.visualization_menu.addMenu(self.theme_menu)
+        
+        # Theme actions
+        self.light_theme_action = QAction("&Light", self)
+        self.light_theme_action.setCheckable(True)
+        self.light_theme_action.setChecked(True)
+        self.light_theme_action.triggered.connect(lambda: self.set_theme('light'))
+        self.theme_menu.addAction(self.light_theme_action)
+        
+        self.dark_theme_action = QAction("&Dark", self)
+        self.dark_theme_action.setCheckable(True)
+        self.dark_theme_action.triggered.connect(lambda: self.set_theme('dark'))
+        self.theme_menu.addAction(self.dark_theme_action)
+        
+        # Create action group for themes
+        self.theme_group = QActionGroup(self)
+        self.theme_group.addAction(self.light_theme_action)
+        self.theme_group.addAction(self.dark_theme_action)
+        self.theme_group.setExclusive(True)
+        
         self.view_menu.addSeparator()
         
-        # Dock visibility will be added in _create_dock_widgets
+        # Dock visibility actions will be added in _create_dock_widgets
+        
+        # Model menu
+        self.model_menu = self.menu_bar.addMenu("&Model")
+        
+        # Create submenu
+        self.create_menu = QMenu("&Create", self)
+        self.model_menu.addMenu(self.create_menu)
+        
+        # Node action
+        self.create_node_action = QAction("&Node", self)
+        self.create_node_action.triggered.connect(self.on_create_node)
+        self.create_menu.addAction(self.create_node_action)
+        
+        # Elements submenu
+        self.create_element_menu = QMenu("&Elements", self)
+        self.create_menu.addMenu(self.create_element_menu)
+        
+        # Create element actions
+        self.create_truss_action = QAction("&Truss Element", self)
+        self.create_truss_action.triggered.connect(self.on_create_truss)
+        self.create_element_menu.addAction(self.create_truss_action)
+        
+        self.create_beam_action = QAction("&Beam Element", self)
+        self.create_beam_action.triggered.connect(self.on_create_beam)
+        self.create_element_menu.addAction(self.create_beam_action)
+        
+        # Materials submenu
+        self.create_material_menu = QMenu("&Materials", self)
+        self.create_menu.addMenu(self.create_material_menu)
+        
+        # Create material actions
+        self.create_elastic_material_action = QAction("&Elastic Material", self)
+        self.create_elastic_material_action.triggered.connect(self.on_create_elastic_material)
+        self.create_material_menu.addAction(self.create_elastic_material_action)
+        
+        # Sections submenu
+        self.create_section_menu = QMenu("&Sections", self)
+        self.create_menu.addMenu(self.create_section_menu)
+        
+        # Create section actions
+        self.create_rectangle_section_action = QAction("&Rectangular Section", self)
+        self.create_rectangle_section_action.triggered.connect(self.on_create_rectangle_section)
+        self.create_section_menu.addAction(self.create_rectangle_section_action)
+        
+        # Boundary conditions submenu
+        self.create_boundary_menu = QMenu("&Boundary Conditions", self)
+        self.create_menu.addMenu(self.create_boundary_menu)
+        
+        # Create boundary actions
+        self.create_fixed_support_action = QAction("&Fixed Support", self)
+        self.create_fixed_support_action.triggered.connect(self.on_create_fixed_support)
+        self.create_boundary_menu.addAction(self.create_fixed_support_action)
+        
+        # Loads submenu
+        self.create_load_menu = QMenu("&Loads", self)
+        self.create_menu.addMenu(self.create_load_menu)
+        
+        # Create load actions
+        self.create_point_load_action = QAction("&Point Load", self)
+        self.create_point_load_action.triggered.connect(self.on_create_point_load)
+        self.create_load_menu.addAction(self.create_point_load_action)
+        
+        # Stage actions
+        self.model_menu.addSeparator()
+        
+        self.create_stage_action = QAction("Create &Stage", self)
+        self.create_stage_action.triggered.connect(self.on_create_stage)
+        self.model_menu.addAction(self.create_stage_action)
+        
+        self.manage_stages_action = QAction("&Manage Stages...", self)
+        self.manage_stages_action.triggered.connect(self.on_manage_stages)
+        self.model_menu.addAction(self.manage_stages_action)
+        
+        # Analysis menu
+        self.analysis_menu = self.menu_bar.addMenu("&Analysis")
+        
+        # Define analysis action
+        self.define_analysis_action = QAction("&Define Analysis...", self)
+        self.define_analysis_action.triggered.connect(self.on_define_analysis)
+        self.analysis_menu.addAction(self.define_analysis_action)
+        
+        # Analysis type submenu
+        self.analysis_type_menu = QMenu("Analysis &Type", self)
+        self.analysis_menu.addMenu(self.analysis_type_menu)
+        
+        # Analysis type actions
+        self.static_analysis_action = QAction("&Static", self)
+        self.static_analysis_action.triggered.connect(lambda: self.set_analysis_type('static'))
+        self.analysis_type_menu.addAction(self.static_analysis_action)
+        
+        self.modal_analysis_action = QAction("&Modal", self)
+        self.modal_analysis_action.triggered.connect(lambda: self.set_analysis_type('modal'))
+        self.analysis_type_menu.addAction(self.modal_analysis_action)
+        
+        self.transient_analysis_action = QAction("&Transient", self)
+        self.transient_analysis_action.triggered.connect(lambda: self.set_analysis_type('transient'))
+        self.analysis_type_menu.addAction(self.transient_analysis_action)
+        
+        # Run analysis actions
+        self.analysis_menu.addSeparator()
+        
+        self.run_analysis_action = QAction("&Run Analysis", self)
+        self.run_analysis_action.triggered.connect(self.on_run_analysis)
+        self.analysis_menu.addAction(self.run_analysis_action)
+        
+        self.cancel_analysis_action = QAction("&Cancel Analysis", self)
+        self.cancel_analysis_action.triggered.connect(self.on_cancel_analysis)
+        self.cancel_analysis_action.setEnabled(False)  # Enabled when analysis is running
+        self.analysis_menu.addAction(self.cancel_analysis_action)
+        
+        # Results menu
+        self.results_menu = self.menu_bar.addMenu("&Results")
+        
+        # Load results action
+        self.load_results_action = QAction("&Load Results...", self)
+        self.load_results_action.triggered.connect(self.on_load_results)
+        self.results_menu.addAction(self.load_results_action)
+        
+        # Visualization actions
+        self.results_menu.addSeparator()
+        
+        self.show_deformed_action = QAction("Show &Deformed Shape", self)
+        self.show_deformed_action.setCheckable(True)
+        self.show_deformed_action.triggered.connect(self.toggle_deformed_shape)
+        self.results_menu.addAction(self.show_deformed_action)
+        
+        # Deformation scale slider
+        self.deformation_scale_action = QAction("Deformation &Scale...", self)
+        self.deformation_scale_action.triggered.connect(self.on_deformation_scale)
+        self.results_menu.addAction(self.deformation_scale_action)
+        
+        # Contour options
+        self.results_menu.addSeparator()
+        
+        self.contour_menu = QMenu("&Contours", self)
+        self.results_menu.addMenu(self.contour_menu)
+        
+        # Contour actions
+        self.displacement_contour_action = QAction("&Displacement", self)
+        self.displacement_contour_action.triggered.connect(lambda: self.set_contour('displacement'))
+        self.contour_menu.addAction(self.displacement_contour_action)
+        
+        self.stress_contour_action = QAction("&Stress", self)
+        self.stress_contour_action.triggered.connect(lambda: self.set_contour('stress'))
+        self.contour_menu.addAction(self.stress_contour_action)
+        
+        self.strain_contour_action = QAction("S&train", self)
+        self.strain_contour_action.triggered.connect(lambda: self.set_contour('strain'))
+        self.contour_menu.addAction(self.strain_contour_action)
+        
+        # Animation action
+        self.results_menu.addSeparator()
+        
+        self.animate_results_action = QAction("&Animate Results...", self)
+        self.animate_results_action.triggered.connect(self.on_animate_results)
+        self.results_menu.addAction(self.animate_results_action)
+        
+        # Tools menu
+        self.tools_menu = self.menu_bar.addMenu("&Tools")
+        
+        # Measurement tools
+        self.measure_distance_action = QAction("Measure &Distance", self)
+        self.measure_distance_action.triggered.connect(self.on_measure_distance)
+        self.tools_menu.addAction(self.measure_distance_action)
+        
+        self.tools_menu.addSeparator()
+        
+        # Model utilities
+        self.validate_model_action = QAction("&Validate Model", self)
+        self.validate_model_action.triggered.connect(self.on_validate_model)
+        self.tools_menu.addAction(self.validate_model_action)
+        
+        self.generate_report_action = QAction("Generate &Report...", self)
+        self.generate_report_action.triggered.connect(self.on_generate_report)
+        self.tools_menu.addAction(self.generate_report_action)
         
         # Help menu
         self.help_menu = self.menu_bar.addMenu("&Help")
         
         # Help menu actions
+        self.documentation_action = QAction("&Documentation", self)
+        self.documentation_action.triggered.connect(self.on_documentation)
+        self.help_menu.addAction(self.documentation_action)
+        
+        self.tutorials_action = QAction("&Tutorials", self)
+        self.tutorials_action.triggered.connect(self.on_tutorials)
+        self.help_menu.addAction(self.tutorials_action)
+        
+        self.check_updates_action = QAction("Check for &Updates", self)
+        self.check_updates_action.triggered.connect(self.on_check_updates)
+        self.help_menu.addAction(self.check_updates_action)
+        
+        self.help_menu.addSeparator()
+        
         self.about_action = QAction("&About", self)
         self.about_action.triggered.connect(self.on_about)
         self.help_menu.addAction(self.about_action)
@@ -661,4 +978,253 @@ class MainWindow(QMainWindow):
         """Handle the toggle axis action."""
         if self.renderer_manager:
             self.renderer_manager.toggle_axis()
-            self.status_bar.showMessage("Axis visibility toggled") 
+            self.status_bar.showMessage("Axis visibility toggled")
+
+    def on_export_tcl(self):
+        """Export the model to OpenSees TCL script."""
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Export OpenSees TCL Script", "", "TCL Files (*.tcl)"
+        )
+        if file_path:
+            logger.info(f"Exporting OpenSees TCL script to {file_path}")
+            self.file_service.export_tcl(file_path)
+    
+    def on_export_py(self):
+        """Export the model to OpenSeesPy script."""
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Export OpenSeesPy Script", "", "Python Files (*.py)"
+        )
+        if file_path:
+            logger.info(f"Exporting OpenSeesPy script to {file_path}")
+            self.file_service.export_py(file_path)
+    
+    def on_import_geometry(self):
+        """Import geometry from external file."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Import Geometry", "", "Geometry Files (*.dxf *.obj *.stl);;All Files (*.*)"
+        )
+        if file_path:
+            logger.info(f"Importing geometry from {file_path}")
+            # Implement geometry import logic
+    
+    def on_project_settings(self):
+        """Open project settings dialog."""
+        logger.info("Opening project settings dialog")
+        # Implement project settings dialog
+    
+    def on_select_all(self):
+        """Select all elements in the model."""
+        logger.info("Selecting all elements")
+        if self.renderer_manager:
+            # Placeholder for when the method is implemented
+            logger.warning("Select all functionality not yet implemented")
+            # Will be implemented as:
+            # self.renderer_manager.select_all()
+    
+    def on_select_none(self):
+        """Clear all selections."""
+        logger.info("Clearing all selections")
+        if self.renderer_manager:
+            # Placeholder for when the method is implemented
+            logger.warning("Clear selection functionality not yet implemented")
+            # Will be implemented as:
+            # self.renderer_manager.clear_selection()
+    
+    def on_invert_selection(self):
+        """Invert the current selection."""
+        logger.info("Inverting selection")
+        if self.renderer_manager:
+            # Placeholder for when the method is implemented
+            logger.warning("Selection inversion not yet implemented")
+            # Will be implemented as:
+            # self.renderer_manager.invert_selection()
+    
+    def on_copy(self):
+        """Copy selected elements to clipboard."""
+        logger.info("Copying selected elements")
+        # Implement copy logic
+    
+    def on_paste(self):
+        """Paste elements from clipboard."""
+        logger.info("Pasting elements")
+        # Implement paste logic
+    
+    def on_delete(self):
+        """Delete selected elements."""
+        logger.info("Deleting selected elements")
+        if self.renderer_manager:
+            # Placeholder for when the method is implemented
+            logger.warning("Delete functionality not yet implemented")
+            # Will be implemented as:
+            # selection = self.renderer_manager.get_selection()
+            # if selection:
+            #     self.model_manager.delete_objects(selection)
+    
+    def on_preferences(self):
+        """Open preferences dialog."""
+        logger.info("Opening preferences dialog")
+        # Implement preferences dialog
+    
+    def set_display_mode(self, mode: str):
+        """Set the display mode for the 3D view."""
+        logger.info(f"Setting display mode to {mode}")
+        if self.renderer_manager:
+            self.renderer_manager.set_display_mode(mode)
+    
+    def toggle_node_visibility(self):
+        """Toggle visibility of nodes."""
+        visible = self.show_nodes_action.isChecked()
+        logger.info(f"Setting node visibility to {visible}")
+        if self.renderer_manager:
+            self.renderer_manager.set_node_visibility(visible)
+    
+    def toggle_element_visibility(self):
+        """Toggle visibility of elements."""
+        visible = self.show_elements_action.isChecked()
+        logger.info(f"Setting element visibility to {visible}")
+        if self.renderer_manager:
+            self.renderer_manager.set_element_visibility(visible)
+    
+    def set_theme(self, theme: str):
+        """Set the application theme."""
+        logger.info(f"Setting application theme to {theme}")
+        # Implement theme switching logic
+    
+    def on_create_node(self):
+        """Create a new node."""
+        logger.info("Creating new node")
+        # Implement node creation dialog/interaction
+    
+    def on_create_truss(self):
+        """Create a new truss element."""
+        logger.info("Creating new truss element")
+        # Implement truss element creation dialog/interaction
+    
+    def on_create_beam(self):
+        """Create a new beam element."""
+        logger.info("Creating new beam element")
+        # Implement beam element creation dialog/interaction
+    
+    def on_create_elastic_material(self):
+        """Create a new elastic material."""
+        logger.info("Creating new elastic material")
+        # Implement elastic material creation dialog/interaction
+    
+    def on_create_rectangle_section(self):
+        """Create a new rectangular section."""
+        logger.info("Creating new rectangular section")
+        # Implement rectangular section creation dialog/interaction
+    
+    def on_create_fixed_support(self):
+        """Create a new fixed support boundary condition."""
+        logger.info("Creating new fixed support")
+        # Implement fixed support creation dialog/interaction
+    
+    def on_create_point_load(self):
+        """Create a new point load."""
+        logger.info("Creating new point load")
+        # Implement point load creation dialog/interaction
+    
+    def on_create_stage(self):
+        """Create a new analysis stage."""
+        logger.info("Creating new analysis stage")
+        # Implement stage creation dialog/interaction
+    
+    def on_manage_stages(self):
+        """Open the stage management dialog."""
+        logger.info("Opening stage management dialog")
+        # Implement stage management dialog
+    
+    def on_define_analysis(self):
+        """Open the analysis definition dialog."""
+        logger.info("Opening analysis definition dialog")
+        # Implement analysis definition dialog
+    
+    def set_analysis_type(self, analysis_type: str):
+        """Set the analysis type."""
+        logger.info(f"Setting analysis type to {analysis_type}")
+        # Implement analysis type setting logic
+    
+    def on_run_analysis(self):
+        """Run the defined analysis."""
+        logger.info("Running analysis")
+        self.cancel_analysis_action.setEnabled(True)
+        # Implement analysis execution logic
+    
+    def on_cancel_analysis(self):
+        """Cancel the running analysis."""
+        logger.info("Cancelling analysis")
+        self.cancel_analysis_action.setEnabled(False)
+        # Implement analysis cancellation logic
+    
+    def on_load_results(self):
+        """Load analysis results from file."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Load Results", "", "HDF5 Files (*.h5);;All Files (*.*)"
+        )
+        if file_path:
+            logger.info(f"Loading results from {file_path}")
+            # Implement results loading logic
+    
+    def toggle_deformed_shape(self):
+        """Toggle display of deformed shape."""
+        show_deformed = self.show_deformed_action.isChecked()
+        logger.info(f"Setting deformed shape visibility to {show_deformed}")
+        if self.renderer_manager:
+            # Placeholder for when the method is implemented
+            logger.warning("Deformed shape visualization not yet implemented")
+            # Will be implemented as:
+            # self.renderer_manager.set_deformed_shape_visibility(show_deformed)
+    
+    def on_deformation_scale(self):
+        """Open deformation scale dialog."""
+        logger.info("Opening deformation scale dialog")
+        # Implement deformation scale dialog
+    
+    def set_contour(self, contour_type: str):
+        """Set the contour type for results visualization."""
+        logger.info(f"Setting contour type to {contour_type}")
+        if self.renderer_manager:
+            # Placeholder for when the method is implemented
+            logger.warning("Contour visualization not yet implemented")
+            # Will be implemented as:
+            # self.renderer_manager.set_contour_type(contour_type)
+    
+    def on_animate_results(self):
+        """Open animation dialog for results."""
+        logger.info("Opening animation dialog")
+        # Implement animation dialog
+    
+    def on_measure_distance(self):
+        """Activate distance measurement tool."""
+        logger.info("Activating distance measurement tool")
+        if self.renderer_manager:
+            # Placeholder for when the method is implemented
+            logger.warning("Distance measurement tool not yet implemented")
+            # Will be implemented as:
+            # self.renderer_manager.start_measure_distance()
+    
+    def on_validate_model(self):
+        """Validate the current model."""
+        logger.info("Validating model")
+        # Implement model validation logic
+    
+    def on_generate_report(self):
+        """Generate a report for the current model and analysis."""
+        logger.info("Opening report generation dialog")
+        # Implement report generation dialog
+    
+    def on_documentation(self):
+        """Open documentation."""
+        logger.info("Opening documentation")
+        # Implement documentation opening logic
+    
+    def on_tutorials(self):
+        """Open tutorials."""
+        logger.info("Opening tutorials")
+        # Implement tutorials opening logic
+    
+    def on_check_updates(self):
+        """Check for application updates."""
+        logger.info("Checking for updates")
+        # Implement update checking logic 
