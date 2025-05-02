@@ -4,8 +4,11 @@ Application manager for Modsee.
 
 import logging
 import os
+import json
 from pathlib import Path
 from typing import Dict, List, Optional, Any
+
+from PyQt6.QtCore import QSettings
 
 logger = logging.getLogger('modsee.core.application')
 
@@ -24,6 +27,9 @@ class ApplicationManager:
         self._is_modified: bool = False
         self._settings: Dict[str, Any] = {}
         self._plugins: List[Any] = []
+        
+        # Load settings on initialization
+        self.load_settings()
         
         logger.info("ApplicationManager initialized")
     
@@ -205,17 +211,106 @@ class ApplicationManager:
     
     def load_settings(self) -> None:
         """
-        Load application settings.
+        Load application settings from QSettings and settings file.
         """
-        # TODO: Implement loading settings from a file
-        logger.info("Loaded application settings")
+        # First, load from QSettings
+        qt_settings = QSettings()
+        
+        # General settings
+        self._settings['ui_language'] = qt_settings.value('ui_language', 'System', str)
+        self._settings['auto_save'] = qt_settings.value('auto_save', True, bool)
+        self._settings['auto_save_interval'] = qt_settings.value('auto_save_interval', 5, int)
+        self._settings['recent_files_limit'] = qt_settings.value('recent_files_limit', 10, int)
+        self._settings['default_project_dir'] = qt_settings.value(
+            'default_project_dir', 
+            str(Path.home() / 'Modsee Projects'), 
+            str
+        )
+        self._settings['show_splash_screen'] = qt_settings.value('show_splash_screen', True, bool)
+        self._settings['check_for_updates'] = qt_settings.value('check_for_updates', True, bool)
+        
+        # Visualization settings
+        self._settings['theme'] = qt_settings.value('theme', 'light', str)
+        self._settings['font_family'] = qt_settings.value('font_family', 'Segoe UI', str)
+        self._settings['font_size'] = qt_settings.value('font_size', 9, int)
+        self._settings['show_grid'] = qt_settings.value('show_grid', True, bool)
+        self._settings['show_axis'] = qt_settings.value('show_axis', True, bool)
+        self._settings['background_color'] = qt_settings.value('background_color', '#E6E6E6', str)
+        self._settings['display_mode'] = qt_settings.value('display_mode', 'solid', str)
+        
+        # Performance settings
+        self._settings['multithreading'] = qt_settings.value('multithreading', True, bool)
+        self._settings['thread_count'] = qt_settings.value('thread_count', 4, int)
+        self._settings['use_caching'] = qt_settings.value('use_caching', True, bool)
+        self._settings['cache_size_mb'] = qt_settings.value('cache_size_mb', 512, int)
+        
+        # Analysis settings
+        self._settings['default_solver'] = qt_settings.value('default_solver', 'opensees', str)
+        self._settings['opensees_path'] = qt_settings.value('opensees_path', '', str)
+        self._settings['use_openseespy'] = qt_settings.value('use_openseespy', True, bool)
+        self._settings['solver_timeout'] = qt_settings.value('solver_timeout', 600, int)
+        self._settings['default_units'] = qt_settings.value('default_units', 'SI', str)
+        
+        # Editor settings
+        self._settings['auto_indent'] = qt_settings.value('auto_indent', True, bool)
+        self._settings['tab_width'] = qt_settings.value('tab_width', 4, int)
+        self._settings['line_numbers'] = qt_settings.value('line_numbers', True, bool)
+        self._settings['syntax_highlighting'] = qt_settings.value('syntax_highlighting', True, bool)
+        self._settings['auto_complete'] = qt_settings.value('auto_complete', True, bool)
+        
+        # Then, try to load from a settings file (JSON format)
+        settings_file = self._get_settings_file_path()
+        if settings_file.exists():
+            try:
+                with open(settings_file, 'r') as f:
+                    file_settings = json.load(f)
+                    # Update settings with file values
+                    self._settings.update(file_settings)
+                logger.info(f"Loaded settings from: {settings_file}")
+            except (json.JSONDecodeError, IOError) as e:
+                logger.error(f"Error loading settings file: {e}")
+        
+        logger.info("Application settings loaded")
     
     def save_settings(self) -> None:
         """
-        Save application settings.
+        Save application settings to QSettings and settings file.
         """
-        # TODO: Implement saving settings to a file
-        logger.info("Saved application settings")
+        # Save to QSettings
+        qt_settings = QSettings()
+        for key, value in self._settings.items():
+            qt_settings.setValue(key, value)
+        
+        # Save to settings file (JSON format)
+        settings_file = self._get_settings_file_path()
+        try:
+            # Ensure directory exists
+            settings_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            with open(settings_file, 'w') as f:
+                json.dump(self._settings, f, indent=4)
+            
+            logger.info(f"Saved settings to: {settings_file}")
+        except IOError as e:
+            logger.error(f"Error saving settings file: {e}")
+        
+        logger.info("Application settings saved")
+    
+    def _get_settings_file_path(self) -> Path:
+        """
+        Get the path to the settings file.
+        
+        Returns:
+            Path to the settings file.
+        """
+        if os.name == 'nt':  # Windows
+            app_data = os.environ.get('APPDATA', '')
+            settings_dir = Path(app_data) / 'Modsee'
+        else:  # macOS/Linux
+            home = Path.home()
+            settings_dir = home / '.config' / 'modsee'
+        
+        return settings_dir / 'settings.json'
     
     def register_plugin(self, plugin: Any) -> None:
         """
@@ -237,4 +332,27 @@ class ApplicationManager:
         Returns:
             List of plugin instances.
         """
-        return self._plugins 
+        return self._plugins
+    
+    def get_setting(self, key: str, default: Any = None) -> Any:
+        """
+        Get a setting value by key.
+        
+        Args:
+            key: The setting key.
+            default: The default value to return if the key doesn't exist.
+            
+        Returns:
+            The setting value, or the default if not found.
+        """
+        return self._settings.get(key, default)
+    
+    def set_setting(self, key: str, value: Any) -> None:
+        """
+        Set a setting value.
+        
+        Args:
+            key: The setting key.
+            value: The setting value.
+        """
+        self._settings[key] = value 

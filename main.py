@@ -30,6 +30,7 @@ def show_splash_screen():
 def start_application():
     """Initialize and start the main application."""
     from PyQt6 import QtWidgets, QtCore
+    from PyQt6.QtGui import QAction
     
     logger.info("Initializing application...")
     

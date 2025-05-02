@@ -181,7 +181,7 @@ User Interface Enhancements
      - Medium
    * - UI-005
      - Create settings dialog for application preferences
-     - Not Started
+     - Completed
      - Low
 
 Selection and Visualization Functionality

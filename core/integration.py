@@ -197,4 +197,18 @@ class Integration:
             # Apply initial theme
             theme_manager.set_theme(ThemeType.LIGHT)
         
+        # Add settings action to edit menu
+        if hasattr(main_window, 'edit_menu'):
+            from PyQt6.QtGui import QAction, QKeySequence
+            from ui.settings_dialog import show_settings_dialog
+            
+            # Add settings action
+            settings_action = QAction("&Settings...", main_window)
+            settings_action.setShortcut(QKeySequence("Ctrl+,"))
+            settings_action.triggered.connect(lambda: show_settings_dialog(app, main_window))
+            
+            # Add to menu
+            main_window.edit_menu.addSeparator()
+            main_window.edit_menu.addAction(settings_action)
+        
         logger.info("Main window setup complete") 
