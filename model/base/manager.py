@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from model.materials.base import Material
     from model.sections.base import Section
     from model.stages import Stage, StageManager
+    from model.boundary_conditions import BoundaryCondition
 
 from model.base.registry import ModelObjectRegistry
 
@@ -34,11 +35,13 @@ class ModelManager:
         from model.materials.base import Material
         from model.sections.base import Section
         from model.stages import StageManager
+        from model.boundary_conditions import BoundaryCondition
         
         self.nodes = ModelObjectRegistry[Node]()
         self.elements = ModelObjectRegistry[Element]()
         self.materials = ModelObjectRegistry[Material]()
         self.sections = ModelObjectRegistry[Section]()
+        self.boundary_conditions = ModelObjectRegistry[BoundaryCondition]()
         # Initialize the stage manager
         self.stage_manager = StageManager()
         # Additional registries for loads, boundary conditions, etc.
@@ -150,6 +153,7 @@ class ModelManager:
         self.elements.clear()
         self.materials.clear()
         self.sections.clear()
+        self.boundary_conditions.clear()
         self.stage_manager.clear()
     
     def validate(self) -> bool:
@@ -204,6 +208,7 @@ class ModelManager:
             "elements": [element.to_dict() for element in self.elements.all()],
             "materials": [material.to_dict() for material in self.materials.all()],
             "sections": [section.to_dict() for section in self.sections.all()],
+            "constraints": [bc.to_dict() for bc in self.boundary_conditions.all()],
             "stages": self.stage_manager.to_dict()
         }
     
@@ -214,44 +219,81 @@ class ModelManager:
             data: Dictionary representation of the model
         """
         from model.nodes import Node
+        from model.boundary_conditions import BoundaryCondition, FixedBoundaryCondition
         
         self.clear()
         
         # Load nodes
         for node_data in data.get("nodes", []):
-            node = Node.from_dict(node_data)
-            self.nodes.add(node)
+            try:
+                node = Node.from_dict(node_data)
+                self.nodes.add(node)
+            except Exception as e:
+                print(f"Error loading node {node_data.get('id')}: {e}")
         
         # Load materials
         for material_data in data.get("materials", []):
-            material_type = material_data.get("material_type")
-            if material_type not in self._registered_material_types:
-                raise ValueError(f"Unknown material type: {material_type}")
-            
-            material_class = self._registered_material_types[material_type]
-            material = material_class.from_dict(material_data)
-            self.materials.add(material)
+            try:
+                material_type = material_data.get("material_type")
+                if material_type not in self._registered_material_types:
+                    print(f"Warning: Unknown material type: {material_type}")
+                    continue
+                material_class = self._registered_material_types[material_type]
+                material = material_class.from_dict(material_data)
+                self.materials.add(material)
+            except Exception as e:
+                print(f"Error loading material {material_data.get('id')}: {e}")
         
         # Load sections
-        for section_data in data.get("sections", []):
-            section_type = section_data.get("section_type")
-            if section_type not in self._registered_section_types:
-                raise ValueError(f"Unknown section type: {section_type}")
-            
-            section_class = self._registered_section_types[section_type]
-            section = section_class.from_dict(section_data)
-            self.sections.add(section)
+        if 'sections' in data:
+            for section_data in data.get("sections", []):
+                try:
+                    section_type = section_data.get("section_type")
+                    if section_type not in self._registered_section_types:
+                        print(f"Warning: Unknown section type: {section_type}")
+                        continue
+                    section_class = self._registered_section_types[section_type]
+                    section = section_class.from_dict(section_data)
+                    self.sections.add(section)
+                except Exception as e:
+                     print(f"Error loading section {section_data.get('id')}: {e}")
         
         # Load elements
-        for element_data in data.get("elements", []):
-            element_type = element_data.get("element_type")
-            if element_type not in self._registered_element_types:
-                raise ValueError(f"Unknown element type: {element_type}")
-            
-            element_class = self._registered_element_types[element_type]
-            element = element_class.from_dict(element_data)
-            self.elements.add(element)
+        if 'elements' in data:
+            for element_data in data.get("elements", []):
+                 try:
+                    element_type = element_data.get("element_type")
+                    if element_type not in self._registered_element_types:
+                         print(f"Warning: Unknown element type: {element_type}")
+                         continue
+                    element_class = self._registered_element_types[element_type]
+                    element = element_class.from_dict(element_data)
+                    self.elements.add(element)
+                 except Exception as e:
+                      print(f"Error loading element {element_data.get('id')}: {e}")
         
         # Load stages
         if "stages" in data:
-            self.stage_manager.from_dict(data["stages"]) 
+            self.stage_manager.from_dict(data["stages"])
+        
+        # Load constraints (Boundary Conditions)
+        if 'constraints' in data:
+            # We need a way to map constraint type strings to classes here too
+            # Or assume constraints have a from_dict that handles types internally
+            # Using a simple map for FixedConstraint for now
+            constraint_type_map = {
+                "FixedConstraint": FixedBoundaryCondition,
+                # Add other types as needed
+            }
+            for const_data in data.get("constraints", []):
+                try:
+                    const_type_name = const_data.get("type")
+                    if const_type_name in constraint_type_map:
+                        constraint_class = constraint_type_map[const_type_name]
+                        # Assuming the structure in constraints list matches from_dict expectation
+                        constraint = constraint_class.from_dict(const_data)
+                        self.boundary_conditions.add(constraint)
+                    else:
+                        print(f"Warning: Unknown constraint type: {const_type_name}")
+                except Exception as e:
+                    print(f"Error loading constraint {const_data.get('id')}: {e}") 

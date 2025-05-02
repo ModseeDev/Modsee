@@ -284,4 +284,82 @@ class ModelManager(ModelComponent):
         This method is called when the selection changes.
         It should be overridden by integration code to handle the changes.
         """
-        logger.debug("Selection changed") 
+        logger.debug("Selection changed")
+    
+    # --- Add Material Methods --- 
+    def add_material(self, material_id: int, material: Any) -> None:
+        """Add a material to the model."""
+        self._materials[material_id] = material
+        logger.debug(f"Added material: {material_id}")
+        self.model_changed()
+        
+    def get_material(self, material_id: int) -> Optional[Any]:
+        """Get a material by ID."""
+        return self._materials.get(material_id)
+        
+    def get_materials(self) -> List[Any]:
+        """Get all materials."""
+        return list(self._materials.values())
+        
+    def remove_material(self, material_id: int) -> bool:
+        """Remove a material."""
+        if material_id in self._materials:
+            material = self._materials.pop(material_id)
+            if material in self._selection:
+                self._selection.remove(material)
+            logger.debug(f"Removed material: {material_id}")
+            self.model_changed()
+            return True
+        return False
+        
+    # --- Add Section Methods --- 
+    def add_section(self, section_id: int, section: Any) -> None:
+        """Add a section to the model."""
+        self._sections[section_id] = section
+        logger.debug(f"Added section: {section_id}")
+        self.model_changed()
+        
+    def get_section(self, section_id: int) -> Optional[Any]:
+        """Get a section by ID."""
+        return self._sections.get(section_id)
+        
+    def get_sections(self) -> List[Any]:
+        """Get all sections."""
+        return list(self._sections.values())
+        
+    def remove_section(self, section_id: int) -> bool:
+        """Remove a section."""
+        if section_id in self._sections:
+            section = self._sections.pop(section_id)
+            if section in self._selection:
+                self._selection.remove(section)
+            logger.debug(f"Removed section: {section_id}")
+            self.model_changed()
+            return True
+        return False
+        
+    # --- Add Constraint/Boundary Condition Methods --- 
+    def add_constraint(self, constraint_id: int, constraint: Any) -> None:
+        """Add a constraint/boundary condition to the model."""
+        self._constraints[constraint_id] = constraint
+        logger.debug(f"Added constraint: {constraint_id}")
+        self.model_changed()
+        
+    def get_constraint(self, constraint_id: int) -> Optional[Any]:
+        """Get a constraint by ID."""
+        return self._constraints.get(constraint_id)
+        
+    def get_constraints(self) -> List[Any]:
+        """Get all constraints."""
+        return list(self._constraints.values())
+        
+    def remove_constraint(self, constraint_id: int) -> bool:
+        """Remove a constraint."""
+        if constraint_id in self._constraints:
+            constraint = self._constraints.pop(constraint_id)
+            if constraint in self._selection:
+                self._selection.remove(constraint)
+            logger.debug(f"Removed constraint: {constraint_id}")
+            self.model_changed()
+            return True
+        return False 

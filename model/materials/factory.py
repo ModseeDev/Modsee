@@ -61,6 +61,18 @@ class MaterialFactory:
         
         material_class = cls._material_types[material_type]
         
+        # Handle potential property name mismatches (e.g., E vs elastic_modulus)
+        props_for_dict = properties.copy() if properties else {}
+        if material_type == "ElasticIsotropicMaterial":
+            if "E" in props_for_dict and "elastic_modulus" not in props_for_dict:
+                props_for_dict["elastic_modulus"] = props_for_dict.pop("E")
+            # Add similar mappings for other properties if needed (e.g., 'v' vs 'poisson_ratio')
+            if "v" in props_for_dict and "poisson_ratio" not in props_for_dict:
+                 props_for_dict["poisson_ratio"] = props_for_dict.pop("v")
+            # Could add density mapping too if needed
+            # if "rho" in props_for_dict and "density" not in props_for_dict:
+            #     props_for_dict["density"] = props_for_dict.pop("rho")
+                 
         # Create a dictionary representation to use the from_dict method
         material_dict = {
             "id": id,
@@ -70,7 +82,7 @@ class MaterialFactory:
                 "tags": metadata.tags,
                 "custom_properties": metadata.custom_properties
             },
-            "properties": properties,
+            "properties": props_for_dict, # Use the potentially modified properties
             "material_type": material_type
         }
         

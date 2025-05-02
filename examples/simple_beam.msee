@@ -1,0 +1,118 @@
+{
+  "metadata": {
+    "file_format_version": "1.0.0",
+    "created_by": "Modsee (Generated Example)",
+    "created_at": "2024-07-29T12:00:00Z",
+    "description": "Simple supported beam with a point load."
+  },
+  "model": {
+    "nodes": [
+      {
+        "id": 1,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "dofs": [1, 1, 1, 1, 1, 1],
+        "type": "Node"
+      },
+      {
+        "id": 2,
+        "x": 10.0,
+        "y": 0.0,
+        "z": 0.0,
+        "dofs": [1, 1, 1, 1, 1, 1],
+        "type": "Node"
+      }
+    ],
+    "elements": [
+      {
+        "id": 1,
+        "nodes": [1, 2],
+        "material": 1,
+        "section": 1,
+        "type": "ElasticBeamColumn"
+      }
+    ],
+    "materials": [
+      {
+        "id": 1,
+        "type": "ElasticIsotropic",
+        "name": "Steel",
+        "properties": {
+          "E": 200e9,
+          "v": 0.3,
+          "rho": 7850.0
+        }
+      }
+    ],
+    "sections": [
+      {
+        "id": 1,
+        "type": "RectangularSection",
+        "name": "Beam Section",
+        "properties": {
+          "width": 0.1,
+          "depth": 0.2,
+          "area": 0.02,
+          "Iz": 6.667e-6,
+          "Iy": 1.667e-5
+        }
+      }
+    ],
+    "constraints": [
+      {
+        "id": 1,
+        "type": "FixedConstraint",
+        "name": "Fixed Support at Node 1",
+        "properties": {
+          "node_ids": [1],
+          "fixed_dofs": [1, 1, 1, 1, 1, 1] 
+        }
+      },
+      {
+        "id": 2,
+        "type": "FixedConstraint",
+        "name": "Pinned Support at Node 2",
+        "properties": {
+          "node_ids": [2],
+          "fixed_dofs": [1, 1, 1, 0, 0, 0] 
+        }
+      }
+    ],
+    "loads": [
+      {
+        "id": 1,
+        "type": "NodeLoad",
+        "name": "Point Load at Node 2",
+        "properties": {
+          "node_id": 2,
+          "fx": 0.0,
+          "fy": -1000.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        }
+      }
+    ],
+    "stages": [
+       {
+        "id": 1,
+        "type": "AnalysisStage",
+        "name": "Static Load",
+        "properties": {
+            "description": "Static analysis under point load",
+            "analysis_type": "Static",
+            "load_ids": [1]
+        }
+       }
+    ]
+  },
+  "app_settings": {
+    "units": {
+      "length": "m",
+      "force": "N",
+      "time": "s"
+    }
+  }
+} 

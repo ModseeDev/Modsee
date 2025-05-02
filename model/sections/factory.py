@@ -54,7 +54,7 @@ class SectionFactory:
     @classmethod
     def create_section(cls, section_type: str, id: int, metadata: ModelMetadata, 
                       properties: Dict[str, Any] = None) -> Section:
-        """Create a new section of the specified type.
+        """Create a new section of the specified type using its from_dict method.
         
         Args:
             section_type: The type of section to create
@@ -74,9 +74,35 @@ class SectionFactory:
         
         section_class = cls._section_types[section_type]
         
-        # The properties dict is expected to contain all necessary parameters
-        # for the specific section type
-        return section_class(id=id, metadata=metadata, **properties)
+        # Reconstruct the dictionary expected by the section's from_dict method.
+        # Handle potential inconsistencies like 'depth' vs 'height'.
+        props_for_dict = properties.copy() if properties else {}
+        if 'depth' in props_for_dict and 'height' not in props_for_dict:
+            props_for_dict['height'] = props_for_dict.pop('depth')
+            
+        section_dict = {
+            "id": id,
+            "metadata": {
+                "name": metadata.name,
+                "description": metadata.description,
+                "tags": metadata.tags,
+                "custom_properties": metadata.custom_properties
+            },
+            "properties": props_for_dict,
+            "section_type": section_type,
+            # Include other fields expected by from_dict if they exist outside 'properties'
+            # e.g., "material_ids": properties.get('material_ids') # Check if needed
+        }
+        
+        # Check if material_ids should be top-level for from_dict
+        # Based on RectangularSection.from_dict, material_ids is top-level.
+        if 'material_ids' in props_for_dict:
+            section_dict['material_ids'] = props_for_dict.pop('material_ids')
+        elif hasattr(metadata, 'material_ids'): # Or maybe it's on metadata? Unlikely.
+             pass # Or handle appropriately
+
+        # Call the class's from_dict method
+        return section_class.from_dict(section_dict)
     
     @classmethod
     def create_rectangular_section(cls, id: int, metadata: ModelMetadata, 

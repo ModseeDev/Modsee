@@ -319,6 +319,7 @@ Phase 2: Advanced Modeling
 * Complex loading scenarios (time history, response spectrum)
 * Parametric model generation tools
 * NURBS-based geometry definition
+* [GEOM-001] Implement core geometric modeling tools (e.g., Extrude, Revolve, Sweep, Loft, Boolean operations)
 
 Phase 3: Analysis Enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
