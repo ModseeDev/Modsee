@@ -3,6 +3,7 @@ PyQt6>=6.5.0         # GUI framework
 vtk>=9.2.0           # 3D visualization toolkit
 numpy>=1.22.0        # Numerical operations
 h5py>=3.7.0          # HDF5 file format support
+aiohttp>=3.8.0       # HTTP client for version checking
 
 # Additional utilities
 setuptools>=65.0.0   # Package management

@@ -7,12 +7,14 @@ import os
 from pathlib import Path
 from typing import Dict, Optional, Any
 
+from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtWidgets import (
     QMainWindow, QDockWidget, QToolBar, QStatusBar, QMenuBar, QMenu, 
     QFileDialog, QMessageBox, QSplitter, QWidget, QVBoxLayout, QApplication,
-    QButtonGroup, QToolButton, QComboBox, QLabel, QDoubleSpinBox, QPushButton
+    QButtonGroup, QToolButton, QComboBox, QLabel, QDoubleSpinBox, QPushButton,
+    QProgressDialog
 )
-from PyQt6.QtCore import Qt, QSize, QSettings
+from PyQt6.QtCore import Qt, QSize, QSettings, QTimer
 from PyQt6.QtGui import QAction, QIcon, QActionGroup
 
 from ui.vtk_widget import VTKWidget
@@ -40,9 +42,20 @@ class MainWindow(QMainWindow):
         self.file_service = app_manager.get_component('file_service')
         self.renderer_manager = app_manager.get_component('renderer_manager')
         
+        # Set up version checker connection
+        self.version_checker = app_manager.get_component('version_checker')
+        if self.version_checker:
+            self.version_checker.update_available_signal.connect(self._on_update_available)
+            self.version_checker.check_complete_signal.connect(self._on_check_complete)
+        
         self.dock_widgets: Dict[str, QDockWidget] = {}
         
         self._init_ui()
+        
+        # Start checking for updates if enabled
+        if self.version_checker and self.version_checker.should_check_for_updates():
+            logger.info("Starting automatic version check")
+            QtCore.QTimer.singleShot(3000, self.version_checker.check_for_updates)
         
         logger.info("MainWindow initialized")
     
@@ -694,8 +707,38 @@ class MainWindow(QMainWindow):
     def _create_status_bar(self):
         """Create the status bar."""
         self.status_bar = QStatusBar(self)
+        
+        # Create status message label
+        self.status_label = QLabel("Ready")
+        self.status_label.setObjectName("status_label")
+        self.status_bar.addWidget(self.status_label, 1)  # Stretch to fill space
+        
+        # Create version label with channel info
+        from utils.version_checker import CURRENT_VERSION, UpdateChannel
+        
+        # Get channel info
+        settings = QSettings()
+        channel_value = settings.value('updates/channel', UpdateChannel.STABLE.value, str)
+        
+        # Get user-friendly channel name
+        channel_name = "Stable"
+        if channel_value == UpdateChannel.BETA.value:
+            channel_name = "Beta"
+        elif channel_value == UpdateChannel.DEV.value:
+            channel_name = "Dev"
+            
+        version_label = QLabel(f"Version {CURRENT_VERSION} ({channel_name})")
+        version_label.setObjectName("version_label")
+        version_label.setStyleSheet("color: #666666; padding-right: 5px;")
+        
+        # Set minimum width to prevent jumping when update badge appears
+        version_label.setMinimumWidth(180)
+        
+        # Add version label to status bar as permanent widget
+        self.status_bar.addPermanentWidget(version_label)
+        
+        # Set status bar
         self.setStatusBar(self.status_bar)
-        self.status_bar.showMessage("Ready")
     
     def _create_dock_widgets(self):
         """Create dock widgets."""
@@ -1328,7 +1371,77 @@ class MainWindow(QMainWindow):
     def on_check_updates(self):
         """Check for application updates."""
         logger.info("Checking for updates")
-        # Implement update checking logic
+        
+        # Get the version checker from app manager
+        version_checker = self.app_manager.get_component('version_checker')
+        if not version_checker:
+            logger.error("Version checker component not found")
+            QMessageBox.warning(
+                self,
+                "Update Check Failed",
+                "The version check system is not available.",
+                QMessageBox.StandardButton.Ok
+            )
+            return
+        
+        # Update status in status bar
+        status_bar = self.statusBar()
+        status_label = status_bar.findChild(QLabel, "status_label")
+        if status_label:
+            status_label.setText("Checking for updates...")
+        
+        # Create and show progress dialog
+        progress_dialog = QProgressDialog("Checking for updates...", "Cancel", 0, 100, self)
+        progress_dialog.setWindowTitle("Update Check")
+        progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        progress_dialog.setCancelButton(None)  # Disable cancel button
+        progress_dialog.setMinimumDuration(0)  # Show immediately
+        progress_dialog.setAutoClose(True)
+        progress_dialog.setValue(0)
+        
+        # Set up timer to advance progress bar
+        timer = QtCore.QTimer(self)
+        progress_value = 0
+        
+        def update_progress():
+            nonlocal progress_value
+            progress_value += 2
+            if progress_value >= 100:
+                timer.stop()
+                progress_dialog.close()
+            else:
+                progress_dialog.setValue(progress_value)
+        
+        # Connect check complete signal to close dialog
+        def on_check_finished(status):
+            timer.stop()
+            progress_dialog.close()
+            
+            # Disconnect the temporary signal connection
+            version_checker.check_complete_signal.disconnect(on_check_finished)
+            
+            # Show result
+            from utils.version_checker import UpdateStatus
+            if status == UpdateStatus.UP_TO_DATE:
+                QMessageBox.information(
+                    self,
+                    "Update Check Complete",
+                    "You have the latest version of Modsee.",
+                    QMessageBox.StandardButton.Ok
+                )
+        
+        # Connect signal temporarily
+        version_checker.check_complete_signal.connect(on_check_finished)
+        
+        # Start the timer for progress animation
+        timer.timeout.connect(update_progress)
+        timer.start(50)  # Update every 50ms
+        
+        # Run the check
+        version_checker.check_for_updates()
+        
+        # Update status in status bar after a delay
+        QtCore.QTimer.singleShot(2000, lambda: self._update_status_bar())
     
     def _on_grid_size_changed(self, index):
         """
@@ -1446,4 +1559,86 @@ class MainWindow(QMainWindow):
         settings = QSettings()
         settings.setValue('grid/enable_snapping', checked)
         
-        logger.info(f"Grid snapping {'enabled' if checked else 'disabled'}") 
+        logger.info(f"Grid snapping {'enabled' if checked else 'disabled'}")
+
+    def _update_status_bar(self):
+        """Update the status bar after the check is complete."""
+        status_bar = self.statusBar()
+        status_label = status_bar.findChild(QLabel, "status_label")
+        if status_label:
+            status_label.setText("Ready")
+
+    def _on_update_available(self, update_info):
+        """
+        Handle the update available signal from the version checker.
+        
+        Args:
+            update_info: Information about the available update.
+        """
+        logger.info(f"Update available: {update_info.get('latest_version', 'Unknown')}")
+        
+        # Import the update notification dialog
+        from ui.update_notification import show_update_notification
+        
+        # Show notification
+        if update_info.get('critical_update', False):
+            # Show immediately for critical updates
+            show_update_notification(update_info, self)
+        else:
+            # Delay slightly for regular updates to ensure the main window is fully loaded
+            QtCore.QTimer.singleShot(1000, lambda: show_update_notification(update_info, self))
+        
+        # Update version badge in status bar
+        self._update_version_badge(True)
+
+    def _on_check_complete(self, status):
+        """
+        Handle the check complete signal from the version checker.
+        
+        Args:
+            status: The status of the check.
+        """
+        logger.debug(f"Version check complete: {status}")
+        
+        # Update status bar
+        self._update_status_bar()
+        
+        # Update version badge in status bar if no update is available
+        from utils.version_checker import UpdateStatus
+        if status not in [UpdateStatus.UPDATE_AVAILABLE, UpdateStatus.CRITICAL_UPDATE]:
+            self._update_version_badge(False)
+
+    def _update_version_badge(self, show_badge):
+        """
+        Update the version badge in the status bar.
+        
+        Args:
+            show_badge: Whether to show the update badge.
+        """
+        # Find the version label
+        version_label = self.status_bar.findChild(QLabel, "version_label")
+        if not version_label:
+            return
+        
+        # Get the current version and channel
+        from utils.version_checker import CURRENT_VERSION, UpdateChannel
+        
+        # Get channel info
+        settings = QSettings()
+        channel_value = settings.value('updates/channel', UpdateChannel.STABLE.value, str)
+        
+        # Get user-friendly channel name
+        channel_name = "Stable"
+        if channel_value == UpdateChannel.BETA.value:
+            channel_name = "Beta"
+        elif channel_value == UpdateChannel.DEV.value:
+            channel_name = "Dev"
+        
+        if show_badge:
+            # Show badge with version and channel
+            version_label.setText(f"Version {CURRENT_VERSION} ({channel_name}) ●")
+            version_label.setStyleSheet("color: #0078d7; padding-right: 5px; font-weight: bold;")
+        else:
+            # Just show version and channel
+            version_label.setText(f"Version {CURRENT_VERSION} ({channel_name})")
+            version_label.setStyleSheet("color: #666666; padding-right: 5px;") 

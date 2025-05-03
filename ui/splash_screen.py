@@ -123,11 +123,29 @@ class ModseeSplashScreen(QtWidgets.QSplashScreen):
         painter.setPen(QtGui.QColor(200, 200, 200))
         painter.drawText(42, 140, "Finite Element Modeling GUI")
         
-        # Draw version
-        version_font = QtGui.QFont("Segoe UI", 10)
+        # Import version info from version checker
+        from utils.version_checker import CURRENT_VERSION, UpdateChannel
+        
+        # Get the current channel from settings
+        settings = QtCore.QSettings()
+        channel_value = settings.value('updates/channel', UpdateChannel.STABLE.value, str)
+        
+        # Get user-friendly channel name
+        channel_name = "Stable"
+        if channel_value == UpdateChannel.BETA.value:
+            channel_name = "Beta"
+        elif channel_value == UpdateChannel.DEV.value:
+            channel_name = "Development"
+        
+        # Draw version with channel type - make it more prominent
+        version_font = QtGui.QFont("Segoe UI", 12)
+        version_font.setBold(True)
         painter.setFont(version_font)
-        painter.setPen(QtGui.QColor(150, 150, 150))
-        painter.drawText(splash_width - 110, splash_height - 20, "Version 0.1.0")
+        painter.setPen(QtGui.QColor(180, 180, 180))
+        
+        # Position version info below the subtitle with proper spacing
+        version_text = f"Version {CURRENT_VERSION} ({channel_name})"
+        painter.drawText(42, 180, version_text)
         
         # Add design element - left side accent
         painter.fillRect(0, 4, 8, splash_height-4, QtGui.QColor(0, 120, 215, 100))
@@ -153,10 +171,14 @@ class ModseeSplashScreen(QtWidgets.QSplashScreen):
         # Initialize state
         self.progress = 0
         self.status_message = "Initializing..."
+        self.version_check_message = ""
         
         # Dependency checker
         self.dependency_checker = DependencyChecker()
         self.check_results = None
+        
+        # Version checker
+        self.version_check_status = None
         
         # Timer for progress animation
         self.timer = QtCore.QTimer(self)
@@ -187,6 +209,13 @@ class ModseeSplashScreen(QtWidgets.QSplashScreen):
         painter.setFont(message_font)
         painter.setPen(QtGui.QColor(200, 200, 200))
         painter.drawText(20, self.height() - 30, self.status_message)
+        
+        # Draw version check message if available
+        if self.version_check_message:
+            version_font = QtGui.QFont("Segoe UI", 9)
+            painter.setFont(version_font)
+            painter.setPen(QtGui.QColor(150, 150, 200))
+            painter.drawText(self.width() - 180, self.height() - 30, self.version_check_message)
         
         # Draw progress bar background
         painter.setPen(QtCore.Qt.PenStyle.NoPen)
@@ -242,100 +271,104 @@ class ModseeSplashScreen(QtWidgets.QSplashScreen):
             if self.check_results['all_required_met']:
                 logger.info("All required dependencies are satisfied")
                 self.status_message = "All dependencies verified"
+                
+                # Start version check
+                QtCore.QTimer.singleShot(100, self._start_version_check)
             else:
                 self.status_message = "Dependency issues detected"
             
             self.repaint()
         except Exception as e:
             logger.error(f"Error during dependency check: {str(e)}")
-            self.check_results = {'all_required_met': True}  # Allow startup for demo
+    
+    def _start_version_check(self):
+        """Start checking for updates."""
+        try:
+            from utils.version_checker import CURRENT_VERSION
+            
+            self.status_message = "Checking for updates..."
+            self.version_check_message = f"Version {CURRENT_VERSION}"
+            self.repaint()
+            
+            # Process events to keep UI responsive
+            QtWidgets.QApplication.processEvents()
+            
+            # We're not actually checking for updates here - just showing the status
+            # The actual check will be done by the VersionChecker in the background
+            # after the main window is loaded
+            
+            # Wait a moment to show the message
+            time.sleep(0.3)
+            
+            self.status_message = "Starting application..."
+            self.repaint()
+        except Exception as e:
+            logger.error(f"Error during version check initialization: {str(e)}")
     
     def show_dependency_errors(self):
-        """Show error dialog if dependencies are missing."""
+        """Show dependency errors in a dialog."""
         if not self.check_results:
-            # If no results for some reason, allow startup
-            return True
+            return
+        
+        if self.check_results['all_required_met']:
+            return
+        
+        # Create message for errors
+        message = "The following dependency issues were detected:\n\n"
+        
+        for name in self.check_results['missing_required']:
+            message += f"• Missing required dependency: {name}\n"
             
-        if not self.check_results['all_required_met']:
-            error_msg = QtWidgets.QMessageBox()
-            error_msg.setIcon(QtWidgets.QMessageBox.Icon.Critical)
-            error_msg.setWindowTitle("Dependency Error")
-            
-            message = "Modsee cannot start due to missing dependencies:\n\n"
-            
-            if self.check_results['missing_required']:
-                message += "Missing required dependencies:\n"
-                for dep in self.check_results['missing_required']:
-                    message += f"- {dep}\n"
-                message += "\n"
-                
-            if self.check_results['version_issues']:
-                message += "Version issues:\n"
-                for name, version, min_version in self.check_results['version_issues']:
-                    message += f"- {name}: Found {version}, requires {min_version} or higher\n"
-                message += "\n"
-                
-            message += "Please install the required dependencies and try again."
-            
-            error_msg.setText(message)
-            error_msg.exec()
-            return False
-            
-        return True
+        for name, version, min_version in self.check_results['version_issues']:
+            message += f"• {name} version {version} is too old (minimum: {min_version})\n"
+        
+        message += "\nPlease install the missing dependencies and try again."
+        
+        # Show error dialog
+        error_dialog = QtWidgets.QMessageBox()
+        error_dialog.setIcon(QtWidgets.QMessageBox.Icon.Critical)
+        error_dialog.setWindowTitle("Dependency Error")
+        error_dialog.setText("Missing Dependencies")
+        error_dialog.setInformativeText(message)
+        error_dialog.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
+        error_dialog.exec()
 
 
 def show_splash_and_check_dependencies():
-    """Show splash screen and check dependencies.
+    """
+    Show the splash screen and check dependencies.
     
     Returns:
-        bool: True if all required dependencies are available, False otherwise
+        True if all required dependencies are met, False otherwise.
     """
-    try:
-        # Create application instance if it doesn't exist
-        if QtWidgets.QApplication.instance() is None:
-            app = QtWidgets.QApplication(sys.argv)
-        else:
-            app = QtWidgets.QApplication.instance()
-        
-        # Create splash screen
-        splash = ModseeSplashScreen()
-        
-        # Show splash and make it pop to the front
-        splash.show()
-        splash.raise_()
-        
-        # Process events to make splash visible immediately
-        app.processEvents()
-        
-        # Add a slight delay to ensure the splash displays
-        time.sleep(0.2)
-        app.processEvents()
-        
-        # Start dependency checking
-        splash.start_dependency_check()
-        
-        # Process events until timer stops
-        while splash.timer.isActive():
-            app.processEvents()
-            time.sleep(0.01)  # Small delay to reduce CPU usage
-        
-        # Ensure splash is updated once more
-        app.processEvents()
-        
-        # Show any dependency errors
-        dependencies_ok = splash.show_dependency_errors()
-        
-        # Allow time to see final message
-        if dependencies_ok:
-            splash.status_message = "Starting application..."
-            splash.repaint()
-            app.processEvents()
-            time.sleep(0.5)
-        
-        # Return result
-        return dependencies_ok
+    # Create QApplication instance if it doesn't exist
+    if QtWidgets.QApplication.instance() is None:
+        app = QtWidgets.QApplication(sys.argv)
+    else:
+        app = QtWidgets.QApplication.instance()
     
-    except Exception as e:
-        # Log any errors during splash screen
-        logger.error(f"Error in splash screen: {str(e)}")
-        return True  # Allow application to try to start anyway 
+    # Create splash screen
+    splash = ModseeSplashScreen()
+    splash.show()
+    
+    # Make sure the splash screen is displayed
+    app.processEvents()
+    
+    # Start dependency check
+    splash.start_dependency_check()
+    
+    # Process events to ensure splash is shown
+    QtWidgets.QApplication.processEvents()
+    
+    # Wait until dependency check is complete
+    while splash.check_results is None:
+        QtWidgets.QApplication.processEvents()
+        time.sleep(0.05)
+    
+    # If there are dependency issues, show error dialog
+    if not splash.check_results['all_required_met']:
+        splash.show_dependency_errors()
+        splash.close()
+        return False
+    
+    return True 

@@ -40,12 +40,17 @@ class Integration:
         from ui.theme_manager import ThemeManager
         theme_manager = ThemeManager()
         
+        # Create version checker
+        from utils.version_checker import VersionChecker
+        version_checker = VersionChecker()
+        
         # Register components with the application
         app.register_component('model_manager', model_manager)
         app.register_component('view_manager', view_manager)
         app.register_component('file_service', file_service)
         app.register_component('renderer_manager', renderer_manager)
         app.register_component('theme_manager', theme_manager)
+        app.register_component('version_checker', version_checker)
         
         # Set application reference in components
         model_manager.app = app

@@ -109,12 +109,42 @@ class SettingsDialog(QDialog):
         self.show_splash_check.setChecked(self.settings['show_splash_screen'])
         ui_layout.addRow("Show splash screen on startup:", self.show_splash_check)
         
+        layout.addWidget(ui_group)
+        
+        # Updates Group
+        updates_group = QGroupBox("Updates")
+        updates_layout = QFormLayout(updates_group)
+        
         # Check for updates
         self.check_updates_check = QCheckBox()
         self.check_updates_check.setChecked(self.settings['check_for_updates'])
-        ui_layout.addRow("Check for updates on startup:", self.check_updates_check)
+        self.check_updates_check.stateChanged.connect(self._on_updates_changed)
+        updates_layout.addRow("Check for updates on startup:", self.check_updates_check)
         
-        layout.addWidget(ui_group)
+        # Update channel
+        self.update_channel_combo = QComboBox()
+        self.update_channel_combo.addItems(["Stable", "Beta", "Development"])
+        
+        # Set current channel
+        channel = self.settings.get('updates/channel', 'stable')
+        if channel == 'beta':
+            self.update_channel_combo.setCurrentIndex(1)
+        elif channel == 'dev':
+            self.update_channel_combo.setCurrentIndex(2)
+        else:
+            self.update_channel_combo.setCurrentIndex(0)
+        
+        # Enable/disable based on whether updates are enabled
+        self.update_channel_combo.setEnabled(self.settings['check_for_updates'])
+        updates_layout.addRow("Update channel:", self.update_channel_combo)
+        
+        # Check now button
+        self.check_now_button = QPushButton("Check for Updates Now")
+        self.check_now_button.clicked.connect(self._check_updates_now)
+        self.check_now_button.setEnabled(self.settings['check_for_updates'])
+        updates_layout.addRow("", self.check_now_button)
+        
+        layout.addWidget(updates_group)
         
         # File Management Group
         file_group = QGroupBox("File Management")
@@ -593,130 +623,149 @@ class SettingsDialog(QDialog):
         Returns:
             Dict containing all application settings.
         """
-        app_settings = QSettings()
+        settings_obj = QSettings()
         settings = {}
         
         # General UI settings
-        settings['ui_language'] = app_settings.value('ui/language', 'System')
-        settings['show_splash_screen'] = app_settings.value('ui/show_splash_screen', True, type=bool)
-        settings['check_for_updates'] = app_settings.value('ui/check_for_updates', True, type=bool)
+        settings['ui_language'] = settings_obj.value('ui_language', 'System')
+        settings['show_splash_screen'] = settings_obj.value('show_splash_screen', True, type=bool)
+        settings['check_for_updates'] = settings_obj.value('check_for_updates', True, type=bool)
+        
+        # Update settings
+        settings['updates/channel'] = settings_obj.value('updates/channel', 'stable')
         
         # File management settings
-        settings['auto_save'] = app_settings.value('files/auto_save', True, type=bool)
-        settings['auto_save_interval'] = app_settings.value('files/auto_save_interval', 5, type=int)
-        settings['recent_files_limit'] = app_settings.value('files/recent_files_limit', 10, type=int)
-        settings['default_project_dir'] = app_settings.value('files/default_project_dir', str(Path.home()))
+        settings['auto_save'] = settings_obj.value('auto_save', True, type=bool)
+        settings['auto_save_interval'] = settings_obj.value('auto_save_interval', 5, type=int)
+        settings['recent_files_limit'] = settings_obj.value('recent_files_limit', 10, type=int)
+        settings['default_project_dir'] = settings_obj.value('default_project_dir', str(Path.home() / 'Modsee Projects'))
         
         # Plugin settings
-        settings['plugin_path'] = app_settings.value('plugins/path', '')
+        settings['plugin_path'] = settings_obj.value('plugin_path', '')
         
         # Theme settings
-        settings['theme'] = app_settings.value('theme/current', 'dark')
+        settings['theme'] = settings_obj.value('theme', 'light')
         
         # Visualization settings
-        settings['show_grid'] = app_settings.value('visualization/show_grid', True, type=bool)
-        settings['show_axis'] = app_settings.value('visualization/show_axis', True, type=bool)
-        settings['display_mode'] = app_settings.value('visualization/display_mode', 'Solid')
-        settings['node_size'] = app_settings.value('visualization/node_size', 0.2, type=float)
-        settings['element_width'] = app_settings.value('visualization/element_width', 3.0, type=float)
-        settings['load_scale'] = app_settings.value('visualization/load_scale', 10.0, type=float)
-        settings['deformation_scale'] = app_settings.value('visualization/deformation_scale', 1.0, type=float)
+        settings['show_grid'] = settings_obj.value('show_grid', True, type=bool)
+        settings['show_axis'] = settings_obj.value('show_axis', True, type=bool)
+        settings['display_mode'] = settings_obj.value('display_mode', 'solid')
+        settings['font_family'] = settings_obj.value('font_family', 'Segoe UI')
+        settings['font_size'] = settings_obj.value('font_size', 9, type=int)
+        settings['background_color'] = settings_obj.value('background_color', '#E6E6E6')
         
         # Grid settings
-        settings['grid_size'] = app_settings.value('grid/size', 10.0, type=float)
-        settings['grid_divisions'] = app_settings.value('grid/divisions', 10, type=int)
-        settings['grid_unit'] = app_settings.value('grid/unit', 'm')
-        settings['show_major_gridlines'] = app_settings.value('grid/show_major_gridlines', True, type=bool)
-        settings['major_grid_interval'] = app_settings.value('grid/major_interval', 5, type=int)
-        settings['enable_grid_snapping'] = app_settings.value('grid/enable_snapping', False, type=bool)
+        settings['grid_size'] = settings_obj.value('grid_size', 10.0, type=float)
+        settings['grid/size'] = settings_obj.value('grid/size', 10.0, type=float)
+        settings['grid/unit'] = settings_obj.value('grid/unit', 'm')
+        settings['grid/enable_snapping'] = settings_obj.value('grid/enable_snapping', False, type=bool)
+        settings['grid/xy_plane'] = settings_obj.value('grid/xy_plane', True, type=bool)
+        settings['grid/xz_plane'] = settings_obj.value('grid/xz_plane', False, type=bool)
+        settings['grid/yz_plane'] = settings_obj.value('grid/yz_plane', False, type=bool)
         
         # Performance settings
-        settings['multithreading'] = app_settings.value('performance/multithreading', True, type=bool)
-        settings['thread_count'] = app_settings.value('performance/thread_count', 4, type=int)
-        settings['use_caching'] = app_settings.value('performance/use_caching', True, type=bool)
-        settings['cache_size_mb'] = app_settings.value('performance/cache_size_mb', 512, type=int)
-        settings['show_performance_metrics'] = app_settings.value('performance/show_metrics', False, type=bool)
-        settings['log_performance_data'] = app_settings.value('performance/log_data', False, type=bool)
+        settings['multithreading'] = settings_obj.value('multithreading', True, type=bool)
+        settings['thread_count'] = settings_obj.value('thread_count', 4, type=int)
+        settings['use_caching'] = settings_obj.value('use_caching', True, type=bool)
+        settings['cache_size_mb'] = settings_obj.value('cache_size_mb', 512, type=int)
         
         # Analysis settings
-        settings['use_openseespy'] = app_settings.value('analysis/use_openseespy', True, type=bool)
-        settings['opensees_path'] = app_settings.value('analysis/opensees_path', '')
-        settings['solver_timeout'] = app_settings.value('analysis/solver_timeout', 300, type=int)
-        settings['default_units'] = app_settings.value('analysis/default_units', 'SI', type=str)
-        settings['tcl_export_format'] = app_settings.value('analysis/tcl_export_format', 'Single File')
-        settings['include_tcl_comments'] = app_settings.value('analysis/include_tcl_comments', True, type=bool)
-        settings['openseespy_export_format'] = app_settings.value('analysis/openseespy_export_format', 'Single File')
-        settings['include_py_comments'] = app_settings.value('analysis/include_py_comments', True, type=bool)
-        settings['results_directory'] = app_settings.value(
-            'analysis/results_directory', 
-            str(Path.home() / 'ModseeResults')
-        )
-        settings['auto_backup_results'] = app_settings.value('analysis/auto_backup_results', True, type=bool)
+        settings['default_solver'] = settings_obj.value('default_solver', 'opensees')
+        settings['use_openseespy'] = settings_obj.value('use_openseespy', True, type=bool)
+        settings['opensees_path'] = settings_obj.value('opensees_path', '')
+        settings['solver_timeout'] = settings_obj.value('solver_timeout', 300, type=int)  # Default 5 minutes (300 seconds)
+        settings['results_directory'] = settings_obj.value('results_directory', str(Path.home() / 'ModseeResults'))
+        settings['overwrite_results'] = settings_obj.value('overwrite_results', False, type=bool)
+        settings['default_units'] = settings_obj.value('default_units', 'SI', type=str)
         
         logger.debug("Settings loaded from QSettings")
         return settings
     
     def _save_settings(self):
         """Save settings to QSettings."""
-        app_settings = QSettings()
+        # Get QSettings
+        settings = QSettings()
         
-        # UI settings
-        app_settings.setValue('ui/language', self.language_combo.currentText())
-        app_settings.setValue('ui/show_splash_screen', self.show_splash_check.isChecked())
-        app_settings.setValue('ui/check_for_updates', self.check_updates_check.isChecked())
+        # General settings
+        settings.setValue('ui_language', self.language_combo.currentText())
+        settings.setValue('show_splash_screen', self.show_splash_check.isChecked())
+        settings.setValue('check_for_updates', self.check_updates_check.isChecked())
         
-        # File management settings
-        app_settings.setValue('files/auto_save', self.auto_save_check.isChecked())
-        app_settings.setValue('files/auto_save_interval', self.auto_save_interval.value())
-        app_settings.setValue('files/recent_files_limit', self.recent_files_limit.value())
-        app_settings.setValue('files/default_project_dir', self.default_dir_edit.text())
+        # Update settings
+        channels = ['stable', 'beta', 'dev']
+        channel = channels[self.update_channel_combo.currentIndex()]
+        settings.setValue('updates/channel', channel)
+        
+        # If update checker is available, update its settings
+        version_checker = self.app_manager.get_component('version_checker')
+        if version_checker:
+            version_checker.channel = channel
+            version_checker.check_for_updates = self.check_updates_check.isChecked()
+        
+        # File management
+        settings.setValue('auto_save', self.auto_save_check.isChecked())
+        settings.setValue('auto_save_interval', self.auto_save_interval.value())
+        settings.setValue('recent_files_limit', self.recent_files_limit.value())
+        settings.setValue('default_project_dir', self.default_dir_edit.text())
         
         # Plugin settings
-        app_settings.setValue('plugins/path', self.plugin_path_edit.text())
-        
-        # We don't save theme settings here - that's handled by the Theme Manager
+        settings.setValue('plugin_path', self.plugin_path_edit.text())
         
         # Visualization settings
-        app_settings.setValue('visualization/show_grid', self.show_grid_check.isChecked())
-        app_settings.setValue('visualization/show_axis', self.show_axis_check.isChecked())
-        app_settings.setValue('visualization/display_mode', self.display_mode_combo.currentText())
-        app_settings.setValue('visualization/node_size', self.node_size_spin.value())
-        app_settings.setValue('visualization/element_width', self.element_width_spin.value())
-        app_settings.setValue('visualization/load_scale', self.load_scale_spin.value())
-        app_settings.setValue('visualization/deformation_scale', self.deform_scale_spin.value())
+        if hasattr(self, 'font_family_combo'):
+            settings.setValue('font_family', self.font_family_combo.currentText())
+        if hasattr(self, 'font_size_spin'):
+            settings.setValue('font_size', self.font_size_spin.value())
+        settings.setValue('grid_size', self.grid_size_spin.value())
+        settings.setValue('grid/size', self.grid_size_spin.value())
+        settings.setValue('grid/unit', self.grid_unit_combo.currentText())
+        settings.setValue('grid/enable_snapping', self.grid_snap_check.isChecked())
         
-        # Grid settings
-        app_settings.setValue('grid/size', self.grid_size_spin.value())
-        app_settings.setValue('grid/divisions', self.grid_divisions_spin.value())
-        app_settings.setValue('grid/unit', self.grid_unit_combo.currentText())
-        app_settings.setValue('grid/show_major_gridlines', self.major_grid_check.isChecked())
-        app_settings.setValue('grid/major_interval', self.major_interval_spin.value())
-        app_settings.setValue('grid/enable_snapping', self.grid_snap_check.isChecked())
+        # Only save grid plane settings if they exist
+        if hasattr(self, 'grid_xy_check'):
+            settings.setValue('grid/xy_plane', self.grid_xy_check.isChecked())
+        if hasattr(self, 'grid_xz_check'):
+            settings.setValue('grid/xz_plane', self.grid_xz_check.isChecked())
+        if hasattr(self, 'grid_yz_check'):
+            settings.setValue('grid/yz_plane', self.grid_yz_check.isChecked())
+        
+        settings.setValue('display_mode', self.display_mode_combo.currentText().lower())
+        settings.setValue('show_axis', self.show_axis_check.isChecked())
+        if hasattr(self, 'background_color'):
+            settings.setValue('background_color', self.background_color)
         
         # Performance settings
-        app_settings.setValue('performance/multithreading', self.multithreading_check.isChecked())
-        app_settings.setValue('performance/thread_count', self.thread_count_spin.value())
-        app_settings.setValue('performance/use_caching', self.caching_check.isChecked())
-        app_settings.setValue('performance/cache_size_mb', self.cache_size_spin.value())
-        app_settings.setValue('performance/show_metrics', self.show_metrics_check.isChecked())
-        app_settings.setValue('performance/log_data', self.log_performance_check.isChecked())
+        settings.setValue('multithreading', self.multithreading_check.isChecked())
+        settings.setValue('thread_count', self.thread_count_spin.value())
+        settings.setValue('use_caching', self.caching_check.isChecked())
+        settings.setValue('cache_size_mb', self.cache_size_spin.value())
         
         # Analysis settings
-        app_settings.setValue('analysis/use_openseespy', self.openseespy_check.isChecked())
-        app_settings.setValue('analysis/opensees_path', self.opensees_path_edit.text())
-        app_settings.setValue('analysis/solver_timeout', self.solver_timeout_spin.value())
-        app_settings.setValue('analysis/default_units', self.units_combo.currentText())
-        app_settings.setValue('analysis/tcl_export_format', self.tcl_format_combo.currentText())
-        app_settings.setValue('analysis/include_tcl_comments', self.include_comments_check.isChecked())
-        app_settings.setValue('analysis/openseespy_export_format', self.py_format_combo.currentText())
-        app_settings.setValue('analysis/include_py_comments', self.include_py_comments_check.isChecked())
-        app_settings.setValue('analysis/results_directory', self.results_dir_edit.text())
-        app_settings.setValue('analysis/auto_backup_results', self.auto_backup_results_check.isChecked())
+        if hasattr(self, 'solver_combo'):
+            settings.setValue('default_solver', self.solver_combo.currentText().lower())
+        settings.setValue('opensees_path', self.opensees_path_edit.text())
+        settings.setValue('use_openseespy', self.openseespy_check.isChecked())
+        settings.setValue('solver_timeout', self.solver_timeout_spin.value())
+        settings.setValue('results_directory', self.results_dir_edit.text())
+        if hasattr(self, 'overwrite_results_check'):
+            settings.setValue('overwrite_results', self.overwrite_results_check.isChecked())
         
-        logger.debug("Settings saved to QSettings")
+        # Map the units combo index back to the internal value
+        units_map_reverse = {
+            0: "SI",
+            1: "SI_MM",
+            2: "US",
+            3: "US_FT"
+        }
+        settings.setValue('default_units', units_map_reverse.get(self.units_combo.currentIndex(), "SI"))
+        
+        # Update settings dictionary with new values
+        self.settings = self._load_settings()
         
         # Emit settings applied signal
         self.settings_applied.emit()
+        
+        logger.info("Settings saved")
     
     def _on_ok(self):
         """Handle the OK button click."""
@@ -830,6 +879,40 @@ class SettingsDialog(QDialog):
         if directory:
             self.results_dir_edit.setText(directory)
     
+    def _on_updates_changed(self, state):
+        """Handle changes to the update check setting."""
+        enabled = state == Qt.CheckState.Checked
+        self.update_channel_combo.setEnabled(enabled)
+        self.check_now_button.setEnabled(enabled)
+
+    def _check_updates_now(self):
+        """Trigger an immediate check for updates."""
+        # Get the version checker
+        version_checker = self.app_manager.get_component('version_checker')
+        if not version_checker:
+            QMessageBox.warning(
+                self,
+                "Update Check Failed",
+                "The version check system is not available.",
+                QMessageBox.StandardButton.Ok
+            )
+            return
+        
+        # Apply current channel setting before checking
+        channels = ['stable', 'beta', 'dev']
+        channel = channels[self.update_channel_combo.currentIndex()]
+        version_checker.channel = channel
+        
+        # Start the check
+        version_checker.check_for_updates()
+        
+        QMessageBox.information(
+            self,
+            "Checking for Updates",
+            "Modsee is checking for updates. You will be notified if an update is available.",
+            QMessageBox.StandardButton.Ok
+        )
+
 
 # Function to show the dialog
 def show_settings_dialog(app_manager, parent=None):
