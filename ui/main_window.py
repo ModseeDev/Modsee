@@ -12,12 +12,13 @@ from PyQt6.QtWidgets import (
     QMainWindow, QDockWidget, QToolBar, QStatusBar, QMenuBar, QMenu, 
     QFileDialog, QMessageBox, QSplitter, QWidget, QVBoxLayout, QApplication,
     QButtonGroup, QToolButton, QComboBox, QLabel, QDoubleSpinBox, QPushButton,
-    QProgressDialog
+    QProgressDialog, QDialog
 )
 from PyQt6.QtCore import Qt, QSize, QSettings, QTimer
 from PyQt6.QtGui import QAction, QIcon, QActionGroup
 
 from ui.vtk_widget import VTKWidget
+from model.base.core import ModelObjectType
 
 logger = logging.getLogger('modsee.ui.main_window')
 
@@ -1104,28 +1105,22 @@ class MainWindow(QMainWindow):
         """Select all elements in the model."""
         logger.info("Selecting all elements")
         if self.renderer_manager:
-            # Placeholder for when the method is implemented
-            logger.warning("Select all functionality not yet implemented")
-            # Will be implemented as:
-            # self.renderer_manager.select_all()
+            # Use the implemented method instead of showing warning
+            self.renderer_manager.select_all()
     
     def on_select_none(self):
         """Clear all selections."""
         logger.info("Clearing all selections")
         if self.renderer_manager:
-            # Placeholder for when the method is implemented
-            logger.warning("Clear selection functionality not yet implemented")
-            # Will be implemented as:
-            # self.renderer_manager.clear_selection()
+            # Use the implemented method instead of showing warning
+            self.renderer_manager.clear_selection()
     
     def on_invert_selection(self):
         """Invert the current selection."""
         logger.info("Inverting selection")
         if self.renderer_manager:
-            # Placeholder for when the method is implemented
-            logger.warning("Selection inversion not yet implemented")
-            # Will be implemented as:
-            # self.renderer_manager.invert_selection()
+            # Use the implemented method instead of showing warning
+            self.renderer_manager.invert_selection()
     
     def on_copy(self):
         """Copy selected elements to clipboard."""
@@ -1140,13 +1135,43 @@ class MainWindow(QMainWindow):
     def on_delete(self):
         """Delete selected elements."""
         logger.info("Deleting selected elements")
-        if self.renderer_manager:
-            # Placeholder for when the method is implemented
-            logger.warning("Delete functionality not yet implemented")
-            # Will be implemented as:
-            # selection = self.renderer_manager.get_selection()
-            # if selection:
-            #     self.model_manager.delete_objects(selection)
+        if self.renderer_manager and self.model_manager:
+            # Get the current selection from the renderer manager
+            selection = self.renderer_manager.get_selection()
+            if selection:
+                # Confirm deletion
+                count = len(selection)
+                msg = f"Delete {count} selected {'item' if count == 1 else 'items'}?"
+                result = QMessageBox.question(self, "Confirm Delete", msg,
+                                             QMessageBox.StandardButton.Yes | 
+                                             QMessageBox.StandardButton.No)
+                
+                if result == QMessageBox.StandardButton.Yes:
+                    # Delete the selected objects
+                    for obj in selection:
+                        # Determine object type and use appropriate deletion method
+                        if hasattr(obj, 'id'):
+                            obj_id = obj.id
+                            if hasattr(obj, 'type'):
+                                if obj.type == ModelObjectType.NODE:
+                                    self.model_manager.remove_node(obj_id)
+                                elif obj.type == ModelObjectType.ELEMENT:
+                                    self.model_manager.remove_element(obj_id)
+                            else:
+                                # Try to infer type from the class
+                                from model.nodes import Node
+                                from model.elements.base import Element
+                                
+                                if isinstance(obj, Node):
+                                    self.model_manager.remove_node(obj_id)
+                                elif isinstance(obj, Element):
+                                    self.model_manager.remove_element(obj_id)
+                    
+                    # Update visualization
+                    self.renderer_manager.update_model_visualization()
+                    logger.info(f"Deleted {count} objects")
+            else:
+                logger.info("Nothing selected to delete")
     
     def on_preferences(self):
         """

@@ -201,7 +201,7 @@ Selection and Visualization Functionality
      - Priority
    * - FUNC-001
      - Implement object selection system in renderer manager (select_all, clear_selection, invert_selection)
-     - Not Started
+     - Completed
      - High
    * - FUNC-002
      - Add get_selection method to renderer manager to retrieve current selection

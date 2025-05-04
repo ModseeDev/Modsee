@@ -3,7 +3,7 @@
 """
 
 import logging
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any, Tuple, Set
 
 import vtk
 
@@ -251,6 +251,77 @@ class RendererManager(ViewComponent):
         # Update visualization
         self._vtk_widget.update_selection_highlights(selected_objects)
         logger.debug(f"Selection changed: {len(selected_objects)} objects selected")
+    
+    def select_all(self) -> None:
+        """
+        Select all objects in the model.
+        
+        This method selects all nodes and elements in the model.
+        """
+        if not self._model_manager:
+            logger.warning("Cannot select all - model manager not set")
+            return
+            
+        # Use the model manager's built-in select_all method
+        self._model_manager.select_all()
+        logger.debug("Selected all objects in the model")
+    
+    def clear_selection(self) -> None:
+        """
+        Clear all selections.
+        
+        This method deselects all currently selected objects.
+        """
+        if not self._model_manager:
+            logger.warning("Cannot clear selection - model manager not set")
+            return
+            
+        # Use the model manager's built-in deselect_all method
+        self._model_manager.deselect_all()
+        logger.debug("Cleared all selections")
+    
+    def invert_selection(self) -> None:
+        """
+        Invert the current selection.
+        
+        This method selects all currently unselected objects and
+        deselects all currently selected objects.
+        """
+        if not self._model_manager:
+            logger.warning("Cannot invert selection - model manager not set")
+            return
+            
+        # Get current selection
+        current_selection = self._model_manager.get_selection()
+        
+        # Get all objects
+        all_objects = []
+        all_objects.extend(self._model_manager.get_nodes())
+        all_objects.extend(self._model_manager.get_elements())
+        
+        # Clear current selection
+        self._model_manager.deselect_all()
+        
+        # Select objects that were not in the original selection
+        for obj in all_objects:
+            if obj not in current_selection:
+                self._model_manager.select(obj)
+        
+        logger.debug("Inverted selection")
+    
+    def get_selection(self) -> List[Any]:
+        """
+        Get the current selection.
+        
+        Returns:
+            List of currently selected objects.
+        """
+        if not self._model_manager:
+            logger.warning("Cannot get selection - model manager not set")
+            return []
+            
+        # Return a list of selected objects from the model manager
+        return list(self._model_manager.get_selection())
     
     def set_camera_mode(self, mode: str) -> None:
         """

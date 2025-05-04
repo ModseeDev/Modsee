@@ -34,6 +34,7 @@ class SelectionInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
         self._picker = vtk.vtkPropPicker()
         self._last_pick_pos = (0, 0)
         self._dragging = False
+        self._left_button_down = False  # Track left button state manually
         
         # Reference to the model manager
         self._model_manager = None
@@ -123,6 +124,7 @@ class SelectionInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
         click_pos = interactor.GetEventPosition()
         self._last_pick_pos = click_pos
         self._dragging = False
+        self._left_button_down = True  # Set left button state to down
         
         # Check for Ctrl/Shift keys for multi-selection
         ctrl_key = bool(interactor.GetControlKey())
@@ -191,6 +193,7 @@ class SelectionInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
         
         # Reset state
         self._dragging = False
+        self._left_button_down = False  # Set left button state to up
         
         # Call the parent class to handle camera control
         self.OnLeftButtonUp()
@@ -208,7 +211,8 @@ class SelectionInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
             return
         
         # Set dragging flag if the left button is down
-        if interactor.GetLeftButtonPressed():
+        # Use our manually tracked button state
+        if self._left_button_down:
             self._dragging = True
         
         # Call the parent class to handle camera control
