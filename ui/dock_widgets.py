@@ -177,13 +177,23 @@ class ModelExplorerWidget(QWidget):
             # Registry-based implementation
             for element_id, element in enumerate(self.model_manager.elements.all(), 1):
                 element_type = element.get_element_type() if hasattr(element, 'get_element_type') else "Element"
-                element_name = element.metadata.name if hasattr(element, 'metadata') else f"Element {element_id}"
+                element_name = element.metadata.name if hasattr(element, 'metadata') else f"{element_type} {element_id}"
                 element_item = QTreeWidgetItem(elements_item, [element_name, element_type, str(element_id)])
                 element_item.setData(0, Qt.ItemDataRole.UserRole, ("element", element_id))
         elif hasattr(self.model_manager, '_elements'):
             # Dictionary-based implementation
             for element_id, element in self.model_manager._elements.items():
-                element_item = QTreeWidgetItem(elements_item, [f"Element {element_id}", "Element", str(element_id)])
+                element_type = element.get_element_type() if hasattr(element, 'get_element_type') else "Element"
+                element_name = element.metadata.name if hasattr(element, 'metadata') else f"{element_type} {element_id}"
+                element_item = QTreeWidgetItem(elements_item, [element_name, element_type, str(element_id)])
+                element_item.setData(0, Qt.ItemDataRole.UserRole, ("element", element_id))
+        elif hasattr(self.model_manager, 'get_elements'):
+            # Function-based implementation
+            for element in self.model_manager.get_elements():
+                element_id = element.id
+                element_type = element.get_element_type() if hasattr(element, 'get_element_type') else "Element"
+                element_name = element.metadata.name if hasattr(element, 'metadata') else f"{element_type} {element_id}"
+                element_item = QTreeWidgetItem(elements_item, [element_name, element_type, str(element_id)])
                 element_item.setData(0, Qt.ItemDataRole.UserRole, ("element", element_id))
     
     def _populate_materials(self):
@@ -437,12 +447,54 @@ class ModelExplorerWidget(QWidget):
             if show_node_dialog(self.model_manager, parent=self):
                 self.refresh()
             return
+        elif category_name == "elements":
+            # Show element creation submenu
+            element_menu = QMenu(self)
             
+            # Add actions for different element types
+            truss_action = QAction("Truss Element", self)
+            truss_action.triggered.connect(self._on_add_truss_element)
+            element_menu.addAction(truss_action)
+            
+            beam_action = QAction("Beam Element", self)
+            beam_action.triggered.connect(self._on_add_beam_element)
+            element_menu.addAction(beam_action)
+            
+            # Show menu at cursor position
+            element_menu.exec(self.cursor().pos())
+            return
+        
         # For other categories - not implemented yet
         QMessageBox.information(
             self, "Add Object", 
             f"Adding {category_name[:-1] if category_name.endswith('s') else category_name} not implemented yet."
         )
+    
+    def _on_add_truss_element(self):
+        """Create a new truss element."""
+        from ui.element_dialogs import show_truss_element_dialog
+        if show_truss_element_dialog(self.model_manager, parent=self):
+            self.refresh()
+            
+            # Notify renderer to update visualization
+            from core.app import Application
+            app = Application.get_instance()
+            renderer = app.get_component('renderer_manager')
+            if renderer and hasattr(renderer, 'update_model_visualization'):
+                renderer.update_model_visualization()
+    
+    def _on_add_beam_element(self):
+        """Create a new beam element."""
+        from ui.element_dialogs import show_beam_element_dialog
+        if show_beam_element_dialog(self.model_manager, parent=self):
+            self.refresh()
+            
+            # Notify renderer to update visualization
+            from core.app import Application
+            app = Application.get_instance()
+            renderer = app.get_component('renderer_manager')
+            if renderer and hasattr(renderer, 'update_model_visualization'):
+                renderer.update_model_visualization()
     
     def _show_add_dialog(self):
         """Show dialog to add a new object."""
@@ -456,7 +508,8 @@ class ModelExplorerWidget(QWidget):
         # Create list widget with object types
         list_widget = QListWidget()
         list_widget.addItem("Node")
-        list_widget.addItem("Element")  # Not implemented yet
+        list_widget.addItem("Truss Element")
+        list_widget.addItem("Beam Element")
         list_widget.addItem("Material")  # Not implemented yet
         list_widget.addItem("Section")  # Not implemented yet
         list_widget.addItem("Boundary Condition")  # Not implemented yet
@@ -484,6 +537,30 @@ class ModelExplorerWidget(QWidget):
                     from ui.node_dialog import show_node_dialog
                     if show_node_dialog(self.model_manager, parent=self):
                         self.refresh()
+                elif object_type == "truss element":
+                    # Show truss element dialog
+                    from ui.element_dialogs import show_truss_element_dialog
+                    if show_truss_element_dialog(self.model_manager, parent=self):
+                        self.refresh()
+                        
+                        # Notify renderer to update visualization
+                        from core.app import Application
+                        app = Application.get_instance()
+                        renderer = app.get_component('renderer_manager')
+                        if renderer and hasattr(renderer, 'update_model_visualization'):
+                            renderer.update_model_visualization()
+                elif object_type == "beam element":
+                    # Show beam element dialog
+                    from ui.element_dialogs import show_beam_element_dialog
+                    if show_beam_element_dialog(self.model_manager, parent=self):
+                        self.refresh()
+                        
+                        # Notify renderer to update visualization
+                        from core.app import Application
+                        app = Application.get_instance()
+                        renderer = app.get_component('renderer_manager')
+                        if renderer and hasattr(renderer, 'update_model_visualization'):
+                            renderer.update_model_visualization()
                 else:
                     # Other object types not implemented yet
                     QMessageBox.information(
@@ -910,31 +987,53 @@ class PropertiesWidget(QWidget):
     
     def _create_element_form(self, element):
         """Create form for element properties."""
-        # Element nodes
+        self._add_form_section("Element Properties")
+        
+        # Element type
+        if hasattr(element, 'get_element_type'):
+            element_type = element.get_element_type()
+            self._add_form_field("Type", element_type, QLabel)
+        
+        # Nodes
         if hasattr(element, 'nodes'):
-            self._add_form_section("Connectivity")
-            nodes_str = ", ".join(str(node_id) for node_id in element.nodes)
-            self._add_form_field("Node IDs", nodes_str, QLineEdit, field_name="nodes")
+            nodes_text = ", ".join(str(node_id) for node_id in element.nodes)
+            self._add_form_field("Nodes", nodes_text, QLabel)
         
-        # Material and section references
+        # Material
         if hasattr(element, 'material_id') and element.material_id is not None:
-            self._add_form_field("Material ID", element.material_id, QSpinBox, field_name="material_id")
+            self._add_form_field("Material ID", element.material_id, QLabel)
         
+        # Section if applicable
         if hasattr(element, 'section_id') and element.section_id is not None:
-            self._add_form_field("Section ID", element.section_id, QSpinBox, field_name="section_id")
+            self._add_form_field("Section ID", element.section_id, QLabel)
         
-        # Custom properties
-        if hasattr(element, 'properties') and element.properties:
-            self._add_form_section("Properties")
-            for key, value in element.properties.items():
-                if isinstance(value, bool):
-                    self._add_form_field(key, value, QCheckBox, field_name=f"prop_{key}")
-                elif isinstance(value, int):
-                    self._add_form_field(key, value, QSpinBox, field_name=f"prop_{key}")
-                elif isinstance(value, float):
-                    self._add_form_field(key, value, QDoubleSpinBox, field_name=f"prop_{key}")
-                else:
-                    self._add_form_field(key, str(value), QLineEdit, field_name=f"prop_{key}")
+        # Element-specific properties based on element type
+        if hasattr(element, 'get_element_type'):
+            element_type = element.get_element_type()
+            
+            # Truss element properties
+            if element_type in ["TrussElement", "Truss2D", "Truss3D"]:
+                self._add_form_section("Truss Properties")
+                
+                if hasattr(element, 'area'):
+                    self._add_form_field("Area", element.area, QDoubleSpinBox, field_name="area")
+                
+                if hasattr(element, 'mass_per_unit_length') and element.mass_per_unit_length is not None:
+                    self._add_form_field("Mass per Length", element.mass_per_unit_length, QDoubleSpinBox, field_name="mass_per_unit_length")
+            
+            # Frame element properties
+            elif element_type in ["FrameElement", "ElasticBeamColumn", "DispBeamColumn"]:
+                self._add_form_section("Frame Properties")
+                
+                if hasattr(element, 'geom_transform_type'):
+                    self._add_form_field("Transform Type", element.geom_transform_type, QLabel)
+                
+                if hasattr(element, 'mass_per_unit_length') and element.mass_per_unit_length is not None:
+                    self._add_form_field("Mass per Length", element.mass_per_unit_length, QDoubleSpinBox, field_name="mass_per_unit_length")
+                
+                # For displacement-based beam columns
+                if element_type == "DispBeamColumn" and hasattr(element, 'num_integration_points'):
+                    self._add_form_field("Integration Points", element.num_integration_points, QSpinBox, field_name="num_integration_points")
     
     def _create_material_form(self, material):
         """Create form for material properties."""

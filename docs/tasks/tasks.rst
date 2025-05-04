@@ -281,7 +281,7 @@ Selection and Visualization Functionality
      - High
    * - FUNC-021
      - Create element creation interfaces (beam, truss, etc.)
-     - Not Started
+     - Done
      - High
    * - FUNC-022
      - Implement material creation interfaces

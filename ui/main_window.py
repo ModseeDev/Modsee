@@ -1325,12 +1325,34 @@ class MainWindow(QMainWindow):
     def on_create_truss(self):
         """Create a new truss element."""
         logger.info("Creating new truss element")
-        # Implement truss element creation dialog/interaction
+        from ui.element_dialogs import show_truss_element_dialog
+        
+        if show_truss_element_dialog(self.model_manager, parent=self):
+            # Truss element was created, refresh the model explorer and renderer
+            explorer = self.app_manager.get_component('view_manager').get_view('model_explorer')
+            if explorer and hasattr(explorer, 'refresh'):
+                explorer.refresh()
+            
+            # Update the 3D view
+            renderer = self.app_manager.get_component('renderer_manager')
+            if renderer and hasattr(renderer, 'update_model_visualization'):
+                renderer.update_model_visualization()
     
     def on_create_beam(self):
         """Create a new beam element."""
         logger.info("Creating new beam element")
-        # Implement beam element creation dialog/interaction
+        from ui.element_dialogs import show_beam_element_dialog
+        
+        if show_beam_element_dialog(self.model_manager, parent=self):
+            # Beam element was created, refresh the model explorer and renderer
+            explorer = self.app_manager.get_component('view_manager').get_view('model_explorer')
+            if explorer and hasattr(explorer, 'refresh'):
+                explorer.refresh()
+            
+            # Update the 3D view
+            renderer = self.app_manager.get_component('renderer_manager')
+            if renderer and hasattr(renderer, 'update_model_visualization'):
+                renderer.update_model_visualization()
     
     def on_create_elastic_material(self):
         """Create a new elastic material."""
