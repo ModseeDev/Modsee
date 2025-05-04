@@ -277,7 +277,7 @@ Selection and Visualization Functionality
      - Low
    * - FUNC-020
      - Develop and implement node creation interface
-     - Not Started
+     - Done
      - High
    * - FUNC-021
      - Create element creation interfaces (beam, truss, etc.)

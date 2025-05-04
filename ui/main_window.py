@@ -1314,7 +1314,13 @@ class MainWindow(QMainWindow):
     def on_create_node(self):
         """Create a new node."""
         logger.info("Creating new node")
-        # Implement node creation dialog/interaction
+        from ui.node_dialog import show_node_dialog
+        
+        if show_node_dialog(self.model_manager, parent=self):
+            # Node was created, refresh the model explorer if needed
+            explorer = self.app_manager.get_component('view_manager').get_view('model_explorer')
+            if explorer and hasattr(explorer, 'refresh'):
+                explorer.refresh()
     
     def on_create_truss(self):
         """Create a new truss element."""

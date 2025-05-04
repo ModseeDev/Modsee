@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem,
     QPushButton, QSplitter, QTextEdit, QTableWidget, QTableWidgetItem, 
     QHeaderView, QComboBox, QLineEdit, QFormLayout, QAbstractItemView, QMenu, QMessageBox,
-    QScrollArea, QFrame, QCheckBox, QSpinBox, QDoubleSpinBox
+    QScrollArea, QFrame, QCheckBox, QSpinBox, QDoubleSpinBox, QDialog, QListWidget, QDialogButtonBox
 )
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QIcon, QColor, QBrush, QAction
@@ -430,7 +430,15 @@ class ModelExplorerWidget(QWidget):
     def _on_add_to_category(self, category_name):
         """Handle Add to specific category."""
         logger.debug(f"Add to category: {category_name}")
-        # Not fully implemented yet, placeholder for future functionality
+        
+        if category_name == "nodes":
+            # Call node creation dialog
+            from ui.node_dialog import show_node_dialog
+            if show_node_dialog(self.model_manager, parent=self):
+                self.refresh()
+            return
+            
+        # For other categories - not implemented yet
         QMessageBox.information(
             self, "Add Object", 
             f"Adding {category_name[:-1] if category_name.endswith('s') else category_name} not implemented yet."
@@ -438,11 +446,50 @@ class ModelExplorerWidget(QWidget):
     
     def _show_add_dialog(self):
         """Show dialog to add a new object."""
-        # Not implemented yet, placeholder for future functionality
-        QMessageBox.information(
-            self, "Add Object", 
-            "Adding objects not implemented yet."
+        # Create a dialog with options for different object types
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Add Object")
+        dialog.resize(300, 200)
+        
+        layout = QVBoxLayout(dialog)
+        
+        # Create list widget with object types
+        list_widget = QListWidget()
+        list_widget.addItem("Node")
+        list_widget.addItem("Element")  # Not implemented yet
+        list_widget.addItem("Material")  # Not implemented yet
+        list_widget.addItem("Section")  # Not implemented yet
+        list_widget.addItem("Boundary Condition")  # Not implemented yet
+        list_widget.addItem("Load")  # Not implemented yet
+        
+        layout.addWidget(QLabel("Select object type to add:"))
+        layout.addWidget(list_widget)
+        
+        # Add buttons
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
+        button_box.accepted.connect(dialog.accept)
+        button_box.rejected.connect(dialog.reject)
+        layout.addWidget(button_box)
+        
+        # Show dialog
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            selected_item = list_widget.currentItem()
+            if selected_item:
+                object_type = selected_item.text().lower()
+                
+                if object_type == "node":
+                    # Show node dialog
+                    from ui.node_dialog import show_node_dialog
+                    if show_node_dialog(self.model_manager, parent=self):
+                        self.refresh()
+                else:
+                    # Other object types not implemented yet
+                    QMessageBox.information(
+                        self, "Add Object", 
+                        f"Adding {object_type} not implemented yet."
+                    )
     
     def _on_remove(self):
         """Handle Remove button clicked."""
