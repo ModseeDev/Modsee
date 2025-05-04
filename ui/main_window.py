@@ -225,7 +225,7 @@ class MainWindow(QMainWindow):
         self.edit_menu.addAction(self.paste_action)
         
         self.delete_action = QAction("&Delete", self)
-        self.delete_action.setShortcut("Delete")
+        self.delete_action.setShortcuts(["Delete", "Backspace"])  # Support both Delete and Backspace keys
         self.delete_action.triggered.connect(self.on_delete)
         self.edit_menu.addAction(self.delete_action)
         
@@ -704,6 +704,24 @@ class MainWindow(QMainWindow):
         self.grid_toolbar.addAction(self.grid_snap_action)
         
         self.addToolBar(self.grid_toolbar)
+        
+        # Create Edit toolbar
+        self.edit_toolbar = QToolBar("Edit Controls")
+        self.edit_toolbar.setObjectName("edit_toolbar")
+        
+        # Add selection actions
+        self.edit_toolbar.addAction(self.select_all_action)
+        self.edit_toolbar.addAction(self.select_none_action)
+        self.edit_toolbar.addAction(self.invert_selection_action)
+        
+        self.edit_toolbar.addSeparator()
+        
+        # Add copy/paste/delete actions
+        self.edit_toolbar.addAction(self.copy_action)
+        self.edit_toolbar.addAction(self.paste_action)
+        self.edit_toolbar.addAction(self.delete_action)
+        
+        self.addToolBar(self.edit_toolbar)
     
     def _create_status_bar(self):
         """Create the status bar."""
@@ -1152,11 +1170,32 @@ class MainWindow(QMainWindow):
                         # Determine object type and use appropriate deletion method
                         if hasattr(obj, 'id'):
                             obj_id = obj.id
-                            if hasattr(obj, 'type'):
+                            
+                            # First try to use get_type method if available
+                            if hasattr(obj, 'get_type'):
+                                obj_type = obj.get_type()
+                                if obj_type == ModelObjectType.NODE:
+                                    self.model_manager.remove_node(obj_id)
+                                elif obj_type == ModelObjectType.ELEMENT:
+                                    self.model_manager.remove_element(obj_id)
+                                elif obj_type == ModelObjectType.MATERIAL:
+                                    self.model_manager.remove_material(obj_id)
+                                elif obj_type == ModelObjectType.SECTION:
+                                    self.model_manager.remove_section(obj_id)
+                                elif obj_type == ModelObjectType.BOUNDARY_CONDITION:
+                                    self.model_manager.remove_constraint(obj_id)
+                            # Fall back to direct type attribute if available
+                            elif hasattr(obj, 'type'):
                                 if obj.type == ModelObjectType.NODE:
                                     self.model_manager.remove_node(obj_id)
                                 elif obj.type == ModelObjectType.ELEMENT:
                                     self.model_manager.remove_element(obj_id)
+                                elif obj.type == ModelObjectType.MATERIAL:
+                                    self.model_manager.remove_material(obj_id)
+                                elif obj.type == ModelObjectType.SECTION:
+                                    self.model_manager.remove_section(obj_id)
+                                elif obj.type == ModelObjectType.BOUNDARY_CONDITION:
+                                    self.model_manager.remove_constraint(obj_id)
                             else:
                                 # Try to infer type from the class
                                 from model.nodes import Node
@@ -1166,12 +1205,25 @@ class MainWindow(QMainWindow):
                                     self.model_manager.remove_node(obj_id)
                                 elif isinstance(obj, Element):
                                     self.model_manager.remove_element(obj_id)
+                                # Check other types by class name as fallback
+                                elif 'material' in obj.__class__.__name__.lower():
+                                    self.model_manager.remove_material(obj_id)
+                                elif 'section' in obj.__class__.__name__.lower():
+                                    self.model_manager.remove_section(obj_id)
+                                elif any(x in obj.__class__.__name__.lower() for x in ['constraint', 'boundary', 'support']):
+                                    self.model_manager.remove_constraint(obj_id)
                     
                     # Update visualization
                     self.renderer_manager.update_model_visualization()
+                    
+                    # Log the operation
                     logger.info(f"Deleted {count} objects")
+                    
+                    # Show a status message
+                    self.status_bar.showMessage(f"Deleted {count} objects", 3000)  # Display for 3 seconds
             else:
                 logger.info("Nothing selected to delete")
+                self.status_bar.showMessage("Nothing selected to delete", 3000)
     
     def on_preferences(self):
         """

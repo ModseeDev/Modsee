@@ -209,7 +209,7 @@ Selection and Visualization Functionality
      - High
    * - FUNC-003
      - Implement delete functionality for selected objects
-     - Not Started
+     - Completed
      - High
    * - FUNC-004
      - Create copy/paste system for model elements
