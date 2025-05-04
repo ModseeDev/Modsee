@@ -285,7 +285,7 @@ Selection and Visualization Functionality
      - High
    * - FUNC-022
      - Implement material creation interfaces
-     - Not Started
+     - Done
      - High
    * - FUNC-023
      - Develop section creation interfaces

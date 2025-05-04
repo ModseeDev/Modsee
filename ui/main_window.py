@@ -1355,9 +1355,18 @@ class MainWindow(QMainWindow):
                 renderer.update_model_visualization()
     
     def on_create_elastic_material(self):
-        """Create a new elastic material."""
-        logger.info("Creating new elastic material")
-        # Implement elastic material creation dialog/interaction
+        """Create an elastic material."""
+        from ui.material_dialogs import show_material_dialog
+        
+        success = show_material_dialog(self.model_manager, parent=self)
+        if success:
+            self.model_manager.model_changed()
+            logger.info("Material created")
+            
+            # Update material comboboxes in any open dialogs
+            for dialog in self.findChildren(QDialog):
+                if hasattr(dialog, '_populate_material_combo'):
+                    dialog._populate_material_combo()
     
     def on_create_rectangle_section(self):
         """Create a new rectangular section."""
