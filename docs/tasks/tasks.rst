@@ -205,7 +205,7 @@ Selection and Visualization Functionality
      - High
    * - FUNC-002
      - Add get_selection method to renderer manager to retrieve current selection
-     - Not Started
+     - Completed
      - High
    * - FUNC-003
      - Implement delete functionality for selected objects
