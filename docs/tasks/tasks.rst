@@ -312,6 +312,46 @@ Selection and Visualization Functionality
      - Not Started
      - High
 
+Diagnostics Reporting Tool
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 10 40 10 10
+
+   * - ID
+     - Task
+     - Status
+     - Priority
+   * - DIAG-001
+     - Add "Report Issue" option under Help menu with submission form
+     - Not Started
+     - High
+   * - DIAG-002
+     - Implement diagnostic data collection and packaging
+     - Not Started
+     - High
+   * - DIAG-003
+     - Develop secure data transmission to diagnostics API
+     - Not Started
+     - High
+   * - DIAG-004
+     - Create backend API for receiving and processing diagnostic reports
+     - Not Started
+     - High
+   * - DIAG-005
+     - Implement GitHub issue creation with anonymized data
+     - Not Started
+     - High
+   * - DIAG-006
+     - Develop email notification system for report submission
+     - Not Started
+     - Medium
+   * - DIAG-007
+     - Create privacy documentation and data deletion process
+     - Not Started
+     - Medium
+
 Future Development Roadmap
 ------------------------
 
