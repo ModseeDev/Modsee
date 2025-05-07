@@ -10,7 +10,7 @@ import pkg_resources
 import time
 from pathlib import Path
 
-from PyQt6 import QtCore, QtWidgets, QtGui
+from PyQt6 import QtCore, QtWidgets, QtGui, QtSvg
 
 logger = logging.getLogger('modsee.splash')
 
@@ -111,17 +111,23 @@ class ModseeSplashScreen(QtWidgets.QSplashScreen):
         # Draw blue top border
         painter.fillRect(0, 0, splash_width, 4, QtGui.QColor(0, 120, 215))
         
-        # Draw title
-        title_font = QtGui.QFont("Segoe UI", 40, QtGui.QFont.Weight.Light)
-        painter.setFont(title_font)
-        painter.setPen(QtGui.QColor(255, 255, 255))
-        painter.drawText(40, 100, "Modsee")
+        # Load and draw the logo
+        logo_path = os.path.join(os.path.dirname(__file__), "resources", "images", "Modsee_light.svg")
+        logo_renderer = QtSvg.QSvgRenderer(logo_path)
+        
+        # Calculate logo position for centering (logo is 681x306)
+        logo_width, logo_height = 300, 135  # Scaled down to fit nicely
+        logo_x = (splash_width - logo_width) // 2
+        logo_y = 40
+        
+        # Draw the logo
+        logo_renderer.render(painter, QtCore.QRectF(logo_x, logo_y, logo_width, logo_height))
         
         # Draw subtitle
         subtitle_font = QtGui.QFont("Segoe UI", 14)
         painter.setFont(subtitle_font)
         painter.setPen(QtGui.QColor(200, 200, 200))
-        painter.drawText(42, 140, "Finite Element Modeling GUI")
+        painter.drawText(42, 210, "Finite Element Modeling GUI")
         
         # Import version info from version checker
         from utils.version_checker import CURRENT_VERSION, UpdateChannel
@@ -145,7 +151,7 @@ class ModseeSplashScreen(QtWidgets.QSplashScreen):
         
         # Position version info below the subtitle with proper spacing
         version_text = f"Version {CURRENT_VERSION} ({channel_name})"
-        painter.drawText(42, 180, version_text)
+        painter.drawText(42, 240, version_text)
         
         # Add design element - left side accent
         painter.fillRect(0, 4, 8, splash_height-4, QtGui.QColor(0, 120, 215, 100))
