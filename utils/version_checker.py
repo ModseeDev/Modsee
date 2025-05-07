@@ -119,11 +119,11 @@ class VersionChecker(QObject):
     
     def initialize(self) -> None:
         """Initialize the version checker component."""
-        logger.debug("Initializing VersionChecker")
+        logger.info("Initializing VersionChecker")
     
     def shutdown(self) -> None:
         """Shutdown the version checker component."""
-        logger.debug("Shutting down VersionChecker")
+        logger.info("Shutting down VersionChecker")
         # Cancel any running check
         if self._check_task and self._check_task.is_alive():
             self._check_task.join(0.1)  # Try to join thread with timeout
@@ -275,7 +275,7 @@ class VersionChecker(QObject):
         """
         # Don't start a new check if one is already running
         if self._check_task and self._check_task.is_alive():
-            logger.debug("Update check already running")
+            logger.info("Update check already running")
             return
         
         # Create a new event loop for the async task

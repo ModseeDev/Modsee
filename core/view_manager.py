@@ -49,7 +49,7 @@ class ViewManager(ViewComponent):
             logger.warning(f"Dock '{name}' already registered, replacing")
         
         self._docks[name] = dock
-        logger.debug(f"Registered dock: {name}")
+        logger.info(f"Registered dock: {name}")
     
     def get_dock(self, name: str) -> Optional[Any]:
         """
@@ -75,7 +75,7 @@ class ViewManager(ViewComponent):
             logger.warning(f"View '{name}' already registered, replacing")
         
         self._views[name] = view
-        logger.debug(f"Registered view: {name}")
+        logger.info(f"Registered view: {name}")
     
     def get_view(self, name: str) -> Optional[Any]:
         """
@@ -101,7 +101,7 @@ class ViewManager(ViewComponent):
         """
         if name in self._views:
             self._active_view = name
-            logger.debug(f"Set active view: {name}")
+            logger.info(f"Set active view: {name}")
             return True
         
         return False
@@ -126,7 +126,7 @@ class ViewManager(ViewComponent):
             if hasattr(view, 'refresh'):
                 view.refresh()
         
-        logger.debug("Refreshed all views")
+        logger.info("Refreshed all views")
     
     def refresh_view(self, name: str) -> bool:
         """
@@ -141,7 +141,7 @@ class ViewManager(ViewComponent):
         view = self._views.get(name)
         if view and hasattr(view, 'refresh'):
             view.refresh()
-            logger.debug(f"Refreshed view: {name}")
+            logger.info(f"Refreshed view: {name}")
             return True
         
         return False
@@ -153,7 +153,7 @@ class ViewManager(ViewComponent):
         active_view = self.get_active_view()
         if active_view and hasattr(active_view, 'refresh'):
             active_view.refresh()
-            logger.debug(f"Refreshed active view: {self._active_view}")
+            logger.info(f"Refreshed active view: {self._active_view}")
     
     def reset(self) -> None:
         """

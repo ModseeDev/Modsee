@@ -38,7 +38,7 @@ class ModelExplorerWidget(QWidget):
         self._init_ui()
         self._connect_signals()
         
-        logger.debug("ModelExplorerWidget initialized")
+        logger.info("ModelExplorerWidget initialized")
     
     def _init_ui(self):
         """Initialize the user interface."""
@@ -125,28 +125,49 @@ class ModelExplorerWidget(QWidget):
     
     def refresh(self):
         """Refresh the tree widget with current model data."""
+        logger.debug("ModelExplorerWidget: Refresh method called.")
         if not self.model_manager:
+            logger.debug("ModelExplorerWidget: No model manager found during refresh. Returning.")
             return
+        else:
+            logger.debug(f"ModelExplorerWidget: Model manager found: {self.model_manager} (id: {id(self.model_manager)})")
+            logger.debug(f"ModelExplorerWidget: Attributes of model_manager: {dir(self.model_manager)}")
             
         # Clear existing items but keep categories
         for category_item in self.category_items.values():
             category_item.takeChildren()
         
         # Add nodes
-        if hasattr(self.model_manager, 'nodes'):
+        # Call _populate_nodes if model_manager has a way to get nodes
+        if hasattr(self.model_manager, 'nodes') or hasattr(self.model_manager, '_nodes') or hasattr(self.model_manager, 'get_nodes'):
+            logger.debug("ModelExplorerWidget: Found a way to access nodes on model_manager. Calling _populate_nodes.")
             self._populate_nodes()
+        else:
+            logger.debug("ModelExplorerWidget: No recognized way to access nodes (nodes, _nodes, get_nodes) found on model_manager.")
             
         # Add elements
-        if hasattr(self.model_manager, 'elements'):
+        # Call _populate_elements if model_manager has a way to get elements
+        if hasattr(self.model_manager, 'elements') or hasattr(self.model_manager, '_elements') or hasattr(self.model_manager, 'get_elements'):
+            logger.debug("ModelExplorerWidget: Found a way to access elements on model_manager. Calling _populate_elements.")
             self._populate_elements()
+        else:
+            logger.debug("ModelExplorerWidget: No recognized way to access elements (elements, _elements, get_elements) found on model_manager.")
             
         # Add materials
-        if hasattr(self.model_manager, 'materials'):
+        # Similar logic for materials - check for common patterns
+        if hasattr(self.model_manager, 'materials') or hasattr(self.model_manager, '_materials') or hasattr(self.model_manager, 'get_materials'):
+            logger.debug("ModelExplorerWidget: Found a way to access materials on model_manager. Calling _populate_materials.")
             self._populate_materials()
+        else:
+            logger.debug("ModelExplorerWidget: No recognized way to access materials (materials, _materials, get_materials) found on model_manager.")
             
         # Add sections
-        if hasattr(self.model_manager, 'sections'):
+        # Similar logic for sections - check for common patterns
+        if hasattr(self.model_manager, 'sections') or hasattr(self.model_manager, '_sections') or hasattr(self.model_manager, 'get_sections'):
+            logger.debug("ModelExplorerWidget: Found a way to access sections on model_manager. Calling _populate_sections.")
             self._populate_sections()
+        else:
+            logger.debug("ModelExplorerWidget: No recognized way to access sections (sections, _sections, get_sections) found on model_manager.")
         
         # Update selection highlights
         self._update_selection_from_model()
@@ -154,34 +175,44 @@ class ModelExplorerWidget(QWidget):
     def _populate_nodes(self):
         """Populate the tree with nodes from the model."""
         nodes_item = self.category_items["nodes"]
+        logger.debug(f"ModelExplorerWidget: Populating nodes. Nodes item: {nodes_item}")
         
         # Handle different model_manager implementations
         if hasattr(self.model_manager, 'nodes'):
             # Registry-based implementation
-            for node_id, node in enumerate(self.model_manager.nodes.all(), 1):
+            nodes_all = list(self.model_manager.nodes.all())
+            logger.debug(f"ModelExplorerWidget: Found {len(nodes_all)} nodes from registry.")
+            for node_id, node in enumerate(nodes_all, 1):
                 node_name = node.metadata.name if hasattr(node, 'metadata') else f"Node {node_id}"
                 node_item = QTreeWidgetItem(nodes_item, [node_name, "Node", str(node_id)])
                 node_item.setData(0, Qt.ItemDataRole.UserRole, ("node", node_id))
         elif hasattr(self.model_manager, '_nodes'):
             # Dictionary-based implementation
+            logger.debug(f"ModelExplorerWidget: Found {len(self.model_manager._nodes)} nodes from dictionary.")
             for node_id, node in self.model_manager._nodes.items():
                 node_item = QTreeWidgetItem(nodes_item, [f"Node {node_id}", "Node", str(node_id)])
                 node_item.setData(0, Qt.ItemDataRole.UserRole, ("node", node_id))
+        else:
+            logger.debug("ModelExplorerWidget: No known node attribute found on model_manager (_nodes or nodes)")
     
     def _populate_elements(self):
         """Populate the tree with elements from the model."""
         elements_item = self.category_items["elements"]
+        logger.debug(f"ModelExplorerWidget: Populating elements. Elements item: {elements_item}")
         
         # Handle different model_manager implementations
         if hasattr(self.model_manager, 'elements'):
             # Registry-based implementation
-            for element_id, element in enumerate(self.model_manager.elements.all(), 1):
+            elements_all = list(self.model_manager.elements.all())
+            logger.debug(f"ModelExplorerWidget: Found {len(elements_all)} elements from registry.")
+            for element_id, element in enumerate(elements_all, 1):
                 element_type = element.get_element_type() if hasattr(element, 'get_element_type') else "Element"
                 element_name = element.metadata.name if hasattr(element, 'metadata') else f"{element_type} {element_id}"
                 element_item = QTreeWidgetItem(elements_item, [element_name, element_type, str(element_id)])
                 element_item.setData(0, Qt.ItemDataRole.UserRole, ("element", element_id))
         elif hasattr(self.model_manager, '_elements'):
             # Dictionary-based implementation
+            logger.debug(f"ModelExplorerWidget: Found {len(self.model_manager._elements)} elements from dictionary.")
             for element_id, element in self.model_manager._elements.items():
                 element_type = element.get_element_type() if hasattr(element, 'get_element_type') else "Element"
                 element_name = element.metadata.name if hasattr(element, 'metadata') else f"{element_type} {element_id}"
@@ -189,12 +220,16 @@ class ModelExplorerWidget(QWidget):
                 element_item.setData(0, Qt.ItemDataRole.UserRole, ("element", element_id))
         elif hasattr(self.model_manager, 'get_elements'):
             # Function-based implementation
-            for element in self.model_manager.get_elements():
+            elements_all = list(self.model_manager.get_elements())
+            logger.debug(f"ModelExplorerWidget: Found {len(elements_all)} elements from get_elements().")
+            for element in elements_all:
                 element_id = element.id
                 element_type = element.get_element_type() if hasattr(element, 'get_element_type') else "Element"
                 element_name = element.metadata.name if hasattr(element, 'metadata') else f"{element_type} {element_id}"
                 element_item = QTreeWidgetItem(elements_item, [element_name, element_type, str(element_id)])
                 element_item.setData(0, Qt.ItemDataRole.UserRole, ("element", element_id))
+        else:
+            logger.debug("ModelExplorerWidget: No known element attribute found on model_manager (_elements, elements or get_elements)")
     
     def _populate_materials(self):
         """Populate the tree with materials from the model."""
@@ -439,7 +474,7 @@ class ModelExplorerWidget(QWidget):
     
     def _on_add_to_category(self, category_name):
         """Handle Add to specific category."""
-        logger.debug(f"Add to category: {category_name}")
+        logger.info(f"Add to category: {category_name}")
         
         if category_name == "nodes":
             # Call node creation dialog
@@ -601,7 +636,7 @@ class ModelExplorerWidget(QWidget):
     
     def _on_remove_item(self, obj_type, obj_id):
         """Remove specific item from model."""
-        logger.debug(f"Remove item: {obj_type} {obj_id}")
+        logger.info(f"Remove item: {obj_type} {obj_id}")
         
         if not self.model_manager:
             return
@@ -652,7 +687,7 @@ class PropertiesWidget(QWidget):
         self._init_ui()
         self._connect_signals()
         
-        logger.debug("PropertiesWidget initialized")
+        logger.info("PropertiesWidget initialized")
     
     def _init_ui(self):
         """Initialize the user interface."""
@@ -1095,7 +1130,7 @@ class PropertiesWidget(QWidget):
             self.apply_button.setEnabled(False)
             self.reset_button.setEnabled(False)
             
-            logger.debug(f"Applied changes to {self._current_object_type} {self._current_object_id}")
+            logger.info(f"Applied changes to {self._current_object_type} {self._current_object_id}")
         except Exception as e:
             logger.error(f"Error applying changes: {str(e)}")
             QMessageBox.warning(self, "Error", f"Failed to apply changes: {str(e)}")
@@ -1275,7 +1310,7 @@ class ConsoleWidget(QWidget):
         # Set up logging handler to capture all logs
         self._setup_logging_handler()
         
-        logger.debug("ConsoleWidget initialized")
+        logger.info("ConsoleWidget initialized")
     
     def _init_ui(self):
         """Initialize the user interface."""

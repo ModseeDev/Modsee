@@ -65,7 +65,7 @@ class ModelManager(ModelComponent):
             node: The node object.
         """
         self._nodes[node_id] = node
-        logger.debug(f"Added node: {node_id}")
+        logger.info(f"Added node: {node_id}")
         
         # Notify listeners that the model has changed
         self.model_changed()
@@ -108,7 +108,7 @@ class ModelManager(ModelComponent):
             if node in self._selection:
                 self._selection.remove(node)
             
-            logger.debug(f"Removed node: {node_id}")
+            logger.info(f"Removed node: {node_id}")
             
             # Notify listeners that the model has changed
             self.model_changed()
@@ -125,7 +125,7 @@ class ModelManager(ModelComponent):
             element: The element object.
         """
         self._elements[element_id] = element
-        logger.debug(f"Added element: {element_id}")
+        logger.info(f"Added element: {element_id}")
         
         # Notify listeners that the model has changed
         self.model_changed()
@@ -168,7 +168,7 @@ class ModelManager(ModelComponent):
             if element in self._selection:
                 self._selection.remove(element)
             
-            logger.debug(f"Removed element: {element_id}")
+            logger.info(f"Removed element: {element_id}")
             
             # Notify listeners that the model has changed
             self.model_changed()
@@ -185,7 +185,7 @@ class ModelManager(ModelComponent):
         """
         if obj not in self._selection:
             self._selection.add(obj)
-            logger.debug(f"Selected object: {obj}")
+            logger.info(f"Selected object: {obj}")
             
             # Notify listeners that the selection has changed
             self.selection_changed()
@@ -199,7 +199,7 @@ class ModelManager(ModelComponent):
         """
         if obj in self._selection:
             self._selection.remove(obj)
-            logger.debug(f"Deselected object: {obj}")
+            logger.info(f"Deselected object: {obj}")
             
             # Notify listeners that the selection has changed
             self.selection_changed()
@@ -214,7 +214,7 @@ class ModelManager(ModelComponent):
         self._selection.update(self._elements.values())
         
         if len(self._selection) != original_size:
-            logger.debug("Selected all objects")
+            logger.info("Selected all objects")
             
             # Notify listeners that the selection has changed
             self.selection_changed()
@@ -225,7 +225,7 @@ class ModelManager(ModelComponent):
         """
         if self._selection:
             self._selection.clear()
-            logger.debug("Deselected all objects")
+            logger.info("Deselected all objects")
             
             # Notify listeners that the selection has changed
             self.selection_changed()
@@ -275,7 +275,7 @@ class ModelManager(ModelComponent):
         if hasattr(self, 'app') and self.app:
             self.app.is_modified = True
         
-        logger.debug("Model changed")
+        logger.info("Model changed")
     
     def selection_changed(self) -> None:
         """
@@ -284,13 +284,13 @@ class ModelManager(ModelComponent):
         This method is called when the selection changes.
         It should be overridden by integration code to handle the changes.
         """
-        logger.debug("Selection changed")
+        logger.info("Selection changed")
     
     # --- Add Material Methods --- 
     def add_material(self, material_id: int, material: Any) -> None:
         """Add a material to the model."""
         self._materials[material_id] = material
-        logger.debug(f"Added material: {material_id}")
+        logger.info(f"Added material: {material_id}")
         self.model_changed()
         
     def get_material(self, material_id: int) -> Optional[Any]:
@@ -307,7 +307,7 @@ class ModelManager(ModelComponent):
             material = self._materials.pop(material_id)
             if material in self._selection:
                 self._selection.remove(material)
-            logger.debug(f"Removed material: {material_id}")
+            logger.info(f"Removed material: {material_id}")
             self.model_changed()
             return True
         return False
@@ -316,7 +316,7 @@ class ModelManager(ModelComponent):
     def add_section(self, section_id: int, section: Any) -> None:
         """Add a section to the model."""
         self._sections[section_id] = section
-        logger.debug(f"Added section: {section_id}")
+        logger.info(f"Added section: {section_id}")
         self.model_changed()
         
     def get_section(self, section_id: int) -> Optional[Any]:
@@ -333,7 +333,7 @@ class ModelManager(ModelComponent):
             section = self._sections.pop(section_id)
             if section in self._selection:
                 self._selection.remove(section)
-            logger.debug(f"Removed section: {section_id}")
+            logger.info(f"Removed section: {section_id}")
             self.model_changed()
             return True
         return False
@@ -342,7 +342,7 @@ class ModelManager(ModelComponent):
     def add_constraint(self, constraint_id: int, constraint: Any) -> None:
         """Add a constraint/boundary condition to the model."""
         self._constraints[constraint_id] = constraint
-        logger.debug(f"Added constraint: {constraint_id}")
+        logger.info(f"Added constraint: {constraint_id}")
         self.model_changed()
         
     def get_constraint(self, constraint_id: int) -> Optional[Any]:
@@ -359,7 +359,7 @@ class ModelManager(ModelComponent):
             constraint = self._constraints.pop(constraint_id)
             if constraint in self._selection:
                 self._selection.remove(constraint)
-            logger.debug(f"Removed constraint: {constraint_id}")
+            logger.info(f"Removed constraint: {constraint_id}")
             self.model_changed()
             return True
         return False 

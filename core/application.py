@@ -65,7 +65,7 @@ class ApplicationManager:
             logger.warning(f"Component '{name}' already registered, replacing")
         
         self._components[name] = component
-        logger.debug(f"Registered component: {name}")
+        logger.info(f"Registered component: {name}")
     
     def get_component(self, name: str) -> Optional[Any]:
         """
@@ -85,7 +85,7 @@ class ApplicationManager:
         """
         for name, component in self._components.items():
             if hasattr(component, 'initialize'):
-                logger.debug(f"Initializing component: {name}")
+                logger.info(f"Initializing component: {name}")
                 component.initialize()
     
     def shutdown_components(self) -> None:
@@ -94,7 +94,7 @@ class ApplicationManager:
         """
         for name, component in self._components.items():
             if hasattr(component, 'shutdown'):
-                logger.debug(f"Shutting down component: {name}")
+                logger.info(f"Shutting down component: {name}")
                 component.shutdown()
     
     def new_project(self) -> bool:

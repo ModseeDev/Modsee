@@ -513,7 +513,7 @@ class FileService(ServiceComponent):
             oldest = next(iter(self._recent_files))
             self._recent_files.pop(oldest)
         
-        logger.debug(f"Added to recent files: {file_path}")
+        logger.info(f"Added to recent files: {file_path}")
     
     def get_recent_files(self) -> Dict[str, str]:
         """
@@ -529,7 +529,7 @@ class FileService(ServiceComponent):
         Clear the list of recent files.
         """
         self._recent_files.clear()
-        logger.debug("Cleared recent files")
+        logger.info("Cleared recent files")
     
     def export_to_opensees_tcl(self, file_path: Path, data: Dict[str, Any]) -> bool:
         """

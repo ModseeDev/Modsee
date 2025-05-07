@@ -45,7 +45,7 @@ class SelectionInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
         # Actor data cache (maps actor -> model object)
         self._actor_data: Dict[vtk.vtkActor, Tuple[str, int]] = {}
         
-        logger.debug("SelectionInteractorStyle initialized")
+        logger.info("SelectionInteractorStyle initialized")
     
     def set_model_manager(self, model_manager: Any) -> None:
         """
@@ -55,7 +55,7 @@ class SelectionInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
             model_manager: The model manager.
         """
         self._model_manager = model_manager
-        logger.debug("Model manager set in selection style")
+        logger.info("Model manager set in selection style")
     
     def set_renderer_manager(self, renderer_manager: Any) -> None:
         """
@@ -65,7 +65,7 @@ class SelectionInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
             renderer_manager: The renderer manager.
         """
         self._renderer_manager = renderer_manager
-        logger.debug("Renderer manager set in selection style")
+        logger.info("Renderer manager set in selection style")
     
     def register_actor(self, actor: vtk.vtkActor, obj_type: str, obj_id: int) -> None:
         """
@@ -104,7 +104,7 @@ class SelectionInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
         snapped_y = round(y / spacing) * spacing
         snapped_z = round(z / spacing) * spacing
         
-        logger.debug(f"Snapped point ({x:.3f}, {y:.3f}, {z:.3f}) to grid: ({snapped_x:.3f}, {snapped_y:.3f}, {snapped_z:.3f})")
+        logger.info(f"Snapped point ({x:.3f}, {y:.3f}, {z:.3f}) to grid: ({snapped_x:.3f}, {snapped_y:.3f}, {snapped_z:.3f})")
         
         return (snapped_x, snapped_y, snapped_z)
 
@@ -167,7 +167,7 @@ class SelectionInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
                     elif shift_key:
                         self._model_manager.select(model_obj)
                     
-                    logger.debug(f"Selected {obj_type} {obj_id}")
+                    logger.info(f"Selected {obj_type} {obj_id}")
         elif not (ctrl_key or shift_key):
             # If we didn't pick anything and no modifier key is pressed, 
             # deselect all

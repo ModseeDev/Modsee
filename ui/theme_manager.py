@@ -358,7 +358,7 @@ class ThemeManager(QObject):
         # Set up global application stylesheet
         self._apply_stylesheet(app)
         
-        logger.debug("Applied theme to application palette and stylesheet")
+        logger.info("Applied theme to application palette and stylesheet")
     
     def _apply_stylesheet(self, app: QApplication) -> None:
         """

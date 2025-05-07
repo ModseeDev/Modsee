@@ -87,7 +87,7 @@ class VTKWidget(QFrame):
         """
         self._model_manager = model_manager
         self.selection_style.set_model_manager(model_manager)
-        logger.debug("Model manager set in VTKWidget")
+        logger.info("Model manager set in VTKWidget")
     
     def set_renderer_manager(self, renderer_manager: Any) -> None:
         """
@@ -97,7 +97,7 @@ class VTKWidget(QFrame):
             renderer_manager: The renderer manager instance.
         """
         self.selection_style.set_renderer_manager(renderer_manager)
-        logger.debug("Renderer manager set in selection style for grid snapping")
+        logger.info("Renderer manager set in selection style for grid snapping")
     
     def set_background_color(self, color: Tuple[float, float, float]) -> None:
         """
@@ -156,26 +156,26 @@ class VTKWidget(QFrame):
             self.rotate_style = vtk.vtkInteractorStyleTrackballCamera()
             self.vtk_widget.SetInteractorStyle(self.rotate_style)
             self.interactor_style = self.rotate_style
-            logger.debug("Camera mode set to rotate")
+            logger.info("Camera mode set to rotate")
         elif mode.lower() == 'pan':
             # Create a fresh pan-optimized interactor style
             # Using joystick camera style which has better pan support
             self.pan_style = vtk.vtkInteractorStyleJoystickCamera()
             self.vtk_widget.SetInteractorStyle(self.pan_style)
             self.interactor_style = self.pan_style
-            logger.debug("Camera mode set to pan")
+            logger.info("Camera mode set to pan")
         elif mode.lower() == 'zoom':
             # Create a fresh zoom-optimized interactor style
             # Using terrain style which has better zoom support
             self.zoom_style = vtk.vtkInteractorStyleTerrain()
             self.vtk_widget.SetInteractorStyle(self.zoom_style)
             self.interactor_style = self.zoom_style
-            logger.debug("Camera mode set to zoom")
+            logger.info("Camera mode set to zoom")
         elif mode.lower() == 'select':
             # Use the selection style
             self.vtk_widget.SetInteractorStyle(self.selection_style)
             self.interactor_style = self.selection_style
-            logger.debug("Camera mode set to select")
+            logger.info("Camera mode set to select")
         else:
             logger.warning(f"Unknown camera mode: {mode}, defaulting to rotate")
             self.rotate_style = vtk.vtkInteractorStyleTrackballCamera()
@@ -208,7 +208,7 @@ class VTKWidget(QFrame):
         old_focal = camera.GetFocalPoint()
         old_view_up = camera.GetViewUp()
         
-        logger.debug(f"Before rotation - Position: {old_pos}, Focal: {old_focal}, ViewUp: {old_view_up}")
+        logger.info(f"Before rotation - Position: {old_pos}, Focal: {old_focal}, ViewUp: {old_view_up}")
         
         # Reset to standard position
         camera.SetPosition(0, 0, 1)  # Start at a standard position
@@ -225,11 +225,11 @@ class VTKWidget(QFrame):
         new_focal = camera.GetFocalPoint()
         new_view_up = camera.GetViewUp()
         
-        logger.debug(f"After rotation - Position: {new_pos}, Focal: {new_focal}, ViewUp: {new_view_up}")
+        logger.info(f"After rotation - Position: {new_pos}, Focal: {new_focal}, ViewUp: {new_view_up}")
         
         self.renderer.ResetCamera()
         self.render()
-        logger.debug(f"Camera rotated to azimuth: {azimuth}, elevation: {elevation}")
+        logger.info(f"Camera rotated to azimuth: {azimuth}, elevation: {elevation}")
     
     def zoom_camera(self, factor: float) -> None:
         """
@@ -241,7 +241,7 @@ class VTKWidget(QFrame):
         camera = self.renderer.GetActiveCamera()
         camera.Zoom(factor)
         self.render()
-        logger.debug(f"Camera zoomed by factor: {factor}")
+        logger.info(f"Camera zoomed by factor: {factor}")
     
     def pan_camera(self, dx: float, dy: float) -> None:
         """
@@ -306,7 +306,7 @@ class VTKWidget(QFrame):
         camera.SetFocalPoint(new_focal)
         
         self.render()
-        logger.debug(f"Camera panned by dx: {dx}, dy: {dy}")
+        logger.info(f"Camera panned by dx: {dx}, dy: {dy}")
     
     def add_actor(self, name: str, actor: vtk.vtkProp, 
                   obj_type: Optional[str] = None, obj_id: Optional[int] = None) -> None:
@@ -335,7 +335,7 @@ class VTKWidget(QFrame):
         
         # Add to renderer
         self.renderer.AddActor(actor)
-        logger.debug(f"Added actor: {name}")
+        logger.info(f"Added actor: {name}")
     
     def highlight_object(self, name: str, original_actor: vtk.vtkActor, 
                          highlight_color: Tuple[float, float, float] = (1.0, 1.0, 0.0)) -> None:
@@ -379,7 +379,7 @@ class VTKWidget(QFrame):
         self.highlight_actors[highlight_name] = highlight_actor
         self.renderer.AddActor(highlight_actor)
         self.render()
-        logger.debug(f"Highlighted object: {name}")
+        logger.info(f"Highlighted object: {name}")
     
     def remove_highlight(self, name: str) -> bool:
         """
@@ -397,7 +397,7 @@ class VTKWidget(QFrame):
             self.renderer.RemoveActor(highlight_actor)
             del self.highlight_actors[highlight_name]
             self.render()
-            logger.debug(f"Removed highlight for object: {name}")
+            logger.info(f"Removed highlight for object: {name}")
             return True
         return False
     
@@ -424,7 +424,7 @@ class VTKWidget(QFrame):
                 self.renderer.RemoveActor(highlight_actor)
                 del self.highlight_actors[highlight_name]
             
-            logger.debug(f"Removed actor: {name}")
+            logger.info(f"Removed actor: {name}")
             return True
         
         return False
@@ -443,7 +443,7 @@ class VTKWidget(QFrame):
         self.actors = {}
         self.highlight_actors = {}
         
-        logger.debug("Cleared all actors")
+        logger.info("Cleared all actors")
     
     def update_selection_highlights(self, selected_objects: List[Any]) -> None:
         """
@@ -494,13 +494,13 @@ class VTKWidget(QFrame):
         # which means looking down the Z axis (with Y up)
         if direction.lower() == 'xy':
             # When viewing the XY plane, we look down the Z-axis (elevation=90)
-            logger.debug("XY view: Setting camera to azimuth=0, elevation=90 (looking down Z-axis)")
+            logger.info("XY view: Setting camera to azimuth=0, elevation=90 (looking down Z-axis)")
             self.rotate_camera_to(0, 90)
         # When we say "XZ view", we mean looking at the XZ plane, 
         # which means looking along the negative Y axis (with Z up)
         elif direction.lower() == 'xz':
             # When viewing the XZ plane, we look along the -Y-axis
-            logger.debug("XZ view: Setting camera to azimuth=0, elevation=0 (looking along -Y-axis)")
+            logger.info("XZ view: Setting camera to azimuth=0, elevation=0 (looking along -Y-axis)")
             # Looking along -Y axis with Z up
             camera = self.renderer.GetActiveCamera()
             camera.SetPosition(0, -1, 0)  # Position along -Y axis
@@ -512,7 +512,7 @@ class VTKWidget(QFrame):
         # which means looking along the negative X axis (with Z up)
         elif direction.lower() == 'yz':
             # When viewing the YZ plane, we look along the -X-axis
-            logger.debug("YZ view: Setting camera to looking along -X-axis (with Z up)")
+            logger.info("YZ view: Setting camera to looking along -X-axis (with Z up)")
             # Looking along -X axis with Z up
             camera = self.renderer.GetActiveCamera()
             camera.SetPosition(-1, 0, 0)  # Position along -X axis
@@ -522,7 +522,7 @@ class VTKWidget(QFrame):
             self.render()
         elif direction.lower() == 'iso':
             # Isometric view
-            logger.debug("Isometric view: Setting camera to azimuth=45, elevation=35")
+            logger.info("Isometric view: Setting camera to azimuth=45, elevation=35")
             self.rotate_camera_to(45, 35)
         else:
             logger.warning(f"Unknown view direction: {direction}")

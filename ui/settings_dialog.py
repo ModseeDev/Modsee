@@ -678,7 +678,7 @@ class SettingsDialog(QDialog):
         settings['overwrite_results'] = settings_obj.value('overwrite_results', False, type=bool)
         settings['default_units'] = settings_obj.value('default_units', 'SI', type=str)
         
-        logger.debug("Settings loaded from QSettings")
+        logger.info("Settings loaded from QSettings")
         return settings
     
     def _save_settings(self):

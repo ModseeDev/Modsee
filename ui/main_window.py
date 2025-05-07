@@ -19,6 +19,7 @@ from PyQt6.QtGui import QAction, QIcon, QActionGroup
 
 from ui.vtk_widget import VTKWidget
 from model.base.core import ModelObjectType
+from ui.dock_widgets import ModelExplorerWidget, PropertiesWidget, ConsoleWidget
 
 logger = logging.getLogger('modsee.ui.main_window')
 
@@ -60,6 +61,41 @@ class MainWindow(QMainWindow):
         
         logger.info("MainWindow initialized")
     
+    def _reregister_dock_widgets_with_view_manager(self):
+        """
+        Ensures that the main window's dock widgets are registered with the ViewManager.
+        This is typically called after ViewManager might have been reset (e.g., after project load).
+        """
+        if not self.view_manager:
+            logger.warning("MainWindow: ViewManager not available, cannot re-register dock widgets.")
+            return
+
+        logger.info("MainWindow: Attempting to re-register dock widgets with ViewManager.")
+
+        # Model Explorer
+        model_explorer_widget_instance = self.model_explorer_dock.widget()
+        if model_explorer_widget_instance and isinstance(model_explorer_widget_instance, ModelExplorerWidget):
+            logger.info(f"MainWindow: Re-registering ModelExplorerWidget ({type(model_explorer_widget_instance)}) with ViewManager as 'model_explorer'.")
+            self.view_manager.register_view('model_explorer', model_explorer_widget_instance)
+        else:
+            logger.warning(f"MainWindow: Could not re-register ModelExplorerWidget. Expected ModelExplorerWidget, got: {type(model_explorer_widget_instance)}")
+
+        # Properties Widget
+        properties_widget_instance = self.properties_dock.widget()
+        if properties_widget_instance and isinstance(properties_widget_instance, PropertiesWidget):
+            logger.info(f"MainWindow: Re-registering PropertiesWidget ({type(properties_widget_instance)}) with ViewManager as 'properties'.")
+            self.view_manager.register_view('properties', properties_widget_instance)
+        else:
+            logger.warning(f"MainWindow: Could not re-register PropertiesWidget. Expected PropertiesWidget, got: {type(properties_widget_instance)}")
+
+        # Console Widget
+        console_widget_instance = self.console_dock.widget()
+        if console_widget_instance and isinstance(console_widget_instance, ConsoleWidget):
+            logger.info(f"MainWindow: Re-registering ConsoleWidget ({type(console_widget_instance)}) with ViewManager as 'console'.")
+            self.view_manager.register_view('console', console_widget_instance)
+        else:
+            logger.warning(f"MainWindow: Could not re-register ConsoleWidget. Expected ConsoleWidget, got: {type(console_widget_instance)}")
+
     def _init_ui(self):
         """Initialize the user interface."""
         # Set window properties
@@ -767,10 +803,18 @@ class MainWindow(QMainWindow):
             Qt.DockWidgetArea.LeftDockWidgetArea | 
             Qt.DockWidgetArea.RightDockWidgetArea
         )
-        self.model_explorer_widget = QWidget()
-        self.model_explorer_dock.setWidget(self.model_explorer_widget)
+        # Correctly instantiate and set ModelExplorerWidget
+        model_explorer_instance = ModelExplorerWidget(model_manager=self.model_manager)
+        self.model_explorer_dock.setWidget(model_explorer_instance)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.model_explorer_dock)
         self.dock_widgets['model_explorer'] = self.model_explorer_dock
+        
+        # Register with ViewManager
+        if self.view_manager:
+            logger.info(f"MainWindow: Registering ModelExplorerWidget ({type(model_explorer_instance)}) with ViewManager as 'model_explorer'.")
+            self.view_manager.register_view('model_explorer', model_explorer_instance)
+        else:
+            logger.warning("MainWindow: ViewManager not available, cannot register ModelExplorerWidget.")
         
         # Properties dock
         self.properties_dock = QDockWidget("Properties", self)
@@ -778,10 +822,18 @@ class MainWindow(QMainWindow):
             Qt.DockWidgetArea.LeftDockWidgetArea | 
             Qt.DockWidgetArea.RightDockWidgetArea
         )
-        self.properties_widget = QWidget()
-        self.properties_dock.setWidget(self.properties_widget)
+        # Correctly instantiate and set PropertiesWidget
+        properties_instance = PropertiesWidget(model_manager=self.model_manager)
+        self.properties_dock.setWidget(properties_instance)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.properties_dock)
         self.dock_widgets['properties'] = self.properties_dock
+
+        # Register with ViewManager
+        if self.view_manager:
+            logger.info(f"MainWindow: Registering PropertiesWidget ({type(properties_instance)}) with ViewManager as 'properties'.")
+            self.view_manager.register_view('properties', properties_instance)
+        else:
+            logger.warning("MainWindow: ViewManager not available, cannot register PropertiesWidget.")
         
         # Console dock
         self.console_dock = QDockWidget("Console", self)
@@ -789,10 +841,18 @@ class MainWindow(QMainWindow):
             Qt.DockWidgetArea.BottomDockWidgetArea |
             Qt.DockWidgetArea.TopDockWidgetArea
         )
-        self.console_widget = QWidget()
-        self.console_dock.setWidget(self.console_widget)
+        # Correctly instantiate and set ConsoleWidget
+        console_instance = ConsoleWidget()
+        self.console_dock.setWidget(console_instance)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.console_dock)
         self.dock_widgets['console'] = self.console_dock
+
+        # Register with ViewManager
+        if self.view_manager:
+            logger.info(f"MainWindow: Registering ConsoleWidget ({type(console_instance)}) with ViewManager as 'console'.")
+            self.view_manager.register_view('console', console_instance)
+        else:
+            logger.warning("MainWindow: ViewManager not available, cannot register ConsoleWidget.")
         
         # Add dock toggles to View menu
         self.view_menu.addSeparator()
@@ -830,7 +890,7 @@ class MainWindow(QMainWindow):
         else:
             self.status_bar.showMessage(f"Camera mode set to {mode}")
         
-        logger.debug(f"Camera mode set to {mode}")
+        logger.info(f"Camera mode set to {mode}")
 
     def set_view_direction(self, direction: str) -> None:
         """
@@ -901,9 +961,8 @@ class MainWindow(QMainWindow):
             success = self.app_manager.open_project(file_path)
             if success:
                 self.status_bar.showMessage(f"Opened {os.path.basename(file_path)}")
-                
-                # Update the recent files menu
                 self.update_recent_files_menu()
+                self._reregister_dock_widgets_with_view_manager()
             else:
                 self.status_bar.showMessage("Failed to open project")
     
@@ -1056,9 +1115,8 @@ class MainWindow(QMainWindow):
         success = self.app_manager.open_project(file_path)
         if success:
             self.status_bar.showMessage(f"Opened {os.path.basename(file_path)}")
-            
-            # Update the recent files menu
             self.update_recent_files_menu()
+            self._reregister_dock_widgets_with_view_manager()
         else:
             self.status_bar.showMessage("Failed to open project")
     
@@ -1319,8 +1377,16 @@ class MainWindow(QMainWindow):
         if show_node_dialog(self.model_manager, parent=self):
             # Node was created, refresh the model explorer if needed
             explorer = self.app_manager.get_component('view_manager').get_view('model_explorer')
+            # Reverted to logger.debug
+            logger.debug(f"MainWindow: Retrieved explorer from view_manager: {explorer}")
+            logger.debug(f"MainWindow: Expected explorer (self.model_explorer_dock.widget()): {self.model_explorer_dock.widget()}")
+            
             if explorer and hasattr(explorer, 'refresh'):
+                logger.debug("MainWindow: Calling explorer.refresh() after node creation.") # Reverted to debug
                 explorer.refresh()
+                logger.debug("MainWindow: Called explorer.refresh() after node creation.") # Reverted to debug
+            else:
+                logger.debug(f"MainWindow: Explorer not found, is None, or no refresh method after node creation. Explorer: {explorer}") # Reverted to debug
     
     def on_create_truss(self):
         """Create a new truss element."""
@@ -1330,8 +1396,16 @@ class MainWindow(QMainWindow):
         if show_truss_element_dialog(self.model_manager, parent=self):
             # Truss element was created, refresh the model explorer and renderer
             explorer = self.app_manager.get_component('view_manager').get_view('model_explorer')
+            # Reverted to logger.debug
+            logger.debug(f"MainWindow: Retrieved explorer from view_manager: {explorer}")
+            logger.debug(f"MainWindow: Expected explorer (self.model_explorer_dock.widget()): {self.model_explorer_dock.widget()}")
+            
             if explorer and hasattr(explorer, 'refresh'):
+                logger.debug("MainWindow: Calling explorer.refresh() after truss creation.") # Reverted to debug
                 explorer.refresh()
+                logger.debug("MainWindow: Called explorer.refresh() after truss creation.") # Reverted to debug
+            else:
+                logger.debug(f"MainWindow: Explorer not found, is None, or no refresh method after truss creation. Explorer: {explorer}") # Reverted to debug
             
             # Update the 3D view
             renderer = self.app_manager.get_component('renderer_manager')
@@ -1346,8 +1420,16 @@ class MainWindow(QMainWindow):
         if show_beam_element_dialog(self.model_manager, parent=self):
             # Beam element was created, refresh the model explorer and renderer
             explorer = self.app_manager.get_component('view_manager').get_view('model_explorer')
+            # Reverted to logger.debug
+            logger.debug(f"MainWindow: Retrieved explorer from view_manager: {explorer}")
+            logger.debug(f"MainWindow: Expected explorer (self.model_explorer_dock.widget()): {self.model_explorer_dock.widget()}")
+            
             if explorer and hasattr(explorer, 'refresh'):
+                logger.debug("MainWindow: Calling explorer.refresh() after beam creation.") # Reverted to debug
                 explorer.refresh()
+                logger.debug("MainWindow: Called explorer.refresh() after beam creation.") # Reverted to debug
+            else:
+                logger.debug(f"MainWindow: Explorer not found, is None, or no refresh method after beam creation. Explorer: {explorer}") # Reverted to debug
             
             # Update the 3D view
             renderer = self.app_manager.get_component('renderer_manager')
@@ -1712,7 +1794,7 @@ class MainWindow(QMainWindow):
         Args:
             status: The status of the check.
         """
-        logger.debug(f"Version check complete: {status}")
+        logger.info(f"Version check complete: {status}")
         
         # Update status bar
         self._update_status_bar()

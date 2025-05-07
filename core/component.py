@@ -23,7 +23,7 @@ class Component(ABC):
         """
         self._name = name
         self._app = None
-        logger.debug(f"Component '{name}' created")
+        logger.info(f"Component '{name}' created")
     
     @property
     def name(self) -> str:
@@ -44,19 +44,19 @@ class Component(ABC):
         """
         Initialize the component.
         """
-        logger.debug(f"Component '{self._name}' initialized")
+        logger.info(f"Component '{self._name}' initialized")
     
     def shutdown(self) -> None:
         """
         Shutdown the component.
         """
-        logger.debug(f"Component '{self._name}' shutdown")
+        logger.info(f"Component '{self._name}' shutdown")
     
     def reset(self) -> None:
         """
         Reset the component state.
         """
-        logger.debug(f"Component '{self._name}' reset")
+        logger.info(f"Component '{self._name}' reset")
 
 
 class ModelComponent(Component):
@@ -132,7 +132,7 @@ class Plugin(ABC):
         Initialize the plugin.
         """
         self._app = None
-        logger.debug(f"Plugin '{self.__class__.__name__}' created")
+        logger.info(f"Plugin '{self.__class__.__name__}' created")
     
     @property
     def app(self) -> Any:
@@ -147,10 +147,10 @@ class Plugin(ABC):
             app: The application instance.
         """
         self._app = app
-        logger.debug(f"Plugin '{self.__class__.__name__}' initialized")
+        logger.info(f"Plugin '{self.__class__.__name__}' initialized")
     
     def shutdown(self) -> None:
         """
         Shutdown the plugin.
         """
-        logger.debug(f"Plugin '{self.__class__.__name__}' shutdown") 
+        logger.info(f"Plugin '{self.__class__.__name__}' shutdown") 

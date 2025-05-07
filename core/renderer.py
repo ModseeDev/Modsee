@@ -133,7 +133,7 @@ class RendererManager(ViewComponent):
         # Refresh the visualization
         self.refresh()
         
-        logger.debug(f"Applied theme: {theme.name}")
+        logger.info(f"Applied theme: {theme.name}")
     
     def _init_vtk_widget(self) -> None:
         """Initialize the VTK widget with default settings."""
@@ -250,7 +250,7 @@ class RendererManager(ViewComponent):
         
         # Update visualization
         self._vtk_widget.update_selection_highlights(selected_objects)
-        logger.debug(f"Selection changed: {len(selected_objects)} objects selected")
+        logger.info(f"Selection changed: {len(selected_objects)} objects selected")
     
     def select_all(self) -> None:
         """
@@ -264,7 +264,7 @@ class RendererManager(ViewComponent):
             
         # Use the model manager's built-in select_all method
         self._model_manager.select_all()
-        logger.debug("Selected all objects in the model")
+        logger.info("Selected all objects in the model")
     
     def clear_selection(self) -> None:
         """
@@ -278,7 +278,7 @@ class RendererManager(ViewComponent):
             
         # Use the model manager's built-in deselect_all method
         self._model_manager.deselect_all()
-        logger.debug("Cleared all selections")
+        logger.info("Cleared all selections")
     
     def invert_selection(self) -> None:
         """
@@ -307,7 +307,7 @@ class RendererManager(ViewComponent):
             if obj not in current_selection:
                 self._model_manager.select(obj)
         
-        logger.debug("Inverted selection")
+        logger.info("Inverted selection")
     
     def get_selection(self) -> List[Any]:
         """
@@ -334,7 +334,7 @@ class RendererManager(ViewComponent):
         
         if self._vtk_widget:
             self._vtk_widget.set_camera_mode(mode)
-            logger.debug(f"Camera mode set to {mode}")
+            logger.info(f"Camera mode set to {mode}")
         else:
             logger.warning("Cannot set camera mode - VTK widget not set")
     
@@ -423,7 +423,7 @@ class RendererManager(ViewComponent):
         
         # Render the scene
         self._vtk_widget.render()
-        logger.debug(f"Grid visibility set to {visible}")
+        logger.info(f"Grid visibility set to {visible}")
     
     def set_grid_plane_visibility(self, plane: str, visible: bool) -> None:
         """
@@ -469,7 +469,7 @@ class RendererManager(ViewComponent):
             # Render the changes
             self._vtk_widget.render()
             
-            logger.debug(f"Grid plane {plane} visibility set to {visible}")
+            logger.info(f"Grid plane {plane} visibility set to {visible}")
         else:
             logger.warning(f"Cannot set grid plane visibility - VTK widget not set")
     
@@ -505,12 +505,12 @@ class RendererManager(ViewComponent):
         
         # Render the scene
         self._vtk_widget.render()
-        logger.debug(f"Axis visibility set to {visible}")
+        logger.info(f"Axis visibility set to {visible}")
     
     def toggle_grid(self) -> None:
         """Toggle grid visibility."""
         self.set_grid_visibility(not self._grid_enabled)
-        logger.debug(f"Grid visibility toggled to {self._grid_enabled}")
+        logger.info(f"Grid visibility toggled to {self._grid_enabled}")
     
     def toggle_grid_plane(self, plane: str, visible: bool) -> None:
         """
@@ -522,12 +522,12 @@ class RendererManager(ViewComponent):
         """
         logger.info(f"Toggling grid plane '{plane}' visibility to {visible}")
         self.set_grid_plane_visibility(plane, visible)
-        logger.debug(f"Grid plane {plane} visibility toggled to {visible}")
+        logger.info(f"Grid plane {plane} visibility toggled to {visible}")
     
     def toggle_axis(self) -> None:
         """Toggle axis visibility."""
         self.set_axis_visibility(not self._axis_enabled)
-        logger.debug(f"Axis visibility toggled to {self._axis_enabled}")
+        logger.info(f"Axis visibility toggled to {self._axis_enabled}")
     
     def update_model_visualization(self) -> None:
         """
@@ -630,7 +630,7 @@ class RendererManager(ViewComponent):
         # Refresh the view
         self._vtk_widget.render()
             
-        logger.debug(f"Updated visualization with {len(nodes)} nodes and {len(elements)} elements")
+        logger.info(f"Updated visualization with {len(nodes)} nodes and {len(elements)} elements")
     
     def _clear_model_actors(self) -> None:
         """Clear all model actors but keep grid, axis and other non-model actors."""
@@ -661,20 +661,20 @@ class RendererManager(ViewComponent):
             # When looking at a specific plane, make sure that plane's grid is visible
             if direction == 'xy':
                 # Looking at XY plane, ensure XY grid is visible
-                logger.debug("Ensuring XY grid is visible for XY view")
+                logger.info("Ensuring XY grid is visible for XY view")
                 self.set_grid_plane_visibility('xy', True)
             elif direction == 'xz':
                 # Looking at XZ plane, ensure XZ grid is visible
-                logger.debug("Ensuring XZ grid is visible for XZ view")
+                logger.info("Ensuring XZ grid is visible for XZ view")
                 self.set_grid_plane_visibility('xz', True)
             elif direction == 'yz':
                 # Looking at YZ plane, ensure YZ grid is visible
-                logger.debug("Ensuring YZ grid is visible for YZ view")
+                logger.info("Ensuring YZ grid is visible for YZ view")
                 self.set_grid_plane_visibility('yz', True)
                 
             # Set the view direction in the VTK widget
             self._vtk_widget.set_view_direction(direction)
-            logger.debug(f"View direction set to {direction}")
+            logger.info(f"View direction set to {direction}")
         else:
             logger.warning("Cannot set view direction - VTK widget not set")
     
@@ -776,7 +776,7 @@ class RendererManager(ViewComponent):
             unit: The unit to display (e.g., "m", "ft").
         """
         self._grid_unit = unit
-        logger.debug(f"Grid unit set to {unit}")
+        logger.info(f"Grid unit set to {unit}")
     
     def set_major_gridlines(self, show: bool, interval: int = 5) -> None:
         """
