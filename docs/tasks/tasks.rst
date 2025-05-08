@@ -288,9 +288,57 @@ Selection and Visualization Functionality
      - Done
      - High
    * - FUNC-023
-     - Develop section creation interfaces
+     - Develop OpenSees section creation interfaces (Umbrella for specific section types)
      - Not Started
      - High
+   * - FUNC-023.1
+     - Implement Elastic Section interface. Cmd: `section Elastic $secTag $E $A $Iz <$G $alphaY>` (2D) / `$secTag $E $A $Iz $Iy $G $J <$alphaY $alphaZ>` (3D). Params: $secTag (tag), $E (Young's Mod), $A (area), $Iz (Izz), $Iy (Iyy, 3D), $G (Shear Mod), $J (torsion const, 3D), $alphaY/Z (shear shape factors, opt).
+     - Not Started
+     - High
+   * - FUNC-023.2
+     - Implement Fiber Section creation interface. Define parameters based on OpenSees documentation.
+     - Not Started
+     - Medium
+   * - FUNC-023.3
+     - Implement NDFiber Section creation interface. Define parameters based on OpenSees documentation.
+     - Not Started
+     - Medium
+   * - FUNC-023.4
+     - Implement Wide Flange Section creation interface. Define parameters based on OpenSees documentation.
+     - Not Started
+     - Medium
+   * - FUNC-023.5
+     - Implement RC Section creation interface. Define parameters based on OpenSees documentation.
+     - Not Started
+     - Medium
+   * - FUNC-023.6
+     - Implement Parallel Section creation interface. Define parameters based on OpenSees documentation.
+     - Not Started
+     - Medium
+   * - FUNC-023.7
+     - Implement Section Aggregator creation interface. Define parameters based on OpenSees documentation.
+     - Not Started
+     - Medium
+   * - FUNC-023.8
+     - Implement Uniaxial Section creation interface. Define parameters based on OpenSees documentation.
+     - Not Started
+     - Medium
+   * - FUNC-023.9
+     - Implement Elastic Membrane Plate Section creation interface. Define parameters based on OpenSees documentation.
+     - Not Started
+     - Medium
+   * - FUNC-023.10
+     - Implement Plate Fiber Section creation interface. Define parameters based on OpenSees documentation.
+     - Not Started
+     - Medium
+   * - FUNC-023.11
+     - Implement Bidirectional Section creation interface. Define parameters based on OpenSees documentation.
+     - Not Started
+     - Medium
+   * - FUNC-023.12
+     - Implement Isolator2spring Section creation interface. Define parameters based on OpenSees documentation.
+     - Not Started
+     - Medium
    * - FUNC-024
      - Create boundary condition application interface
      - Not Started
