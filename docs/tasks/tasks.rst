@@ -289,7 +289,7 @@ Selection and Visualization Functionality
      - High
    * - FUNC-023
      - Develop OpenSees section creation interfaces (Umbrella for specific section types)
-     - Not Started
+     - Completed
      - High
    * - FUNC-023.1
      - Implement Elastic Section interface. Cmd: `section Elastic $secTag $E $A $Iz <$G $alphaY>` (2D) / `$secTag $E $A $Iz $Iy $G $J <$alphaY $alphaZ>` (3D). Params: $secTag (tag), $E (Young's Mod), $A (area), $Iz (Izz), $Iy (Iyy, 3D), $G (Shear Mod), $J (torsion const, 3D), $alphaY/Z (shear shape factors, opt).
