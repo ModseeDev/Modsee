@@ -81,12 +81,15 @@ class Integration:
         view_manager = app.get_component('view_manager')
         renderer_manager = app.get_component('renderer_manager')
         
+        logger.debug("Connecting signals between components")
+        
         # Connect model changes to view refresh
         # This is a simple implementation. In a real application, you would
         # use a proper signals and slots mechanism or observer pattern.
         
         # For now, we'll simply use function references
         if model_manager and view_manager:
+            logger.debug("Found model_manager and view_manager, connecting signals")
             # Store original method
             original_model_changed = model_manager.model_changed
             original_selection_changed = model_manager.selection_changed
@@ -99,13 +102,23 @@ class Integration:
                     renderer_manager.refresh()
             
             def new_selection_changed():
+                logger.debug("Selection changed signal triggered")
                 original_selection_changed()
+                
+                # Get the current selection for logging
+                if hasattr(model_manager, 'get_selection'):
+                    selection = model_manager.get_selection()
+                    logger.debug(f"Selection changed: {len(selection)} objects selected")
+                
                 # Update views that depend on selection
+                logger.debug("Refreshing model_explorer view")
                 view_manager.refresh_view('model_explorer')
+                logger.debug("Refreshing properties view")
                 view_manager.refresh_view('properties')
                 
                 # Signal selection change to the renderer manager for visual highlighting
                 if renderer_manager and hasattr(renderer_manager, '_on_selection_changed'):
+                    logger.debug("Notifying renderer_manager of selection change")
                     renderer_manager._on_selection_changed()
             
             # Replace the methods
@@ -125,19 +138,30 @@ class Integration:
                 model_manager.signal_emitter = SignalEmitter()
                 model_manager.model_changed_signal = model_manager.signal_emitter.model_changed_signal
                 model_manager.selection_changed_signal = model_manager.signal_emitter.selection_changed_signal
+                logger.debug("Created signal emitters for model_manager")
                 
                 # Update methods to emit signals
                 def emit_model_changed():
                     new_model_changed()
+                    logger.debug("Emitting model_changed_signal")
                     model_manager.model_changed_signal.emit()
                 
                 def emit_selection_changed():
                     new_selection_changed()
+                    logger.debug("Emitting selection_changed_signal")
                     model_manager.selection_changed_signal.emit()
                 
                 # Replace the methods again to emit signals
                 model_manager.model_changed = emit_model_changed
                 model_manager.selection_changed = emit_selection_changed
+                
+                # Directly connect the properties widget to the selection_changed_signal
+                properties_widget = view_manager.get_view('properties')
+                if properties_widget and hasattr(properties_widget, 'refresh'):
+                    logger.debug("Directly connecting properties_widget.refresh to selection_changed_signal")
+                    model_manager.selection_changed_signal.connect(properties_widget.refresh)
+        else:
+            logger.warning("Could not connect signals: model_manager or view_manager not found")
         
         logger.debug("Signals connected")
     

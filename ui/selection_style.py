@@ -118,17 +118,26 @@ class SelectionInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
         """
         interactor = self.GetInteractor()
         if not interactor:
+            logger.warning("No interactor available in _on_left_button_press")
             return
         
-        # Store initial position
+        # Get the event position
         click_pos = interactor.GetEventPosition()
         self._last_pick_pos = click_pos
         self._dragging = False
         self._left_button_down = True  # Set left button state to down
         
-        # Check for Ctrl/Shift keys for multi-selection
+        # Check if we're in camera manipulation mode
+        if not self._model_manager:
+            logger.warning("No model manager available in _on_left_button_press")
+            self.OnLeftButtonDown()
+            return
+        
+        # Get modifier keys
         ctrl_key = bool(interactor.GetControlKey())
         shift_key = bool(interactor.GetShiftKey())
+        
+        logger.debug(f"Left button press at {click_pos}, ctrl={ctrl_key}, shift={shift_key}")
         
         # If neither Ctrl nor Shift is pressed, process as camera interaction
         if not (ctrl_key or shift_key):
@@ -136,7 +145,6 @@ class SelectionInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
             self.OnLeftButtonDown()
             return
         
-        # Handle as selection
         # Get the interactor and renderer
         renderer = interactor.GetRenderWindow().GetRenderers().GetFirstRenderer()
         
@@ -148,6 +156,7 @@ class SelectionInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
             if actor and actor in self._actor_data:
                 # Get the object type and ID
                 obj_type, obj_id = self._actor_data[actor]
+                logger.debug(f"Picked {obj_type} with ID {obj_id}")
                 
                 # Get the corresponding model object
                 model_obj = None
@@ -160,19 +169,49 @@ class SelectionInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
                     # Toggle selection if Ctrl is pressed
                     if ctrl_key:
                         if self._model_manager.is_selected(model_obj):
+                            logger.debug(f"Deselecting {obj_type} {obj_id} (ctrl+click)")
                             self._model_manager.deselect(model_obj)
                         else:
+                            logger.debug(f"Selecting {obj_type} {obj_id} (ctrl+click)")
                             self._model_manager.select(model_obj)
                     # Add to selection if Shift is pressed
                     elif shift_key:
+                        logger.debug(f"Selecting {obj_type} {obj_id} (shift+click)")
+                        self._model_manager.select(model_obj)
+                    # Replace selection otherwise
+                    else:
+                        logger.debug(f"Clearing selection and selecting {obj_type} {obj_id}")
+                        self._model_manager.deselect_all()
                         self._model_manager.select(model_obj)
                     
                     logger.debug(f"Selected {obj_type} {obj_id}")
+                    
+                    # Make sure selection_changed is called to update properties pane
+                    if hasattr(self._model_manager, 'selection_changed'):
+                        logger.debug("Calling model_manager.selection_changed() after selection")
+                        self._model_manager.selection_changed()
+                else:
+                    logger.warning(f"Could not find {obj_type} with ID {obj_id}")
+            else:
+                if not (ctrl_key or shift_key):
+                    logger.debug("No object picked, clearing selection")
+                    self._model_manager.deselect_all()
+                    
+                    # Make sure selection_changed is called to update properties pane
+                    if hasattr(self._model_manager, 'selection_changed'):
+                        logger.debug("Calling model_manager.selection_changed() after clearing selection")
+                        self._model_manager.selection_changed()
         elif not (ctrl_key or shift_key):
             # If we didn't pick anything and no modifier key is pressed, 
             # deselect all
             if self._model_manager:
+                logger.debug("No object picked and no modifier key, clearing selection")
                 self._model_manager.deselect_all()
+                
+                # Make sure selection_changed is called to update properties pane
+                if hasattr(self._model_manager, 'selection_changed'):
+                    logger.debug("Calling model_manager.selection_changed() after clearing selection")
+                    self._model_manager.selection_changed()
     
     def _on_left_button_release(self, obj: Any, event: str) -> None:
         """

@@ -284,7 +284,32 @@ class ModelManager(ModelComponent):
         This method is called when the selection changes.
         It should be overridden by integration code to handle the changes.
         """
-        logger.debug("Selection changed")
+        logger.debug(f"Selection changed - current selection has {len(self._selection)} objects")
+        
+        # Log details about the selected objects
+        if self._selection:
+            for obj in self._selection:
+                obj_type = "unknown"
+                obj_id = None
+                
+                if hasattr(obj, 'id'):
+                    obj_id = obj.id
+                
+                if obj.__class__.__name__.lower().endswith('node'):
+                    obj_type = 'node'
+                elif 'element' in obj.__class__.__name__.lower():
+                    obj_type = 'element'
+                elif 'material' in obj.__class__.__name__.lower():
+                    obj_type = 'material'
+                elif 'section' in obj.__class__.__name__.lower():
+                    obj_type = 'section'
+                
+                logger.debug(f"  - Selected {obj_type} with ID: {obj_id}")
+        
+        # Directly emit the signal if available (this is a fallback in case the integration code didn't set it up properly)
+        if hasattr(self, 'selection_changed_signal'):
+            logger.debug("Emitting selection_changed_signal directly from ModelManager")
+            self.selection_changed_signal.emit()
     
     # --- Add Material Methods --- 
     def add_material(self, material_id: int, material: Any) -> None:

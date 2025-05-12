@@ -323,27 +323,36 @@ class ModelExplorerWidget(QWidget):
         """Handle selection changed in the tree widget."""
         # Get the currently selected items
         selected_items = self.tree_widget.selectedItems()
+        logger.debug(f"ModelExplorerWidget._on_selection_changed: {len(selected_items)} items selected")
         
         # Skip if we don't have a model manager
         if not self.model_manager:
+            logger.debug("ModelExplorerWidget._on_selection_changed: No model manager available")
             return
             
         # We're updating the selection programmatically, so don't trigger further updates
+        if hasattr(self, '_selecting_programmatically') and self._selecting_programmatically:
+            logger.debug("ModelExplorerWidget._on_selection_changed: Skipping because selection is being updated programmatically")
+            return
+            
         self._selecting_programmatically = True
         
         # Clear the current selection in the model
+        logger.debug("ModelExplorerWidget._on_selection_changed: Clearing model selection")
         self.model_manager.deselect_all()
         
         # Add each selected object to the model selection
         for item in selected_items:
             # Skip group/category items
             if not item.parent():
+                logger.debug(f"ModelExplorerWidget._on_selection_changed: Skipping category item {item.text(0)}")
                 continue
                 
             # Get the object type and ID from the item's data
             data = item.data(0, Qt.ItemDataRole.UserRole)
             if data:
                 obj_type, obj_id = data
+                logger.debug(f"ModelExplorerWidget._on_selection_changed: Processing {obj_type} with ID {obj_id}")
                 
                 # Get the object from the model manager
                 obj = None
@@ -358,14 +367,21 @@ class ModelExplorerWidget(QWidget):
                 
                 # Select the object if found
                 if obj:
+                    logger.debug(f"ModelExplorerWidget._on_selection_changed: Selecting {obj_type} with ID {obj_id}")
                     self.model_manager.select(obj)
-        
-        # Update selection-related widgets and views
-        self._selecting_programmatically = False
+                else:
+                    logger.warning(f"ModelExplorerWidget._on_selection_changed: Could not find {obj_type} with ID {obj_id}")
         
         # Emit selection changed signal to update properties panel
+        # This is important - we need to call selection_changed() directly to trigger the update
         if hasattr(self.model_manager, 'selection_changed'):
+            logger.debug("ModelExplorerWidget._on_selection_changed: Calling model_manager.selection_changed()")
             self.model_manager.selection_changed()
+        else:
+            logger.warning("ModelExplorerWidget._on_selection_changed: model_manager has no selection_changed method")
+        
+        # Reset the flag after all processing is done
+        self._selecting_programmatically = False
     
     def _apply_filter(self, filter_text):
         """Apply filter to tree items."""
@@ -751,8 +767,15 @@ class PropertiesWidget(QWidget):
     
     def _connect_signals(self):
         """Connect signals to slots."""
-        if self.model_manager and hasattr(self.model_manager, 'selection_changed_signal'):
-            self.model_manager.selection_changed_signal.connect(self.refresh)
+        if self.model_manager:
+            logger.debug("PropertiesWidget._connect_signals: Found model_manager")
+            if hasattr(self.model_manager, 'selection_changed_signal'):
+                logger.debug("PropertiesWidget._connect_signals: Connecting to selection_changed_signal")
+                self.model_manager.selection_changed_signal.connect(self.refresh)
+            else:
+                logger.warning("PropertiesWidget._connect_signals: model_manager has no selection_changed_signal")
+        else:
+            logger.warning("PropertiesWidget._connect_signals: No model_manager available")
     
     def set_no_selection(self):
         """Set the widget to show no selection state."""
@@ -781,17 +804,42 @@ class PropertiesWidget(QWidget):
     def refresh(self):
         """Refresh the properties with current selection data."""
         if not self.model_manager:
+            logger.debug("PropertiesWidget.refresh: No model manager available")
             self.set_no_selection()
             return
         
+        # Get the current selection from the model manager
         selection = self.model_manager.get_selection() if hasattr(self.model_manager, 'get_selection') else set()
+        logger.debug(f"PropertiesWidget.refresh: Selection contains {len(selection)} objects")
         
         if len(selection) == 1:
             # Single selection
             obj = next(iter(selection))
+            logger.debug(f"PropertiesWidget.refresh: Displaying properties for object: {obj}")
+            
+            # Get object type for logging
+            obj_type = "unknown"
+            obj_id = None
+            
+            if hasattr(obj, 'id'):
+                obj_id = obj.id
+            
+            if obj.__class__.__name__.lower().endswith('node'):
+                obj_type = 'node'
+            elif 'element' in obj.__class__.__name__.lower():
+                obj_type = 'element'
+            elif 'material' in obj.__class__.__name__.lower():
+                obj_type = 'material'
+            elif 'section' in obj.__class__.__name__.lower():
+                obj_type = 'section'
+                
+            logger.debug(f"PropertiesWidget.refresh: Selected object is a {obj_type} with ID {obj_id}")
+            
+            # Display the object properties
             self._display_object_properties(obj)
         else:
             # No selection or multiple selection
+            logger.debug(f"PropertiesWidget.refresh: No selection or multiple selection ({len(selection)} objects)")
             self.set_no_selection()
     
     def _display_object_properties(self, obj):
@@ -801,27 +849,35 @@ class PropertiesWidget(QWidget):
         # Determine object type and ID
         if hasattr(obj, 'get_type'):
             obj_type = obj.get_type().name.capitalize()
+            logger.debug(f"PropertiesWidget._display_object_properties: Object has get_type method: {obj_type}")
         else:
             # Determine from model_manager collections
+            logger.debug(f"PropertiesWidget._display_object_properties: Determining object type from collections")
             if hasattr(self.model_manager, '_nodes') and obj in self.model_manager._nodes.values():
                 obj_type = "Node"
                 obj_id = next((k for k, v in self.model_manager._nodes.items() if v == obj), 0)
+                logger.debug(f"PropertiesWidget._display_object_properties: Found node with ID {obj_id}")
             elif hasattr(self.model_manager, '_elements') and obj in self.model_manager._elements.values():
                 obj_type = "Element"
                 obj_id = next((k for k, v in self.model_manager._elements.items() if v == obj), 0)
+                logger.debug(f"PropertiesWidget._display_object_properties: Found element with ID {obj_id}")
             elif hasattr(self.model_manager, '_materials') and obj in self.model_manager._materials.values():
                 obj_type = "Material"
                 obj_id = next((k for k, v in self.model_manager._materials.items() if v == obj), 0)
+                logger.debug(f"PropertiesWidget._display_object_properties: Found material with ID {obj_id}")
             elif hasattr(self.model_manager, '_sections') and obj in self.model_manager._sections.values():
                 obj_type = "Section"
                 obj_id = next((k for k, v in self.model_manager._sections.items() if v == obj), 0)
+                logger.debug(f"PropertiesWidget._display_object_properties: Found section with ID {obj_id}")
             else:
                 obj_type = "Unknown"
                 obj_id = 0
+                logger.debug(f"PropertiesWidget._display_object_properties: Unknown object type")
         
         # If using ModelObjectType enum
         if hasattr(obj, 'id'):
             obj_id = obj.id
+            logger.debug(f"PropertiesWidget._display_object_properties: Object has id attribute: {obj_id}")
         
         # Update current object info
         self._current_object = obj
@@ -831,12 +887,16 @@ class PropertiesWidget(QWidget):
         # Update type label
         if hasattr(obj, 'get_element_type'):
             type_name = f"{obj_type}: {obj.get_element_type()}"
+            logger.debug(f"PropertiesWidget._display_object_properties: Using element type: {type_name}")
         elif hasattr(obj, 'get_material_type'):
             type_name = f"{obj_type}: {obj.get_material_type()}"
+            logger.debug(f"PropertiesWidget._display_object_properties: Using material type: {type_name}")
         elif hasattr(obj, 'get_section_type'):
             type_name = f"{obj_type}: {obj.get_section_type()}"
+            logger.debug(f"PropertiesWidget._display_object_properties: Using section type: {type_name}")
         else:
             type_name = obj_type
+            logger.debug(f"PropertiesWidget._display_object_properties: Using basic type: {type_name}")
         
         self.type_value.setText(type_name)
         
@@ -848,6 +908,7 @@ class PropertiesWidget(QWidget):
         
         # Metadata fields
         if hasattr(obj, 'metadata'):
+            logger.debug(f"PropertiesWidget._display_object_properties: Object has metadata")
             self._add_form_section("Metadata")
             self._add_form_field("Name", obj.metadata.name, QLineEdit)
             self._add_form_field("Description", obj.metadata.description or "", QTextEdit)
@@ -859,12 +920,16 @@ class PropertiesWidget(QWidget):
         
         # Object-specific fields
         if obj_type == "Node":
+            logger.debug(f"PropertiesWidget._display_object_properties: Creating node form")
             self._create_node_form(obj)
         elif obj_type == "Element":
+            logger.debug(f"PropertiesWidget._display_object_properties: Creating element form")
             self._create_element_form(obj)
         elif obj_type == "Material":
+            logger.debug(f"PropertiesWidget._display_object_properties: Creating material form")
             self._create_material_form(obj)
         elif obj_type == "Section":
+            logger.debug(f"PropertiesWidget._display_object_properties: Creating section form")
             self._create_section_form(obj)
         
         # Show form
@@ -874,6 +939,7 @@ class PropertiesWidget(QWidget):
         self.reset_button.setEnabled(True)
         
         self._updating_form = False
+        logger.debug(f"PropertiesWidget._display_object_properties: Finished displaying properties for {obj_type} {obj_id}")
     
     def _add_form_section(self, section_name):
         """Add a section header to the form."""

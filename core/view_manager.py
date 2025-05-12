@@ -139,10 +139,17 @@ class ViewManager(ViewComponent):
             True if successful, False otherwise.
         """
         view = self._views.get(name)
-        if view and hasattr(view, 'refresh'):
-            view.refresh()
-            logger.debug(f"Refreshed view: {name}")
-            return True
+        if view:
+            logger.debug(f"Found view '{name}' to refresh")
+            if hasattr(view, 'refresh'):
+                logger.debug(f"Calling refresh() on view '{name}'")
+                view.refresh()
+                logger.debug(f"Refreshed view: {name}")
+                return True
+            else:
+                logger.warning(f"View '{name}' does not have a refresh method")
+        else:
+            logger.warning(f"View '{name}' not found in registered views")
         
         return False
     

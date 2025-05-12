@@ -242,15 +242,41 @@ class RendererManager(ViewComponent):
     
     def _on_selection_changed(self) -> None:
         """Handle selection changed event from model manager."""
-        if not self._vtk_widget or not self._model_manager:
+        if not self._vtk_widget:
+            logger.warning("RendererManager._on_selection_changed: No VTK widget available")
+            return
+            
+        if not self._model_manager:
+            logger.warning("RendererManager._on_selection_changed: No model manager available")
             return
             
         # Get selected objects from model manager
         selected_objects = list(self._model_manager.get_selection())
         
+        # Log details about the selected objects
+        logger.debug(f"RendererManager._on_selection_changed: {len(selected_objects)} objects selected")
+        for obj in selected_objects:
+            obj_type = "unknown"
+            obj_id = None
+            
+            if hasattr(obj, 'id'):
+                obj_id = obj.id
+            
+            if obj.__class__.__name__.lower().endswith('node'):
+                obj_type = 'node'
+            elif 'element' in obj.__class__.__name__.lower():
+                obj_type = 'element'
+            elif 'material' in obj.__class__.__name__.lower():
+                obj_type = 'material'
+            elif 'section' in obj.__class__.__name__.lower():
+                obj_type = 'section'
+            
+            logger.debug(f"  - Selected {obj_type} with ID: {obj_id}")
+        
         # Update visualization
+        logger.debug("RendererManager._on_selection_changed: Updating selection highlights")
         self._vtk_widget.update_selection_highlights(selected_objects)
-        logger.debug(f"Selection changed: {len(selected_objects)} objects selected")
+        logger.debug(f"RendererManager._on_selection_changed: Selection highlights updated")
     
     def select_all(self) -> None:
         """

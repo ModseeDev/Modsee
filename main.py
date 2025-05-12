@@ -55,27 +55,44 @@ def start_application():
     
     # Create dock widgets
     model_manager = app_manager.get_component('model_manager')
+    logger.debug(f"Got model_manager from app_manager: {model_manager}")
     
     model_explorer = ModelExplorerWidget(model_manager)
     window.model_explorer_dock.setWidget(model_explorer)
+    logger.debug("Created and set ModelExplorerWidget")
     
     properties = PropertiesWidget(model_manager)
     window.properties_dock.setWidget(properties)
+    logger.debug("Created and set PropertiesWidget")
     
     console = ConsoleWidget()
     window.console_dock.setWidget(console)
+    logger.debug("Created and set ConsoleWidget")
     
     # Register views with view manager
     view_manager = app_manager.get_component('view_manager')
     view_manager.register_view('model_explorer', model_explorer)
     view_manager.register_view('properties', properties)
     view_manager.register_view('console', console)
+    logger.debug("Registered views with view_manager")
     
     # Setup main window with components
     Integration.setup_main_window(app_manager, window)
     
     # Connect signals between components
     Integration.connect_signals(app_manager)
+    logger.debug("Connected signals between components")
+    
+    # Verify signal connections
+    if hasattr(model_manager, 'selection_changed_signal'):
+        logger.debug("model_manager has selection_changed_signal")
+        # Check if properties widget is connected
+        if properties and hasattr(properties, 'refresh'):
+            logger.debug("properties widget has refresh method")
+        else:
+            logger.warning("properties widget does not have refresh method")
+    else:
+        logger.warning("model_manager does not have selection_changed_signal")
     
     # Show window
     window.show()
