@@ -11,6 +11,7 @@ from model.sections.base import Section
 from model.sections.rectangle import RectangularSection, RectangularFiberSection
 from model.sections.circular import CircularSection, CircularHollowSection
 from model.sections.profile import ISection, WideFlange, Channel
+from model.sections.elastic import ElasticSection
 
 
 class SectionFactory:
@@ -29,7 +30,10 @@ class SectionFactory:
         # Profile sections
         "ISection": ISection,
         "WideFlange": WideFlange,
-        "Channel": Channel
+        "Channel": Channel,
+        
+        # Elastic section
+        "ElasticSection": ElasticSection
     }
     
     @classmethod
@@ -184,6 +188,48 @@ class SectionFactory:
             flange_width=flange_width,
             web_thickness=web_thickness,
             flange_thickness=flange_thickness,
+            material_ids=material_ids,
+            properties=properties
+        )
+        
+    @classmethod
+    def create_elastic_section(cls, id: int, metadata: ModelMetadata, 
+                             E: float, A: float, Iz: float,
+                             Iy: Optional[float] = None, G: Optional[float] = None, 
+                             J: Optional[float] = None, alphaY: Optional[float] = None, 
+                             alphaZ: Optional[float] = None,
+                             material_ids: List[int] = None,
+                             properties: Dict[str, Any] = None) -> ElasticSection:
+        """Create an elastic section.
+        
+        Args:
+            id: The section ID
+            metadata: The section metadata
+            E: Young's Modulus
+            A: Cross-sectional area of section
+            Iz: Second moment of area about the local z-axis
+            Iy: Second moment of area about the local y-axis (required for 3D analysis)
+            G: Shear Modulus (optional for 2D analysis, required for 3D analysis)
+            J: Torsional moment of inertia of section (required for 3D analysis)
+            alphaY: Shear shape factor along the local y-axis (optional)
+            alphaZ: Shear shape factor along the local z-axis (optional)
+            material_ids: List of material IDs
+            properties: Additional properties
+            
+        Returns:
+            A new elastic section
+        """
+        return ElasticSection(
+            id=id,
+            metadata=metadata,
+            E=E,
+            A=A,
+            Iz=Iz,
+            Iy=Iy,
+            G=G,
+            J=J,
+            alphaY=alphaY,
+            alphaZ=alphaZ,
             material_ids=material_ids,
             properties=properties
         ) 

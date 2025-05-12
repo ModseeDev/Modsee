@@ -25,7 +25,7 @@ class ViewManager(ViewComponent):
         self._views: Dict[str, Any] = {}
         self._active_view = None
         
-        logger.info("ViewManager initialized")
+        logger.debug("ViewManager initialized")
     
     @property
     def main_window(self) -> Any:
@@ -49,7 +49,7 @@ class ViewManager(ViewComponent):
             logger.warning(f"Dock '{name}' already registered, replacing")
         
         self._docks[name] = dock
-        logger.info(f"Registered dock: {name}")
+        logger.debug(f"Registered dock: {name}")
     
     def get_dock(self, name: str) -> Optional[Any]:
         """
@@ -75,7 +75,7 @@ class ViewManager(ViewComponent):
             logger.warning(f"View '{name}' already registered, replacing")
         
         self._views[name] = view
-        logger.info(f"Registered view: {name}")
+        logger.debug(f"Registered view: {name}")
     
     def get_view(self, name: str) -> Optional[Any]:
         """
@@ -101,7 +101,7 @@ class ViewManager(ViewComponent):
         """
         if name in self._views:
             self._active_view = name
-            logger.info(f"Set active view: {name}")
+            logger.debug(f"Set active view: {name}")
             return True
         
         return False
@@ -126,7 +126,7 @@ class ViewManager(ViewComponent):
             if hasattr(view, 'refresh'):
                 view.refresh()
         
-        logger.info("Refreshed all views")
+        logger.debug("Refreshed all views")
     
     def refresh_view(self, name: str) -> bool:
         """
@@ -141,7 +141,7 @@ class ViewManager(ViewComponent):
         view = self._views.get(name)
         if view and hasattr(view, 'refresh'):
             view.refresh()
-            logger.info(f"Refreshed view: {name}")
+            logger.debug(f"Refreshed view: {name}")
             return True
         
         return False
@@ -153,7 +153,7 @@ class ViewManager(ViewComponent):
         active_view = self.get_active_view()
         if active_view and hasattr(active_view, 'refresh'):
             active_view.refresh()
-            logger.info(f"Refreshed active view: {self._active_view}")
+            logger.debug(f"Refreshed active view: {self._active_view}")
     
     def reset(self) -> None:
         """
@@ -164,7 +164,7 @@ class ViewManager(ViewComponent):
             if hasattr(view, 'reset'):
                 view.reset()
         
-        logger.info("ViewManager reset")
+        logger.debug("ViewManager reset")
         
         # Call base class reset
         super().reset() 

@@ -38,7 +38,7 @@ class FileService(ServiceComponent):
         self._recent_files: Dict[str, str] = {}
         self._max_recent_files = 10
         
-        logger.info("FileService initialized")
+        logger.debug("FileService initialized")
     
     def load_project(self, file_path: Path) -> Optional[Dict[str, Any]]:
         """
@@ -68,7 +68,7 @@ class FileService(ServiceComponent):
             # Add to recent files
             self.add_recent_file(file_path)
             
-            logger.info(f"Loaded project from: {file_path}")
+            logger.debug(f"Loaded project from: {file_path}")
             return data
         
         except Exception as e:
@@ -111,7 +111,7 @@ class FileService(ServiceComponent):
             # Add to recent files
             self.add_recent_file(file_path)
             
-            logger.info(f"Saved project to: {file_path}")
+            logger.debug(f"Saved project to: {file_path}")
             return True
         
         except Exception as e:
@@ -276,7 +276,7 @@ class FileService(ServiceComponent):
                            break # Stop processing nodes if method missing
                     except Exception as e:
                         logger.error(f"Error restoring node {node_data.get('id', 'N/A')}: {e}")
-                logger.info(f"Restored {nodes_added} nodes")
+                logger.debug(f"Restored {nodes_added} nodes")
             
             # 2. Materials (Requires factory or type mapping)
             if 'materials' in model_data:
@@ -309,7 +309,7 @@ class FileService(ServiceComponent):
                             logger.warning(f"MaterialFactory returned None for type: {mat_data.get('type')}")
                     except Exception as e:
                         logger.error(f"Error restoring material {mat_data.get('id', 'N/A')}: {e}")
-                logger.info(f"Restored {restored_count} materials")
+                logger.debug(f"Restored {restored_count} materials")
             
             # 3. Sections (Requires factory or type mapping)
             if 'sections' in model_data:
@@ -342,7 +342,7 @@ class FileService(ServiceComponent):
                             logger.warning(f"SectionFactory returned None for type: {sec_data.get('type')}")
                     except Exception as e:
                         logger.error(f"Error restoring section {sec_data.get('id', 'N/A')}: {e}")
-                logger.info(f"Restored {restored_count} sections")
+                logger.debug(f"Restored {restored_count} sections")
             
             # 4. Elements (Requires factory or type mapping)
             if 'elements' in model_data:
@@ -384,7 +384,7 @@ class FileService(ServiceComponent):
                             logger.warning(f"Unknown or unsupported element type: {elem_type_name}")
                     except Exception as e:
                         logger.error(f"Error restoring element {elem_data.get('id', 'N/A')}: {e}")
-                logger.info(f"Restored {restored_count} elements")
+                logger.debug(f"Restored {restored_count} elements")
             
             # 5. Constraints (Boundary Conditions)
             if 'constraints' in model_data:
@@ -451,7 +451,7 @@ class FileService(ServiceComponent):
                     except Exception as e:
                         # Log the specific exception type and message
                         logger.error(f"Error restoring constraint {const_data.get('id', 'N/A')} (Type: {const_type_name}): {type(e).__name__} - {e}")
-                logger.info(f"Restored {restored_count} constraints")
+                logger.debug(f"Restored {restored_count} constraints")
             
             # 6. Loads (Requires factory or type mapping)
             if 'loads' in model_data:
@@ -465,7 +465,7 @@ class FileService(ServiceComponent):
                         pass # Placeholder
                     except Exception as e:
                         logger.error(f"Error restoring load {load_data.get('id', 'N/A')}: {e}")
-                # logger.info(f"Restored {restored_count} loads") # Uncomment when implemented
+                # logger.debug(f"Restored {restored_count} loads") # Uncomment when implemented
             
             # 7. Stages (Requires factory or type mapping)
             if 'stages' in model_data:
@@ -479,11 +479,11 @@ class FileService(ServiceComponent):
                         pass # Placeholder
                     except Exception as e:
                         logger.error(f"Error restoring stage {stage_data.get('id', 'N/A')}: {e}")
-                # logger.info(f"Restored {restored_count} stages") # Uncomment when implemented
+                # logger.debug(f"Restored {restored_count} stages") # Uncomment when implemented
             
             # Notify that the model has changed (after all restorations)
             model_manager.model_changed()
-            logger.info("Model restoration complete.")
+            logger.debug("Model restoration complete.")
             return True
         
         except Exception as e:
@@ -513,7 +513,7 @@ class FileService(ServiceComponent):
             oldest = next(iter(self._recent_files))
             self._recent_files.pop(oldest)
         
-        logger.info(f"Added to recent files: {file_path}")
+        logger.debug(f"Added to recent files: {file_path}")
     
     def get_recent_files(self) -> Dict[str, str]:
         """
@@ -529,7 +529,7 @@ class FileService(ServiceComponent):
         Clear the list of recent files.
         """
         self._recent_files.clear()
-        logger.info("Cleared recent files")
+        logger.debug("Cleared recent files")
     
     def export_to_opensees_tcl(self, file_path: Path, data: Dict[str, Any]) -> bool:
         """
@@ -555,7 +555,7 @@ class FileService(ServiceComponent):
                 f.write("# OpenSees TCL script generated by Modsee\n\n")
                 f.write("# TODO: Implement actual TCL conversion\n")
             
-            logger.info(f"Exported OpenSees TCL script to: {file_path}")
+            logger.debug(f"Exported OpenSees TCL script to: {file_path}")
             return True
         
         except Exception as e:
@@ -587,7 +587,7 @@ class FileService(ServiceComponent):
                 f.write("import openseespy.opensees as ops\n\n")
                 f.write("# TODO: Implement actual OpenSeesPy conversion\n")
             
-            logger.info(f"Exported OpenSeesPy script to: {file_path}")
+            logger.debug(f"Exported OpenSeesPy script to: {file_path}")
             return True
         
         except Exception as e:

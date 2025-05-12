@@ -64,7 +64,7 @@ class MaterialDialog(QDialog):
                           f"Create {self.material_class.__name__}")
         self.resize(450, 550)
         
-        logger.info(f"{'Edit' if self.is_editing else 'Create'} {self.material_class.__name__} dialog initialized")
+        logger.debug(f"{'Edit' if self.is_editing else 'Create'} {self.material_class.__name__} dialog initialized")
     
     def _init_ui(self):
         """Initialize the user interface."""
@@ -132,7 +132,7 @@ class MaterialDialog(QDialog):
                 if hasattr(self.model_manager, 'model_changed'):
                     self.model_manager.model_changed()
                 
-                logger.info(f"Updated material: {self.existing_material.id}")
+                logger.debug(f"Updated material: {self.existing_material.id}")
             else:
                 # Create new material
                 if hasattr(self.model_manager, 'create_material'):
@@ -143,7 +143,7 @@ class MaterialDialog(QDialog):
                         metadata=metadata,
                         **properties
                     )
-                    logger.info(f"Created material: {material.id}")
+                    logger.debug(f"Created material: {material.id}")
                 else:
                     # Use MaterialFactory directly
                     next_id = 1
@@ -162,7 +162,7 @@ class MaterialDialog(QDialog):
                     # Add material to model manager
                     if hasattr(self.model_manager, 'add_material'):
                         self.model_manager.add_material(next_id, material)
-                        logger.info(f"Created material: {next_id}")
+                        logger.debug(f"Created material: {next_id}")
                     else:
                         raise ValueError("Model manager does not support material creation")
             

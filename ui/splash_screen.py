@@ -275,7 +275,7 @@ class ModseeSplashScreen(QtWidgets.QSplashScreen):
                 logger.error(f"Dependency {name} version {version} is lower than required {min_version}")
             
             if self.check_results['all_required_met']:
-                logger.info("All required dependencies are satisfied")
+                logger.debug("All required dependencies are satisfied")
                 self.status_message = "All dependencies verified"
                 
                 # Start version check

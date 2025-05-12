@@ -38,7 +38,7 @@ class ModelExplorerWidget(QWidget):
         self._init_ui()
         self._connect_signals()
         
-        logger.info("ModelExplorerWidget initialized")
+        logger.debug("ModelExplorerWidget initialized")
     
     def _init_ui(self):
         """Initialize the user interface."""
@@ -474,7 +474,7 @@ class ModelExplorerWidget(QWidget):
     
     def _on_add_to_category(self, category_name):
         """Handle Add to specific category."""
-        logger.info(f"Add to category: {category_name}")
+        logger.debug(f"Add to category: {category_name}")
         
         if category_name == "nodes":
             # Call node creation dialog
@@ -636,7 +636,7 @@ class ModelExplorerWidget(QWidget):
     
     def _on_remove_item(self, obj_type, obj_id):
         """Remove specific item from model."""
-        logger.info(f"Remove item: {obj_type} {obj_id}")
+        logger.debug(f"Remove item: {obj_type} {obj_id}")
         
         if not self.model_manager:
             return
@@ -687,7 +687,7 @@ class PropertiesWidget(QWidget):
         self._init_ui()
         self._connect_signals()
         
-        logger.info("PropertiesWidget initialized")
+        logger.debug("PropertiesWidget initialized")
     
     def _init_ui(self):
         """Initialize the user interface."""
@@ -1130,7 +1130,7 @@ class PropertiesWidget(QWidget):
             self.apply_button.setEnabled(False)
             self.reset_button.setEnabled(False)
             
-            logger.info(f"Applied changes to {self._current_object_type} {self._current_object_id}")
+            logger.debug(f"Applied changes to {self._current_object_type} {self._current_object_id}")
         except Exception as e:
             logger.error(f"Error applying changes: {str(e)}")
             QMessageBox.warning(self, "Error", f"Failed to apply changes: {str(e)}")
@@ -1310,7 +1310,7 @@ class ConsoleWidget(QWidget):
         # Set up logging handler to capture all logs
         self._setup_logging_handler()
         
-        logger.info("ConsoleWidget initialized")
+        logger.debug("ConsoleWidget initialized")
     
     def _init_ui(self):
         """Initialize the user interface."""

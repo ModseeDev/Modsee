@@ -57,7 +57,7 @@ class ElementDialog(QDialog):
                           f"Create {self.element_class.__name__}")
         self.resize(450, 550)
         
-        logger.info(f"{'Edit' if self.is_editing else 'Create'} {self.element_class.__name__} dialog initialized")
+        logger.debug(f"{'Edit' if self.is_editing else 'Create'} {self.element_class.__name__} dialog initialized")
     
     def _init_ui(self):
         """Initialize the user interface."""
@@ -329,7 +329,7 @@ class ElementDialog(QDialog):
                 for key, value in kwargs.items():
                     setattr(self.existing_element, key, value)
                 
-                logger.info(f"Updated element: {self.existing_element.id}")
+                logger.debug(f"Updated element: {self.existing_element.id}")
             else:
                 # Create new element
                 if hasattr(self.model_manager, 'create_element'):
@@ -337,7 +337,7 @@ class ElementDialog(QDialog):
                         self.element_class.__name__,
                         **kwargs
                     )
-                    logger.info(f"Created element: {element.id}")
+                    logger.debug(f"Created element: {element.id}")
                 else:
                     # Fallback to manual element creation
                     next_id = 1
@@ -347,7 +347,7 @@ class ElementDialog(QDialog):
                     kwargs['id'] = next_id
                     element = self.element_class(**kwargs)
                     self.model_manager.add_element(element.id, element)
-                    logger.info(f"Created element: {next_id}")
+                    logger.debug(f"Created element: {next_id}")
             
             super().accept()
         except Exception as e:

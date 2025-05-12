@@ -168,7 +168,7 @@ class UpdateNotification(QDialog):
         """Handle the download button click."""
         download_url = self.update_info.get('download_url')
         if download_url:
-            logger.info(f"Opening download URL: {download_url}")
+            logger.debug(f"Opening download URL: {download_url}")
             QDesktopServices.openUrl(QUrl(download_url))
             self.accept()
         else:

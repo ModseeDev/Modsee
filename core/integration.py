@@ -65,7 +65,7 @@ class Integration:
         # Initialize components
         app.initialize_components()
         
-        logger.info("Application setup complete")
+        logger.debug("Application setup complete")
         return app
     
     @staticmethod
@@ -139,7 +139,7 @@ class Integration:
                 model_manager.model_changed = emit_model_changed
                 model_manager.selection_changed = emit_selection_changed
         
-        logger.info("Signals connected")
+        logger.debug("Signals connected")
     
     @staticmethod
     def setup_main_window(app: ApplicationManager, main_window: Any) -> None:
@@ -216,4 +216,4 @@ class Integration:
             main_window.edit_menu.addSeparator()
             main_window.edit_menu.addAction(settings_action)
         
-        logger.info("Main window setup complete") 
+        logger.debug("Main window setup complete") 

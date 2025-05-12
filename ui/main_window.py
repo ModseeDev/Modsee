@@ -20,6 +20,7 @@ from PyQt6.QtGui import QAction, QIcon, QActionGroup
 from ui.vtk_widget import VTKWidget
 from model.base.core import ModelObjectType
 from ui.dock_widgets import ModelExplorerWidget, PropertiesWidget, ConsoleWidget
+from ui.section_dialogs import show_section_dialog
 
 logger = logging.getLogger('modsee.ui.main_window')
 
@@ -56,10 +57,10 @@ class MainWindow(QMainWindow):
         
         # Start checking for updates if enabled
         if self.version_checker and self.version_checker.should_check_for_updates():
-            logger.info("Starting automatic version check")
+            logger.debug("Starting automatic version check")
             QtCore.QTimer.singleShot(3000, self.version_checker.check_for_updates)
         
-        logger.info("MainWindow initialized")
+        logger.debug("MainWindow initialized")
     
     def _reregister_dock_widgets_with_view_manager(self):
         """
@@ -70,12 +71,12 @@ class MainWindow(QMainWindow):
             logger.warning("MainWindow: ViewManager not available, cannot re-register dock widgets.")
             return
 
-        logger.info("MainWindow: Attempting to re-register dock widgets with ViewManager.")
+        logger.debug("MainWindow: Attempting to re-register dock widgets with ViewManager.")
 
         # Model Explorer
         model_explorer_widget_instance = self.model_explorer_dock.widget()
         if model_explorer_widget_instance and isinstance(model_explorer_widget_instance, ModelExplorerWidget):
-            logger.info(f"MainWindow: Re-registering ModelExplorerWidget ({type(model_explorer_widget_instance)}) with ViewManager as 'model_explorer'.")
+            logger.debug(f"MainWindow: Re-registering ModelExplorerWidget ({type(model_explorer_widget_instance)}) with ViewManager as 'model_explorer'.")
             self.view_manager.register_view('model_explorer', model_explorer_widget_instance)
         else:
             logger.warning(f"MainWindow: Could not re-register ModelExplorerWidget. Expected ModelExplorerWidget, got: {type(model_explorer_widget_instance)}")
@@ -83,7 +84,7 @@ class MainWindow(QMainWindow):
         # Properties Widget
         properties_widget_instance = self.properties_dock.widget()
         if properties_widget_instance and isinstance(properties_widget_instance, PropertiesWidget):
-            logger.info(f"MainWindow: Re-registering PropertiesWidget ({type(properties_widget_instance)}) with ViewManager as 'properties'.")
+            logger.debug(f"MainWindow: Re-registering PropertiesWidget ({type(properties_widget_instance)}) with ViewManager as 'properties'.")
             self.view_manager.register_view('properties', properties_widget_instance)
         else:
             logger.warning(f"MainWindow: Could not re-register PropertiesWidget. Expected PropertiesWidget, got: {type(properties_widget_instance)}")
@@ -91,7 +92,7 @@ class MainWindow(QMainWindow):
         # Console Widget
         console_widget_instance = self.console_dock.widget()
         if console_widget_instance and isinstance(console_widget_instance, ConsoleWidget):
-            logger.info(f"MainWindow: Re-registering ConsoleWidget ({type(console_widget_instance)}) with ViewManager as 'console'.")
+            logger.debug(f"MainWindow: Re-registering ConsoleWidget ({type(console_widget_instance)}) with ViewManager as 'console'.")
             self.view_manager.register_view('console', console_widget_instance)
         else:
             logger.warning(f"MainWindow: Could not re-register ConsoleWidget. Expected ConsoleWidget, got: {type(console_widget_instance)}")
@@ -448,6 +449,10 @@ class MainWindow(QMainWindow):
         self.create_rectangle_section_action = QAction("&Rectangular Section", self)
         self.create_rectangle_section_action.triggered.connect(self.on_create_rectangle_section)
         self.create_section_menu.addAction(self.create_rectangle_section_action)
+        
+        self.create_elastic_section_action = QAction("&Elastic Section", self)
+        self.create_elastic_section_action.triggered.connect(self.on_create_elastic_section)
+        self.create_section_menu.addAction(self.create_elastic_section_action)
         
         # Boundary conditions submenu
         self.create_boundary_menu = QMenu("&Boundary Conditions", self)
@@ -811,7 +816,7 @@ class MainWindow(QMainWindow):
         
         # Register with ViewManager
         if self.view_manager:
-            logger.info(f"MainWindow: Registering ModelExplorerWidget ({type(model_explorer_instance)}) with ViewManager as 'model_explorer'.")
+            logger.debug(f"MainWindow: Registering ModelExplorerWidget ({type(model_explorer_instance)}) with ViewManager as 'model_explorer'.")
             self.view_manager.register_view('model_explorer', model_explorer_instance)
         else:
             logger.warning("MainWindow: ViewManager not available, cannot register ModelExplorerWidget.")
@@ -830,7 +835,7 @@ class MainWindow(QMainWindow):
 
         # Register with ViewManager
         if self.view_manager:
-            logger.info(f"MainWindow: Registering PropertiesWidget ({type(properties_instance)}) with ViewManager as 'properties'.")
+            logger.debug(f"MainWindow: Registering PropertiesWidget ({type(properties_instance)}) with ViewManager as 'properties'.")
             self.view_manager.register_view('properties', properties_instance)
         else:
             logger.warning("MainWindow: ViewManager not available, cannot register PropertiesWidget.")
@@ -849,7 +854,7 @@ class MainWindow(QMainWindow):
 
         # Register with ViewManager
         if self.view_manager:
-            logger.info(f"MainWindow: Registering ConsoleWidget ({type(console_instance)}) with ViewManager as 'console'.")
+            logger.debug(f"MainWindow: Registering ConsoleWidget ({type(console_instance)}) with ViewManager as 'console'.")
             self.view_manager.register_view('console', console_instance)
         else:
             logger.warning("MainWindow: ViewManager not available, cannot register ConsoleWidget.")
@@ -890,7 +895,7 @@ class MainWindow(QMainWindow):
         else:
             self.status_bar.showMessage(f"Camera mode set to {mode}")
         
-        logger.info(f"Camera mode set to {mode}")
+        logger.debug(f"Camera mode set to {mode}")
 
     def set_view_direction(self, direction: str) -> None:
         """
@@ -899,7 +904,7 @@ class MainWindow(QMainWindow):
         Args:
             direction: The view direction ('xy', 'xz', 'yz', 'iso').
         """
-        logger.info(f"MainWindow: Setting view direction to '{direction}'")
+        logger.debug(f"MainWindow: Setting view direction to '{direction}'")
         if self.renderer_manager:
             self.renderer_manager.set_view_direction(direction)
             self.status_bar.showMessage(f"View set to {direction.upper()}")
@@ -1151,7 +1156,7 @@ class MainWindow(QMainWindow):
             self, "Export OpenSees TCL Script", "", "TCL Files (*.tcl)"
         )
         if file_path:
-            logger.info(f"Exporting OpenSees TCL script to {file_path}")
+            logger.debug(f"Exporting OpenSees TCL script to {file_path}")
             self.file_service.export_tcl(file_path)
     
     def on_export_py(self):
@@ -1160,7 +1165,7 @@ class MainWindow(QMainWindow):
             self, "Export OpenSeesPy Script", "", "Python Files (*.py)"
         )
         if file_path:
-            logger.info(f"Exporting OpenSeesPy script to {file_path}")
+            logger.debug(f"Exporting OpenSeesPy script to {file_path}")
             self.file_service.export_py(file_path)
     
     def on_import_geometry(self):
@@ -1169,48 +1174,48 @@ class MainWindow(QMainWindow):
             self, "Import Geometry", "", "Geometry Files (*.dxf *.obj *.stl);;All Files (*.*)"
         )
         if file_path:
-            logger.info(f"Importing geometry from {file_path}")
+            logger.debug(f"Importing geometry from {file_path}")
             # Implement geometry import logic
     
     def on_project_settings(self):
         """Open project settings dialog."""
-        logger.info("Opening project settings dialog")
+        logger.debug("Opening project settings dialog")
         # Implement project settings dialog
     
     def on_select_all(self):
         """Select all elements in the model."""
-        logger.info("Selecting all elements")
+        logger.debug("Selecting all elements")
         if self.renderer_manager:
             # Use the implemented method instead of showing warning
             self.renderer_manager.select_all()
     
     def on_select_none(self):
         """Clear all selections."""
-        logger.info("Clearing all selections")
+        logger.debug("Clearing all selections")
         if self.renderer_manager:
             # Use the implemented method instead of showing warning
             self.renderer_manager.clear_selection()
     
     def on_invert_selection(self):
         """Invert the current selection."""
-        logger.info("Inverting selection")
+        logger.debug("Inverting selection")
         if self.renderer_manager:
             # Use the implemented method instead of showing warning
             self.renderer_manager.invert_selection()
     
     def on_copy(self):
         """Copy selected elements to clipboard."""
-        logger.info("Copying selected elements")
+        logger.debug("Copying selected elements")
         # Implement copy logic
     
     def on_paste(self):
         """Paste elements from clipboard."""
-        logger.info("Pasting elements")
+        logger.debug("Pasting elements")
         # Implement paste logic
     
     def on_delete(self):
         """Delete selected elements."""
-        logger.info("Deleting selected elements")
+        logger.debug("Deleting selected elements")
         if self.renderer_manager and self.model_manager:
             # Get the current selection from the renderer manager
             selection = self.renderer_manager.get_selection()
@@ -1275,12 +1280,12 @@ class MainWindow(QMainWindow):
                     self.renderer_manager.update_model_visualization()
                     
                     # Log the operation
-                    logger.info(f"Deleted {count} objects")
+                    logger.debug(f"Deleted {count} objects")
                     
                     # Show a status message
                     self.status_bar.showMessage(f"Deleted {count} objects", 3000)  # Display for 3 seconds
             else:
-                logger.info("Nothing selected to delete")
+                logger.debug("Nothing selected to delete")
                 self.status_bar.showMessage("Nothing selected to delete", 3000)
     
     def on_preferences(self):
@@ -1328,7 +1333,7 @@ class MainWindow(QMainWindow):
             enable_snapping = settings.value('grid/enable_snapping', False, type=bool)
             self.renderer_manager.set_grid_snapping(enable_snapping)
             
-            logger.info("Applied grid settings from preferences")
+            logger.debug("Applied grid settings from preferences")
         
         # Update other visualization settings
         if hasattr(self, 'vtk_widget') and self.vtk_widget:
@@ -1342,36 +1347,36 @@ class MainWindow(QMainWindow):
             if self.renderer_manager:
                 self.renderer_manager.refresh()
                 
-        logger.info("Applied settings from preferences")
+        logger.debug("Applied settings from preferences")
     
     def set_display_mode(self, mode: str):
         """Set the display mode for the 3D view."""
-        logger.info(f"Setting display mode to {mode}")
+        logger.debug(f"Setting display mode to {mode}")
         if self.renderer_manager:
             self.renderer_manager.set_display_mode(mode)
     
     def toggle_node_visibility(self):
         """Toggle visibility of nodes."""
         visible = self.show_nodes_action.isChecked()
-        logger.info(f"Setting node visibility to {visible}")
+        logger.debug(f"Setting node visibility to {visible}")
         if self.renderer_manager:
             self.renderer_manager.set_node_visibility(visible)
     
     def toggle_element_visibility(self):
         """Toggle visibility of elements."""
         visible = self.show_elements_action.isChecked()
-        logger.info(f"Setting element visibility to {visible}")
+        logger.debug(f"Setting element visibility to {visible}")
         if self.renderer_manager:
             self.renderer_manager.set_element_visibility(visible)
     
     def set_theme(self, theme: str):
         """Set the application theme."""
-        logger.info(f"Setting application theme to {theme}")
+        logger.debug(f"Setting application theme to {theme}")
         # Implement theme switching logic
     
     def on_create_node(self):
         """Create a new node."""
-        logger.info("Creating new node")
+        logger.debug("Creating new node")
         from ui.node_dialog import show_node_dialog
         
         if show_node_dialog(self.model_manager, parent=self):
@@ -1390,7 +1395,7 @@ class MainWindow(QMainWindow):
     
     def on_create_truss(self):
         """Create a new truss element."""
-        logger.info("Creating new truss element")
+        logger.debug("Creating new truss element")
         from ui.element_dialogs import show_truss_element_dialog
         
         if show_truss_element_dialog(self.model_manager, parent=self):
@@ -1414,7 +1419,7 @@ class MainWindow(QMainWindow):
     
     def on_create_beam(self):
         """Create a new beam element."""
-        logger.info("Creating new beam element")
+        logger.debug("Creating new beam element")
         from ui.element_dialogs import show_beam_element_dialog
         
         if show_beam_element_dialog(self.model_manager, parent=self):
@@ -1443,7 +1448,7 @@ class MainWindow(QMainWindow):
         success = show_material_dialog(self.model_manager, parent=self)
         if success:
             self.model_manager.model_changed()
-            logger.info("Material created")
+            logger.debug("Material created")
             
             # Update material comboboxes in any open dialogs
             for dialog in self.findChildren(QDialog):
@@ -1452,48 +1457,68 @@ class MainWindow(QMainWindow):
     
     def on_create_rectangle_section(self):
         """Create a new rectangular section."""
-        logger.info("Creating new rectangular section")
-        # Implement rectangular section creation dialog/interaction
+        logger.debug("Creating new rectangular section")
+        show_section_dialog(self.model_manager, "RectangularSection", parent=self)
+    
+    def on_create_elastic_section(self):
+        """Create a new elastic section."""
+        logger.info("Creating new elastic section")
+        logger.info(f"Model manager: {self.model_manager}")
+        if self.model_manager:
+            logger.info(f"Model manager type: {type(self.model_manager).__name__}")
+            if hasattr(self.model_manager, 'get_materials'):
+                materials = self.model_manager.get_materials()
+                logger.info(f"Materials available: {len(materials) if materials else 0}")
+        
+        result = show_section_dialog(self.model_manager, "ElasticSection", parent=self)
+        logger.info(f"Section dialog result: {result}")
+        
+        if result:
+            logger.info("Elastic section created successfully")
+            # Update the model explorer if needed
+            explorer = self.app_manager.get_component('view_manager').get_view('model_explorer')
+            if explorer and hasattr(explorer, 'refresh'):
+                explorer.refresh()
     
     def on_create_fixed_support(self):
         """Create a new fixed support boundary condition."""
-        logger.info("Creating new fixed support")
+        logger.debug("Creating new fixed support")
         # Implement fixed support creation dialog/interaction
     
     def on_create_point_load(self):
         """Create a new point load."""
-        logger.info("Creating new point load")
+        logger.debug("Creating new point load")
         # Implement point load creation dialog/interaction
     
     def on_create_stage(self):
         """Create a new analysis stage."""
-        logger.info("Creating new analysis stage")
+        logger.debug("Creating new analysis stage")
         # Implement stage creation dialog/interaction
     
     def on_manage_stages(self):
         """Open the stage management dialog."""
-        logger.info("Opening stage management dialog")
+        logger.debug("Opening stage management dialog")
         # Implement stage management dialog
     
     def on_define_analysis(self):
         """Open the analysis definition dialog."""
-        logger.info("Opening analysis definition dialog")
+        logger.debug("Opening analysis definition dialog")
         # Implement analysis definition dialog
     
     def set_analysis_type(self, analysis_type: str):
         """Set the analysis type."""
-        logger.info(f"Setting analysis type to {analysis_type}")
+        logger.debug(f"Setting analysis type to {analysis_type}")
         # Implement analysis type setting logic
     
     def on_run_analysis(self):
         """Run the defined analysis."""
-        logger.info("Running analysis")
+        logger.debug("Running analysis")
         self.cancel_analysis_action.setEnabled(True)
         # Implement analysis execution logic
     
     def on_cancel_analysis(self):
         """Cancel the running analysis."""
-        logger.info("Cancelling analysis")
+        logger.debug("Cancelling analysis")
         self.cancel_analysis_action.setEnabled(False)
         # Implement analysis cancellation logic
     
@@ -1503,13 +1528,13 @@ class MainWindow(QMainWindow):
             self, "Load Results", "", "HDF5 Files (*.h5);;All Files (*.*)"
         )
         if file_path:
-            logger.info(f"Loading results from {file_path}")
+            logger.debug(f"Loading results from {file_path}")
             # Implement results loading logic
     
     def toggle_deformed_shape(self):
         """Toggle display of deformed shape."""
         show_deformed = self.show_deformed_action.isChecked()
-        logger.info(f"Setting deformed shape visibility to {show_deformed}")
+        logger.debug(f"Setting deformed shape visibility to {show_deformed}")
         if self.renderer_manager:
             # Placeholder for when the method is implemented
             logger.warning("Deformed shape visualization not yet implemented")
@@ -1518,12 +1543,12 @@ class MainWindow(QMainWindow):
     
     def on_deformation_scale(self):
         """Open deformation scale dialog."""
-        logger.info("Opening deformation scale dialog")
+        logger.debug("Opening deformation scale dialog")
         # Implement deformation scale dialog
     
     def set_contour(self, contour_type: str):
         """Set the contour type for results visualization."""
-        logger.info(f"Setting contour type to {contour_type}")
+        logger.debug(f"Setting contour type to {contour_type}")
         if self.renderer_manager:
             # Placeholder for when the method is implemented
             logger.warning("Contour visualization not yet implemented")
@@ -1532,12 +1557,12 @@ class MainWindow(QMainWindow):
     
     def on_animate_results(self):
         """Open animation dialog for results."""
-        logger.info("Opening animation dialog")
+        logger.debug("Opening animation dialog")
         # Implement animation dialog
     
     def on_measure_distance(self):
         """Activate distance measurement tool."""
-        logger.info("Activating distance measurement tool")
+        logger.debug("Activating distance measurement tool")
         if self.renderer_manager:
             # Placeholder for when the method is implemented
             logger.warning("Distance measurement tool not yet implemented")
@@ -1546,27 +1571,27 @@ class MainWindow(QMainWindow):
     
     def on_validate_model(self):
         """Validate the current model."""
-        logger.info("Validating model")
+        logger.debug("Validating model")
         # Implement model validation logic
     
     def on_generate_report(self):
         """Generate a report for the current model and analysis."""
-        logger.info("Opening report generation dialog")
+        logger.debug("Opening report generation dialog")
         # Implement report generation dialog
     
     def on_documentation(self):
         """Open documentation."""
-        logger.info("Opening documentation")
+        logger.debug("Opening documentation")
         # Implement documentation opening logic
     
     def on_tutorials(self):
         """Open tutorials."""
-        logger.info("Opening tutorials")
+        logger.debug("Opening tutorials")
         # Implement tutorials opening logic
     
     def on_check_updates(self):
         """Check for application updates."""
-        logger.info("Checking for updates")
+        logger.debug("Checking for updates")
         
         # Get the version checker from app manager
         version_checker = self.app_manager.get_component('version_checker')
@@ -1664,7 +1689,7 @@ class MainWindow(QMainWindow):
             settings.setValue('grid/size', size_value)
             settings.setValue('grid/unit', 'm')
             
-            logger.info(f"Grid size changed to {size_value}m")
+            logger.debug(f"Grid size changed to {size_value}m")
         
         elif index == 6:  # Custom
             # Show a dialog for custom grid size
@@ -1712,7 +1737,7 @@ class MainWindow(QMainWindow):
                 self.renderer_manager.set_grid_size(size_value)
                 settings.setValue('grid/size', size_value)
                 
-                logger.info(f"Grid size changed to {size_value}{grid_unit}")
+                logger.debug(f"Grid size changed to {size_value}{grid_unit}")
             
             # Reset to Custom index
             self.grid_size_combo.setCurrentIndex(6)
@@ -1755,7 +1780,7 @@ class MainWindow(QMainWindow):
         settings = QSettings()
         settings.setValue('grid/enable_snapping', checked)
         
-        logger.info(f"Grid snapping {'enabled' if checked else 'disabled'}")
+        logger.debug(f"Grid snapping {'enabled' if checked else 'disabled'}")
 
     def _update_status_bar(self):
         """Update the status bar after the check is complete."""
@@ -1771,7 +1796,7 @@ class MainWindow(QMainWindow):
         Args:
             update_info: Information about the available update.
         """
-        logger.info(f"Update available: {update_info.get('latest_version', 'Unknown')}")
+        logger.debug(f"Update available: {update_info.get('latest_version', 'Unknown')}")
         
         # Import the update notification dialog
         from ui.update_notification import show_update_notification
@@ -1794,7 +1819,7 @@ class MainWindow(QMainWindow):
         Args:
             status: The status of the check.
         """
-        logger.info(f"Version check complete: {status}")
+        logger.debug(f"Version check complete: {status}")
         
         # Update status bar
         self._update_status_bar()

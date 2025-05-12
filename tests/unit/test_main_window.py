@@ -54,7 +54,7 @@ class TestUIComponents(unittest.TestCase):
         window = ui_main_window.MainWindow(mock_app_manager)
         
         # Verify initialization was logged
-        mock_logger.info.assert_called_with("MainWindow initialized")
+        mock_logger.debug.assert_called_with("MainWindow initialized")
         
         # Test file menu actions
         window.on_new()
@@ -183,7 +183,7 @@ class TestUIComponents(unittest.TestCase):
         widget = ui_dock_widgets.ModelExplorerWidget(mock_model_manager)
         
         # Verify initialization was logged
-        mock_logger.info.assert_called_with("ModelExplorerWidget initialized")
+        mock_logger.debug.assert_called_with("ModelExplorerWidget initialized")
         
         # Test refresh method - should call model manager methods
         widget.refresh()
@@ -205,7 +205,7 @@ class TestUIComponents(unittest.TestCase):
         widget = ui_dock_widgets.ConsoleWidget()
         
         # Verify initialization was logged
-        mock_logger.info.assert_called_with("ConsoleWidget initialized")
+        mock_logger.debug.assert_called_with("ConsoleWidget initialized")
         
         # Test text_edit is created
         self.assertTrue(hasattr(widget, 'text_edit'))

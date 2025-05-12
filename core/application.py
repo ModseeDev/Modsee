@@ -31,7 +31,7 @@ class ApplicationManager:
         # Load settings on initialization
         self.load_settings()
         
-        logger.info("ApplicationManager initialized")
+        logger.debug("ApplicationManager initialized")
     
     @property
     def project_file(self) -> Optional[Path]:
@@ -65,7 +65,7 @@ class ApplicationManager:
             logger.warning(f"Component '{name}' already registered, replacing")
         
         self._components[name] = component
-        logger.info(f"Registered component: {name}")
+        logger.debug(f"Registered component: {name}")
     
     def get_component(self, name: str) -> Optional[Any]:
         """
@@ -85,7 +85,7 @@ class ApplicationManager:
         """
         for name, component in self._components.items():
             if hasattr(component, 'initialize'):
-                logger.info(f"Initializing component: {name}")
+                logger.debug(f"Initializing component: {name}")
                 component.initialize()
     
     def shutdown_components(self) -> None:
@@ -94,7 +94,7 @@ class ApplicationManager:
         """
         for name, component in self._components.items():
             if hasattr(component, 'shutdown'):
-                logger.info(f"Shutting down component: {name}")
+                logger.debug(f"Shutting down component: {name}")
                 component.shutdown()
     
     def new_project(self) -> bool:
@@ -112,7 +112,7 @@ class ApplicationManager:
         self._project_file = None
         self._is_modified = False
         
-        logger.info("Created new project")
+        logger.debug("Created new project")
         return True
     
     def open_project(self, file_path: str) -> bool:
@@ -162,7 +162,7 @@ class ApplicationManager:
         self._project_file = file_path_obj
         self._is_modified = False
         
-        logger.info(f"Opened project from: {file_path}")
+        logger.debug(f"Opened project from: {file_path}")
         return True
     
     def save_project(self, file_path: Optional[str] = None) -> bool:
@@ -206,7 +206,7 @@ class ApplicationManager:
         
         self._is_modified = False
         
-        logger.info(f"Saved project to: {self._project_file}")
+        logger.debug(f"Saved project to: {self._project_file}")
         return True
     
     def load_settings(self) -> None:
@@ -266,11 +266,11 @@ class ApplicationManager:
                     file_settings = json.load(f)
                     # Update settings with file values
                     self._settings.update(file_settings)
-                logger.info(f"Loaded settings from: {settings_file}")
+                logger.debug(f"Loaded settings from: {settings_file}")
             except (json.JSONDecodeError, IOError) as e:
                 logger.error(f"Error loading settings file: {e}")
         
-        logger.info("Application settings loaded")
+        logger.debug("Application settings loaded")
     
     def save_settings(self) -> None:
         """
@@ -290,11 +290,11 @@ class ApplicationManager:
             with open(settings_file, 'w') as f:
                 json.dump(self._settings, f, indent=4)
             
-            logger.info(f"Saved settings to: {settings_file}")
+            logger.debug(f"Saved settings to: {settings_file}")
         except IOError as e:
             logger.error(f"Error saving settings file: {e}")
         
-        logger.info("Application settings saved")
+        logger.debug("Application settings saved")
     
     def _get_settings_file_path(self) -> Path:
         """
@@ -323,7 +323,7 @@ class ApplicationManager:
         if hasattr(plugin, 'initialize'):
             plugin.initialize(self)
         
-        logger.info(f"Registered plugin: {plugin.__class__.__name__}")
+        logger.debug(f"Registered plugin: {plugin.__class__.__name__}")
     
     def get_plugins(self) -> List[Any]:
         """

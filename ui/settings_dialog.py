@@ -60,7 +60,7 @@ class SettingsDialog(QDialog):
         self.setWindowTitle("Modsee Settings")
         self.resize(800, 600)
         
-        logger.info("Settings dialog initialized")
+        logger.debug("Settings dialog initialized")
     
     def _init_ui(self):
         """Initialize the user interface components."""
@@ -678,7 +678,7 @@ class SettingsDialog(QDialog):
         settings['overwrite_results'] = settings_obj.value('overwrite_results', False, type=bool)
         settings['default_units'] = settings_obj.value('default_units', 'SI', type=str)
         
-        logger.info("Settings loaded from QSettings")
+        logger.debug("Settings loaded from QSettings")
         return settings
     
     def _save_settings(self):
@@ -765,7 +765,7 @@ class SettingsDialog(QDialog):
         # Emit settings applied signal
         self.settings_applied.emit()
         
-        logger.info("Settings saved")
+        logger.debug("Settings saved")
     
     def _on_ok(self):
         """Handle the OK button click."""
@@ -775,7 +775,7 @@ class SettingsDialog(QDialog):
     def _on_apply(self):
         """Handle the Apply button click."""
         self._save_settings()
-        logger.info("Settings applied")
+        logger.debug("Settings applied")
     
     def _on_auto_save_changed(self, state):
         """Handle auto-save checkbox state change."""
@@ -847,7 +847,7 @@ class SettingsDialog(QDialog):
                 "Cache Cleared",
                 "The cache has been cleared successfully."
             )
-            logger.info("Cache cleared by user")
+            logger.debug("Cache cleared by user")
     
     def _on_openseespy_changed(self, state):
         """Handle OpenSeesPy checkbox state change."""

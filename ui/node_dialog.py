@@ -60,7 +60,7 @@ class NodeDialog(QDialog):
         self.setWindowTitle("Edit Node" if self.is_editing else "Create Node")
         self.resize(400, 500)
         
-        logger.info(f"{'Edit' if self.is_editing else 'Create'} node dialog initialized")
+        logger.debug(f"{'Edit' if self.is_editing else 'Create'} node dialog initialized")
     
     def _init_ui(self):
         """Initialize the user interface."""
@@ -202,7 +202,7 @@ class NodeDialog(QDialog):
                 if hasattr(self.model_manager, 'model_changed'):
                     self.model_manager.model_changed()
                 
-                logger.info(f"Updated node: {self.existing_node.id}")
+                logger.debug(f"Updated node: {self.existing_node.id}")
             else:
                 # Create new node
                 if hasattr(self.model_manager, 'create_node'):
@@ -213,7 +213,7 @@ class NodeDialog(QDialog):
                         mass=mass,
                         fixed_dofs=fixed_dofs
                     )
-                    logger.info(f"Created node: {node.id}")
+                    logger.debug(f"Created node: {node.id}")
                 elif hasattr(self.model_manager, 'add_node'):
                     # Use older API
                     from model.nodes import Node
@@ -231,7 +231,7 @@ class NodeDialog(QDialog):
                         fixed_dofs=fixed_dofs
                     )
                     self.model_manager.add_node(next_id, node)
-                    logger.info(f"Created node: {next_id}")
+                    logger.debug(f"Created node: {next_id}")
                 else:
                     raise ValueError("Model manager does not support node creation")
             

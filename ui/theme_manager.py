@@ -215,7 +215,7 @@ class ThemeManager(QObject):
         # Store custom themes
         self._custom_themes: Dict[str, Theme] = {}
         
-        logger.info("ThemeManager initialized with default light theme")
+        logger.debug("ThemeManager initialized with default light theme")
     
     @property
     def current_theme(self) -> Theme:
@@ -233,13 +233,13 @@ class ThemeManager(QObject):
         if theme_type == ThemeType.CUSTOM and custom_name:
             if custom_name in self._custom_themes:
                 self._current_theme = self._custom_themes[custom_name]
-                logger.info(f"Applied custom theme: {custom_name}")
+                logger.debug(f"Applied custom theme: {custom_name}")
             else:
                 logger.error(f"Custom theme not found: {custom_name}")
                 return
         elif theme_type in self.THEMES:
             self._current_theme = self.THEMES[theme_type]
-            logger.info(f"Applied theme: {theme_type.value}")
+            logger.debug(f"Applied theme: {theme_type.value}")
         else:
             logger.error(f"Unknown theme type: {theme_type}")
             return
@@ -261,7 +261,7 @@ class ThemeManager(QObject):
             theme.type = ThemeType.CUSTOM
         
         self._custom_themes[theme.name] = theme
-        logger.info(f"Added custom theme: {theme.name}")
+        logger.debug(f"Added custom theme: {theme.name}")
     
     def remove_custom_theme(self, name: str) -> bool:
         """
@@ -279,7 +279,7 @@ class ThemeManager(QObject):
                 return False
             
             del self._custom_themes[name]
-            logger.info(f"Removed custom theme: {name}")
+            logger.debug(f"Removed custom theme: {name}")
             return True
         else:
             logger.warning(f"Custom theme not found: {name}")
@@ -358,7 +358,7 @@ class ThemeManager(QObject):
         # Set up global application stylesheet
         self._apply_stylesheet(app)
         
-        logger.info("Applied theme to application palette and stylesheet")
+        logger.debug("Applied theme to application palette and stylesheet")
     
     def _apply_stylesheet(self, app: QApplication) -> None:
         """
